@@ -2,13 +2,13 @@ package admin
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/lejianwen/rustdesk-api/v2/global"
-	"github.com/lejianwen/rustdesk-api/v2/http/request/admin"
-	"github.com/lejianwen/rustdesk-api/v2/http/response"
-	adResp "github.com/lejianwen/rustdesk-api/v2/http/response/admin"
-	"github.com/lejianwen/rustdesk-api/v2/model"
-	"github.com/lejianwen/rustdesk-api/v2/service"
-	"github.com/lejianwen/rustdesk-api/v2/utils"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/request/admin"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response"
+	adResp "github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response/admin"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/utils"
 	"gorm.io/gorm"
 	"strconv"
 )
@@ -344,5 +344,9 @@ func (ct *User) Register(c *gin.Context) {
 		Ip:     c.ClientIP(),
 		Type:   model.LoginLogTypeAccount,
 	})
+	if ut == nil {
+		response.Fail(c, 101, response.TranslateMsg(c, "SystemError"))
+		return
+	}
 	responseLoginSuccess(c, u, ut.Token)
 }

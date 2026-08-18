@@ -2,15 +2,18 @@ package http
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/lejianwen/rustdesk-api/v2/global"
-	"github.com/lejianwen/rustdesk-api/v2/http/middleware"
-	"github.com/lejianwen/rustdesk-api/v2/http/router"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/middleware"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/router"
 	"github.com/sirupsen/logrus"
 	"net/http"
 	"strings"
 )
 
 func ApiInit() {
+	if err := StartInternalAuthServer(); err != nil {
+		global.Logger.Fatalf("start internal authentication API: %v", err)
+	}
 	gin.SetMode(global.Config.Gin.Mode)
 	g := gin.New()
 

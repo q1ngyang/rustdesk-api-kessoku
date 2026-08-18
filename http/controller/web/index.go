@@ -3,7 +3,7 @@ package web
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/lejianwen/rustdesk-api/v2/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
 )
 
 type Index struct {

@@ -2,8 +2,9 @@ package middleware
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/lejianwen/rustdesk-api/v2/http/response"
-	"github.com/lejianwen/rustdesk-api/v2/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
+	"net/http"
 )
 
 // AdminPrivilege ...
@@ -12,7 +13,7 @@ func AdminPrivilege() gin.HandlerFunc {
 		u := service.AllService.UserService.CurUser(c)
 
 		if !service.AllService.UserService.IsAdmin(u) {
-			response.Fail(c, 403, response.TranslateMsg(c, "NoAccess"))
+			response.FailStatus(c, http.StatusForbidden, 403, response.TranslateMsg(c, "NoAccess"))
 			c.Abort()
 			return
 		}

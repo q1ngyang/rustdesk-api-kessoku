@@ -2,7 +2,7 @@ package admin
 
 import (
 	"encoding/json"
-	"github.com/lejianwen/rustdesk-api/v2/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
 )
 
 type AddressBookForm struct {

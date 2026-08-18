@@ -2,11 +2,11 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
-	_ "github.com/lejianwen/rustdesk-api/v2/docs/admin"
-	"github.com/lejianwen/rustdesk-api/v2/global"
-	"github.com/lejianwen/rustdesk-api/v2/http/controller/admin"
-	"github.com/lejianwen/rustdesk-api/v2/http/controller/admin/my"
-	"github.com/lejianwen/rustdesk-api/v2/http/middleware"
+	_ "github.com/q1ngyang/rustdesk-api-kessoku/v2/docs/admin"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/controller/admin"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/controller/admin/my"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/middleware"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
@@ -48,15 +48,38 @@ func Init(g *gin.Engine) {
 	ShareRecordBind(adg)
 	MyBind(adg)
 
+	ServerControlBind(adg)
 	RustdeskCmdBind(adg)
 	DeviceGroupBind(adg)
 	//访问静态文件
 	//g.StaticFS("/upload", http.Dir(global.Config.Gin.ResourcesPath+"/upload"))
 }
 
+func ServerControlBind(adg *gin.RouterGroup) {
+	controller := &admin.StarryControl{}
+	group := adg.Group("/server-control/v1").Use(middleware.AdminPrivilege())
+	group.GET("/instances", controller.Instances)
+	group.GET("/instances/:id/capabilities", controller.Capabilities)
+	group.GET("/instances/:id/health", controller.Health)
+	group.GET("/instances/:id/relays", controller.Relays)
+	group.POST("/instances/:id/allocation-simulations", controller.SimulateAllocation)
+	group.GET("/instances/:id/config", controller.GetConfig)
+	group.GET("/instances/:id/config/schema", controller.GetConfigSchema)
+	group.POST("/instances/:id/config/validate", controller.ValidateConfig)
+	group.POST("/instances/:id/config/plan", controller.PlanConfig)
+	group.POST("/instances/:id/config/apply", controller.ApplyConfig)
+	group.GET("/instances/:id/operations/:operation_id", controller.Operation)
+	group.GET("/instances/:id/config/history", controller.ConfigHistory)
+	group.POST("/instances/:id/config/rollback", controller.RollbackConfig)
+	group.GET("/audit-events", controller.AuditEvents)
+}
+
 func RustdeskCmdBind(adg *gin.RouterGroup) {
+	if !global.Config.ServerControl.LegacyCommandEnabled {
+		return
+	}
 	cont := &admin.Rustdesk{}
-	rg := adg.Group("/rustdesk")
+	rg := adg.Group("/rustdesk").Use(middleware.AdminPrivilege())
 	rg.POST("/sendCmd", cont.SendCmd)
 	rg.GET("/cmdList", cont.CmdList)
 	rg.POST("/cmdDelete", cont.CmdDelete)

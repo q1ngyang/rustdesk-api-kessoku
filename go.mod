@@ -1,4 +1,4 @@
-module github.com/lejianwen/rustdesk-api/v2
+module github.com/q1ngyang/rustdesk-api-kessoku/v2
 
 go 1.23
 

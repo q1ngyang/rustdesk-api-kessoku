@@ -32,21 +32,22 @@ type Admin struct {
 	RelayServerPort int    `mapstructure:"relay-server-port"`
 }
 type Config struct {
-	Lang       string `mapstructure:"lang"`
-	App        App
-	Admin      Admin
-	Gorm       Gorm
-	Mysql      Mysql
-	Postgresql Postgresql
-	Gin        Gin
-	Logger     Logger
-	Redis      Redis
-	Cache      Cache
-	Oss        Oss
-	Jwt        Jwt
-	Rustdesk   Rustdesk
-	Proxy      Proxy
-	Ldap       Ldap
+	Lang          string `mapstructure:"lang"`
+	App           App
+	Admin         Admin
+	Gorm          Gorm
+	Mysql         Mysql
+	Postgresql    Postgresql
+	Gin           Gin
+	Logger        Logger
+	Redis         Redis
+	Cache         Cache
+	Oss           Oss
+	Auth          Auth `mapstructure:"auth"`
+	Rustdesk      Rustdesk
+	Proxy         Proxy
+	Ldap          Ldap
+	ServerControl ServerControl `mapstructure:"server-control"`
 }
 
 func (a *Admin) Init() {

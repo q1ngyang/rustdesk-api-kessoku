@@ -7,23 +7,23 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/lejianwen/rustdesk-api/v2/config"
-	"github.com/lejianwen/rustdesk-api/v2/global"
-	"github.com/lejianwen/rustdesk-api/v2/http"
-	"github.com/lejianwen/rustdesk-api/v2/lib/cache"
-	"github.com/lejianwen/rustdesk-api/v2/lib/jwt"
-	"github.com/lejianwen/rustdesk-api/v2/lib/lock"
-	"github.com/lejianwen/rustdesk-api/v2/lib/logger"
-	"github.com/lejianwen/rustdesk-api/v2/lib/orm"
-	"github.com/lejianwen/rustdesk-api/v2/lib/upload"
-	"github.com/lejianwen/rustdesk-api/v2/model"
-	"github.com/lejianwen/rustdesk-api/v2/service"
-	"github.com/lejianwen/rustdesk-api/v2/utils"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/config"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http"
+	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v2/internal/auth"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/lib/cache"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/lib/lock"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/lib/logger"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/lib/orm"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/lib/upload"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/utils"
 	"github.com/spf13/cobra"
 )
 
-const DatabaseVersion = 265
+const DatabaseVersion = 300
 
 // @title 管理系统API
 // @version 1.0
@@ -194,14 +194,18 @@ func InitGlobal() {
 		MaxByte:         global.Config.Oss.MaxByte,
 	}
 
-	//jwt
-	//fmt.Println(global.Config.Jwt.PrivateKey)
-	global.Jwt = jwt.NewJwt(global.Config.Jwt.Key, global.Config.Jwt.ExpireDuration)
+	// Access-token signer/verifier. An enabled profile fails closed when its
+	// secret file or contract settings are invalid.
+	var authErr error
+	global.Auth, authErr = internalAuth.NewManager(global.Config.Auth)
+	if authErr != nil {
+		global.Logger.Fatalf("initialize Ed25519 auth profile: %v", authErr)
+	}
 	//locker
 	global.Lock = lock.NewLocal()
 
 	//service
-	service.New(&global.Config, global.DB, global.Logger, global.Jwt, global.Lock)
+	service.New(&global.Config, global.DB, global.Logger, global.Auth, global.Lock)
 
 	global.LoginLimiter = utils.NewLoginLimiter(utils.SecurityPolicy{
 		CaptchaThreshold: global.Config.App.CaptchaThreshold,
@@ -256,13 +260,17 @@ func DatabaseAutoUpdate() {
 	}
 
 	if !db.Migrator().HasTable(&model.Version{}) {
-		Migrate(uint(version))
+		if err := Migrate(uint(version)); err != nil {
+			global.Logger.Fatalf("database migration failed: %v", err)
+		}
 	} else {
 		//查找最后一个version
 		var v model.Version
 		db.Last(&v)
 		if v.Version < uint(version) {
-			Migrate(uint(version))
+			if err := Migrate(uint(version)); err != nil {
+				global.Logger.Fatalf("database migration failed: %v", err)
+			}
 		}
 
 		// 245迁移
@@ -286,7 +294,7 @@ func DatabaseAutoUpdate() {
 	}
 
 }
-func Migrate(version uint) {
+func Migrate(version uint) error {
 	global.Logger.Info("Migrating....", version)
 	err := global.DB.AutoMigrate(
 		&model.Version{},
@@ -306,11 +314,30 @@ func Migrate(version uint) {
 		&model.AddressBookCollectionRule{},
 		&model.ServerCmd{},
 		&model.DeviceGroup{},
+		&model.AdminAuditEvent{},
 	)
 	if err != nil {
-		global.Logger.Error("migrate err :=>", err)
+		return fmt.Errorf("schema migration: %w", err)
 	}
-	global.DB.Create(&model.Version{Version: version})
+	if err := global.DB.Exec("UPDATE users SET auth_version = 1 WHERE auth_version IS NULL OR auth_version = 0").Error; err != nil {
+		return fmt.Errorf("backfill user auth version: %w", err)
+	}
+	if err := global.DB.Exec("UPDATE user_tokens SET auth_version = 1 WHERE auth_version IS NULL OR auth_version = 0").Error; err != nil {
+		return fmt.Errorf("backfill token auth version: %w", err)
+	}
+	var legacyTokens []model.UserToken
+	if err := global.DB.Where("token <> '' AND token_hash IS NULL").Find(&legacyTokens).Error; err != nil {
+		return fmt.Errorf("read legacy tokens: %w", err)
+	}
+	for i := range legacyTokens {
+		hash := internalAuth.TokenHashHex(legacyTokens[i].Token)
+		if err := global.DB.Model(&legacyTokens[i]).Update("token_hash", hash).Error; err != nil {
+			return fmt.Errorf("backfill token hash for row %d: %w", legacyTokens[i].Id, err)
+		}
+	}
+	if err := global.DB.Create(&model.Version{Version: version}).Error; err != nil {
+		return fmt.Errorf("record database version: %w", err)
+	}
 	//如果是初次则创建一个默认用户
 	var vc int64
 	global.DB.Model(&model.Version{}).Count(&vc)
@@ -353,5 +380,5 @@ func Migrate(version uint) {
 		}
 		global.DB.Create(admin)
 	}
-
+	return nil
 }
