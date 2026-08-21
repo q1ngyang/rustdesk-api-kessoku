@@ -8,7 +8,7 @@ open-source browser remote-desktop MVP, and integrates with
 [`rustdesk-server-starry`](https://github.com/q1ngyang/rustdesk-server-starry)
 through a typed, versioned Control API.
 
-> **v2.8.1 stable release.** The implementation and Linux
+> **v2.8.2 stable release.** The implementation and Linux
 > amd64 checks are complete, the official Starry contract is pinned, and both
 > the published Starry native-client matrix and built-in browser forced-Relay
 > fixture pass. The immutable tag is published only through the protected
@@ -31,7 +31,7 @@ Docker socket, or browser-supplied file path. Its browser client is repository-
 owned source; historical WebClient2/V2 and `resources/web*` assets remain
 excluded.
 
-## v2.8.1 highlights
+## v2.8.2 highlights
 
 - Strict Ed25519/EdDSA access tokens with issuer, audience, key ID, JTI,
   lifetime, scope, and authentication-version checks.
@@ -49,7 +49,7 @@ excluded.
 - SQLite, MySQL, and PostgreSQL migration support; external MySQL/PostgreSQL
   connections require certificate- and hostname-verified TLS.
 - Docker `linux/amd64`, Linux x86_64 archive/binary, and amd64 DEB as the
-  v2.8.1 release scope. ARM remains best-effort and non-blocking.
+  v2.8.2 release scope. ARM remains best-effort and non-blocking.
 
 ## Recommended deployment
 
@@ -57,7 +57,7 @@ Docker Compose on Linux amd64 is the recommended deployment. Use the immutable
 version tag and then record the resolved digest in your deployment:
 
 ```sh
-docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v2.8.1
+docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v2.8.2
 cp examples/compose.env.example .env
 cp examples/config.docker-builtin.yaml config.yaml
 # Edit .env/config.yaml and provision the referenced signing key first.
@@ -69,7 +69,7 @@ The Compose default binds API port 21114 and Web Client port 21122 to
 `127.0.0.1`. Publish them through two distinct reviewed HTTPS origins; see
 [`examples/Caddyfile.example`](examples/Caddyfile.example). The release also
 publishes `latest` for users who intentionally track the newest stable build,
-while production rollback should pin the `v2.8.1` digest.
+while production rollback should pin the `v2.8.2` digest.
 The exact `relay-wss-urls` map lives in mounted YAML, not an environment
 variable; follow the detailed Docker guide before startup.
 
@@ -100,9 +100,9 @@ those pages to GitHub Wiki is a separate release-owner action.
 ## Release status
 
 The authoritative gate is [`RELEASE_STATUS`](RELEASE_STATUS), with evidence
-requirements in [`RELEASE-CHECKLIST.md`](RELEASE-CHECKLIST.md). The v2.8.1
+requirements in [`RELEASE-CHECKLIST.md`](RELEASE-CHECKLIST.md). The v2.8.2
 feature and compatibility notes are in
-[`RELEASE-NOTES-v2.8.1.md`](RELEASE-NOTES-v2.8.1.md).
+[`RELEASE-NOTES-v2.8.2.md`](RELEASE-NOTES-v2.8.2.md).
 
 Local development checks are not permission to publish. Tagging, pushing,
 GHCR publication, GitHub Release creation, and Wiki publication require

@@ -1,13 +1,13 @@
-# Kessoku v2.8.1 × Starry patch-v1.2.0 联合开发状态与后续计划
+# Kessoku v2.8.2 × Starry patch-v1.2.0 联合开发状态与后续计划
 
 > 状态日期：2026-08-21
-> 状态：Starry 正式版已发布并固定；Kessoku 为本地 v2.8.1 发布候选，最终确认前不得推送或发布
+> 状态：Starry 正式版已发布并固定；Kessoku 为本地 v2.8.2 发布候选，最终确认前不得推送或发布
 
 ## 1. 当前基线
 
 | 项目 | 当前本地检查点 | 对齐目标 |
 | --- | --- | --- |
-| `rustdesk-api-kessoku` | 从本地恢复检查点 `de57744` 收敛的受审核候选；审计基线 `c5687e1` | Kessoku v2.8.1；Docker/Linux x86_64 优先 |
+| `rustdesk-api-kessoku` | 从本地恢复检查点 `de57744` 收敛的受审核候选；审计基线 `c5687e1` | Kessoku v2.8.2；Docker/Linux x86_64 优先 |
 | `rustdesk-server-starry` | 正式 tag `1.1.16-patch-v1.2.0`；commit `5e73b3af1423acf5ee20ca32a2d747eef6df3494` | `patch-v1.2.0` HBBS overlay 与 Linux Control Agent |
 | Control API | `control/v1` 正式契约 | OpenAPI SHA-256 `f42714264d61408c8d6c709efcf87d869b9422ca83fb5c88a9735cc5a02a5e68` |
 | Starry 配置 | `config/v3` | JSON Schema SHA-256 `425c1bafe956a256caff5ad761731583d31b9eee067bad9341cc53211ea19df3` |
@@ -118,7 +118,7 @@ Control OpenAPI 与此前本地候选 digest 完全一致。
 | 优先级 | 工作包 | 负责人/依赖 | 退出条件 |
 | --- | --- | --- | --- |
 | 完成 | 发布并固定 Starry contract | Starry + Kessoku | `1.1.16-patch-v1.2.0` 已发布；Kessoku 已把同一 OpenAPI digest 提升为 `release_sha256`、设为 `PINNED`，并以官方源码/二进制复核合同与 Provider E2E |
-| 本地完成 / CI 待完成 | 验证 Kessoku v2.8.1 单仓候选 | Kessoku；前端已内置 | 本地同源快照已重跑 Go/迁移、`admin-web` 9 tests、`web-client` 46 tests、audit/signatures、双构建、SBOM、Docker linux/amd64、amd64 DEB 安装与正式 Starry 浏览器互操作；最终批准提交仍需受保护 CI |
+| 本地完成 / CI 待完成 | 验证 Kessoku v2.8.2 单仓候选 | Kessoku；前端已内置 | 本地同源快照已重跑 Go/迁移、`admin-web` 9 tests、`web-client` 46 tests、audit/signatures、双构建、SBOM、Docker linux/amd64、amd64 DEB 安装与正式 Starry 浏览器互操作；最终批准提交仍需受保护 CI |
 | 完成 | 正式 Starry 真实客户端 Relay 验收 | Kessoku + Starry | RustDesk 1.4.9 已通过 `audit` native/native 与 `enforce` native/native、WSS/WSS、WSS/native、native/WSS；每项验证桌面窗口、截图与 HBBR 连接，不外推为直接 P2P/独立 Secure TCP 证据 |
 | 部署前 P0（非软件发布阻断） | 生产形态恢复演练 | 运维 staging | DB/config/identity/key 备份恢复、Agent read-only→write、ETag conflict、自动 rollback、人工 rollback、token mass invalidation 和重新登录均完成，并由具体部署记录 RTO/RPO |
 | P1 | 正式平台/制品矩阵 | 两项目 CI | Docker linux/amd64、Linux x86_64 tar/二进制和 amd64 DEB 完成最终候选 SBOM/provenance/签名/checksum 与干净 CI；ARM/Windows 仅非阻断兼容，不进入本版本承诺 |
@@ -127,7 +127,7 @@ Control OpenAPI 与此前本地候选 digest 完全一致。
 
 ## 5. 不得跨越的门禁
 
-- 在 Kessoku v2.8.1 同提交前后端候选未通过受保护候选 CI 时，不发布完整 Kessoku
+- 在 Kessoku v2.8.2 同提交前后端候选未通过受保护候选 CI 时，不发布完整 Kessoku
   release；固定的 Starry tag/digest 不得改回移动引用。
 - 不从 `lejianwen/rustdesk-api-web@master` 或任何移动分支构建管理前端。
 - 不加入、复制、打包或通过 plugin 规避 WebClient2 的非授权闭源资产。

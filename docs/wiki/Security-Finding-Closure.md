@@ -3,7 +3,7 @@
 **English** | [简体中文](ZH-CN-Security-Finding-Closure.md)
 
 This page records the defensive, static-only security review used for the
-Kessoku v2.8.1 release decision. It is not a penetration-test report and does
+Kessoku v2.8.2 release decision. It is not a penetration-test report and does
 not contain exploit instructions.
 
 ## Evidence boundary
@@ -70,7 +70,7 @@ A peer UUID is not a secret. Someone who already knows a valid peer ID and
 UUID may still submit a spoofed compatible audit record. Treat these rows as
 operational telemetry, not non-repudiation evidence, and export them to
 append-only or immutable storage when stronger audit assurance is required.
-This residual is accepted for v2.8.1 compatibility and must be reconsidered
+This residual is accepted for v2.8.2 compatibility and must be reconsidered
 when supported RustDesk clients provide authenticated audit uploads.
 
 ## Published Starry compatibility evidence

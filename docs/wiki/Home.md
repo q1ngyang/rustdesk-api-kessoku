@@ -33,7 +33,7 @@ authoritative for signalling, connection authorization, and Relay allocation.
 
 ## Safe defaults
 
-- Use the immutable v2.8.1 image tag, then pin its resolved digest.
+- Use the immutable v2.8.2 image tag, then pin its resolved digest.
 - Keep registration, Swagger, built-in Web Client, and legacy token
   compatibility disabled until their deployment profiles are explicitly
   reviewed. Enable the client only on a separate HTTPS origin.
@@ -47,7 +47,7 @@ authoritative for signalling, connection authorization, and Relay allocation.
 
 ## Release and legal status
 
-v2.8.1 is the stable release. Production deployments should verify the release
+v2.8.2 is the stable release. Production deployments should verify the release
 checksums and pin the versioned GHCR digest. The reviewed source is MIT licensed
 and is not affiliated with RustDesk. The
 repository-owned Web Client is MIT; third-party dependency licences are

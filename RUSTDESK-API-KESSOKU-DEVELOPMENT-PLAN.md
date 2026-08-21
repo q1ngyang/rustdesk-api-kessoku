@@ -1,6 +1,6 @@
 # rustdesk-api-kessoku 具体开发计划
 
-> 文档状态：v2.8.1 后端、内置管理前端与正式 Starry 契约检查点；发布验收仍阻塞
+> 文档状态：v2.8.2 后端、内置管理前端与正式 Starry 契约检查点；发布验收仍阻塞
 >
 > 制定日期：2026-08-18
 >
@@ -10,7 +10,7 @@
 >
 > 建议后端基线：`lejianwen/rustdesk-api` v2.7 的干净后端
 >
-> Kessoku 发布目标：`v2.8.1`（Docker/Linux x86_64 优先）
+> Kessoku 发布目标：`v2.8.2`（Docker/Linux x86_64 优先）
 >
 > 配套项目：`q1ngyang/rustdesk-server-starry`
 >
@@ -73,7 +73,7 @@ Starry 契约阻断已经解除：正式 tag `1.1.16-patch-v1.2.0`（commit
 
 以下决策应在开发前固定，避免实现阶段反复改变边界：
 
-1. 以 v2.7 后端作为公开开发基线，并以 Kessoku `v2.8.1` 作为首个目标版本。v2.6.29 与
+1. 以 v2.7 后端作为公开开发基线，并以 Kessoku `v2.8.2` 作为首个目标版本。v2.6.29 与
    v2.7 的后端源码相同，差异主要是 v2.7 删除了 `resources/web2`；不把旧 WebClient2
    编译产物重新带入仓库。
 2. Go module 改为 `github.com/q1ngyang/rustdesk-api-kessoku/v2`，完成项目名称、镜像、
@@ -98,7 +98,7 @@ Starry 契约阻断已经解除：正式 tag `1.1.16-patch-v1.2.0`（commit
     而后端接受任意命令字符串。实施任何新功能前先默认关闭该路由并补 `AdminPrivilege()`。
 11. Kessoku→Agent 的远程控制请求同时使用 mTLS 和最长 5 分钟的 scoped service JWT；
     control keyring 与用户连接 JWT keyring 完全分离。
-12. v2.8.1 的发布承诺收敛到 Docker `linux/amd64`、Linux x86_64 tar/二进制和 amd64 DEB；
+12. v2.8.2 的发布承诺收敛到 Docker `linux/amd64`、Linux x86_64 tar/二进制和 amd64 DEB；
     ARM 保持架构中立源码与尽力编译兼容，但不作为该版本的阻断制品或运行验收门禁。
 
 ## 1. 目标和非目标

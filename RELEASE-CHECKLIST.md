@@ -1,6 +1,6 @@
 # Release Checklist
 
-This worktree is the release-owner-approved v2.8.1 source candidate. It is
+This worktree is the release-owner-approved v2.8.2 source candidate. It is
 still unpublished: the unchecked tag, protected-CI, image, Release, and Wiki
 steps below must be completed in order. Source approval does not imply that
 any public artifact exists.
@@ -9,9 +9,16 @@ The annotated `v2.8.0` source tag is a permanent unpublished tombstone at
 `626726dc6ab3300d529eb9ea1e39f68b69185abd`. Candidate run `32499283822`
 failed before building because the container job used `/bin/sh` for a
 `pipefail` script. No GitHub Release, package, GHCR version, `latest` image, or
-release asset was created. The tag will not be moved or reused; v2.8.1 is the
-reviewed replacement containing only the release-workflow correction and
-version/documentation update on top of that source.
+release asset was created. The tag will not be moved or reused.
+
+The annotated `v2.8.1` source tag is also a permanent unpublished tombstone at
+`7114803269577341fd9c81dcc55535f4aec5e632`. Candidate run `32500982746`
+passed tag, contract, and both frontend gates, then exposed two candidate-only
+workflow defects: the container trusted the checkout too late, and the race
+run reused databases populated by the preceding migration test. No runtime,
+package, image, `latest` update, Release, or release asset was created. The tag
+will not be moved or reused; v2.8.2 is the reviewed replacement containing the
+checkout trust/database-isolation correction and version/documentation update.
 
 ## Local candidate evidence (not publication)
 
@@ -50,7 +57,7 @@ remaining `sodiumoxide 0.2.7` unmaintained warning is disclosed for release risk
 review. The local reviewed admin-web candidate also passes nine tests, a
 zero-finding production audit, reproducible build comparison, SBOM/license
 inspection, registry signature verification, secret scanning, and browser QA.
-The exact local v2.8.1 candidate verifier additionally passed reproducible Go,
+The exact local v2.8.2 candidate verifier additionally passed reproducible Go,
 admin-web, tar, and amd64 DEB builds; package installation; a non-root
 linux/amd64 image smoke; and live local HTTP security-header checks. It now
 clones the clean reviewed HEAD, verifies that persisted Go build information
@@ -102,7 +109,7 @@ evidence, not penetration or stress testing.
 - [x] The backend and embedded frontend source is reviewed together from the
       intended v2.7 upstream baseline.
 - [ ] After final approval, the exact reviewed commit is tagged as Kessoku
-      `v2.8.1`; the immutable tag has not been created or pushed yet.
+      `v2.8.2`; the immutable tag has not been created or pushed yet.
 - [x] `internal/starrycontrol/CONTRACT_VERSION` names a published, immutable
       Starry tag, contract version, and verified SHA-256, with `status: PINNED`.
 - [x] Generated-compatible client DTOs match that published contract and pass
@@ -185,10 +192,10 @@ evidence, not penetration or stress testing.
       download code, private keys, or build credentials.
 - [x] Artifact names, service units, image names, module paths, titles, and
       documentation consistently use Kessoku branding.
-- [ ] Published GHCR `v2.8.1` and `latest` tags resolve to the same approved
+- [ ] Published GHCR `v2.8.2` and `latest` tags resolve to the same approved
       image index digest; production instructions pin the versioned digest.
 
-## v2.8.1 platform scope
+## v2.8.2 platform scope
 
 - [x] The Docker `linux/amd64` image builds from the candidate context, runs as
       the unprivileged user, serves both embedded frontends with security
@@ -196,21 +203,21 @@ evidence, not penetration or stress testing.
 - [x] The Linux x86_64 binary/tar and amd64 Debian package are reproducible;
       the package installs and its service/runtime permissions pass in the
       pinned Debian environment.
-- ARM remains best-effort source compatibility for v2.8.1. Existing arm64/QEMU
+- ARM remains best-effort source compatibility for v2.8.2. Existing arm64/QEMU
   evidence may be retained, but an ARM binary, DEB, image, or runtime smoke is
-  not a release blocker or a promised v2.8.1 artifact.
-- Windows is outside the supported v2.8.1 release matrix and is non-blocking.
+  not a release blocker or a promised v2.8.2 artifact.
+- Windows is outside the supported v2.8.2 release matrix and is non-blocking.
 
 ## Documentation and approval
 
 - [x] The release owner confirms that the public project/repository/image name
       remains `rustdesk-api-kessoku` and that no requested rename to
       `rustdesk-server-kessoku` is pending.
-- [x] The concise English/Chinese README, bilingual v2.8.1 release notes,
+- [x] The concise English/Chinese README, bilingual v2.8.2 release notes,
       bilingual container guide, all paired Wiki pages, and project/package
       metadata wording are reviewed and approved, including the requested
       current Web Client implementation explanation.
-- [x] The GHCR description and OCI documentation URL identify the v2.8.1
+- [x] The GHCR description and OCI documentation URL identify the v2.8.2
       changes, recommend Docker Compose, and link the Docker guide, Compose
       file, environment example, and Starry integration guide.
 - [x] `scripts/check_docs.py`, the release Compose render, and every local

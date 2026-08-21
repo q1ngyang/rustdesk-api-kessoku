@@ -5,7 +5,7 @@
 This page is the versioned entry point for users arriving from the GHCR
 package page. Docker Compose on Linux amd64 is the recommended deployment.
 
-> The `v2.8.1` image referenced here is a release target until the protected
+> The `v2.8.2` image referenced here is a release target until the protected
 > publication workflow completes. The published `latest` tag will identify the
 > newest successful stable release; do not substitute a local worktree image.
 
@@ -23,7 +23,7 @@ Deployment links:
 
 ## Image scope
 
-The v2.8.1 image contains one unprivileged `kessoku-api` process, the reviewed
+The v2.8.2 image contains one unprivileged `kessoku-api` process, the reviewed
 management and Web Client frontends built from the same source commit, API
 documentation, and runtime configuration templates. The image:
 
@@ -45,20 +45,20 @@ separately.
 After publication:
 
 ```sh
-docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v2.8.1
+docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v2.8.2
 docker image inspect \
-  ghcr.io/q1ngyang/rustdesk-api-kessoku:v2.8.1 \
+  ghcr.io/q1ngyang/rustdesk-api-kessoku:v2.8.2 \
   --format '{{json .RepoDigests}}'
 ```
 
-The workflow publishes both immutable `v2.8.1` and moving `latest` tags for the
+The workflow publishes both immutable `v2.8.2` and moving `latest` tags for the
 same image. Use `latest` only when tracking the newest stable release is
 intentional; resolve and pin the versioned tag's digest for production change
 control and rollback.
 
 ## Compose quick start
 
-From a v2.8.1 source checkout or downloaded deployment files:
+From a v2.8.2 source checkout or downloaded deployment files:
 
 ```sh
 cp examples/compose.env.example .env
@@ -164,7 +164,7 @@ See [Operations and verification](docs/wiki/Operations-and-Verification.md).
 Back up the database, authentication keys, internal PKI, configuration,
 current image digest, and Starry generation before upgrading. Kessoku database
 version 301 is additive, but older binaries cannot authenticate newly issued
-hash-only tokens. After v2.8.1 issues tokens, restore the matching pre-upgrade
+hash-only tokens. After v2.8.2 issues tokens, restore the matching pre-upgrade
 database backup when rolling back to an older application.
 
 External MySQL/PostgreSQL connections must use certificate- and hostname-

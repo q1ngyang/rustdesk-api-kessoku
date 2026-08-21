@@ -53,7 +53,7 @@ jobs:
           test "$release_tag" = "${GITHUB_REF_NAME}"
           printf '%s' "$release_tag" \
             | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.]+)?$'
-          test "$release_tag" = v2.8.1
+          test "$release_tag" = v2.8.2
           test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/${release_tag}^{commit}")"
           test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CANDIDATE_RUN_ID}" --jq .head_sha)" = "$GITHUB_SHA"
           test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CANDIDATE_RUN_ID}" --jq .conclusion)" = success
@@ -171,7 +171,7 @@ jobs:
             org.opencontainers.image.version=${{ github.ref_name }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.licenses=MIT
-            org.opencontainers.image.description=Kessoku v2.8.1 RustDesk account and administration API with EdDSA token lifecycle, typed Starry control, and a repository-owned Relay-only browser client; Docker Compose is recommended
+            org.opencontainers.image.description=Kessoku v2.8.2 RustDesk account and administration API with EdDSA token lifecycle, typed Starry control, and a repository-owned Relay-only browser client; Docker Compose is recommended
           annotations: |
             index:org.opencontainers.image.title=rustdesk-api-kessoku
             index:org.opencontainers.image.source=https://github.com/${{ github.repository }}
@@ -180,7 +180,7 @@ jobs:
             index:org.opencontainers.image.version=${{ github.ref_name }}
             index:org.opencontainers.image.revision=${{ github.sha }}
             index:org.opencontainers.image.licenses=MIT
-            index:org.opencontainers.image.description=Kessoku v2.8.1 RustDesk account and administration API with EdDSA token lifecycle, typed Starry control, and a repository-owned Relay-only browser client; Docker Compose is recommended
+            index:org.opencontainers.image.description=Kessoku v2.8.2 RustDesk account and administration API with EdDSA token lifecycle, typed Starry control, and a repository-owned Relay-only browser client; Docker Compose is recommended
 
       - name: Publish immutable GitHub release assets
         env:
@@ -188,8 +188,8 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          notes_file="RELEASE-NOTES-v2.8.1.md"
-          chinese_notes="RELEASE-NOTES-v2.8.1.zh-CN.md"
+          notes_file="RELEASE-NOTES-v2.8.2.md"
+          chinese_notes="RELEASE-NOTES-v2.8.2.zh-CN.md"
           test -f "$notes_file"
           test -f "$chinese_notes"
           cat > release-notes.md <<EOF
@@ -223,7 +223,7 @@ jobs:
 
           EOF
           sed \
-            -e "s#(RELEASE-NOTES-v2.8.1.zh-CN.md)#(https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/${chinese_notes})#" \
+            -e "s#(RELEASE-NOTES-v2.8.2.zh-CN.md)#(https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/${chinese_notes})#" \
             -e "s#(CONTAINER.md)#(https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/CONTAINER.md)#" \
             -e "s#(docs/wiki/Docker-Deployment.md)#(https://github.com/${GITHUB_REPOSITORY}/wiki/Docker-Deployment)#" \
             -e "s#(docker-compose.yaml)#(https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/docker-compose.yaml)#" \

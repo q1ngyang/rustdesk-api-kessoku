@@ -85,7 +85,7 @@ The repeatable local orchestration entry point is
 local RustDesk 1.4.9 QA target image by its exact content digest and never
 publishes an artifact.
 
-The v2.8.1 local release evidence specifically covers RustDesk 1.4.9
+The v2.8.2 local release evidence specifically covers RustDesk 1.4.9
 forced-Relay sessions: `audit` native/native and `enforce` native/native,
 WSS/WSS, WSS/native, and native/WSS. It does not claim direct P2P or a separate
 Secure TCP case. See [Security finding closure](Security-Finding-Closure.md).

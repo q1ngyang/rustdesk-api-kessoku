@@ -1,12 +1,16 @@
-# Kessoku v2.8.1 发布说明
+# Kessoku v2.8.2 发布说明
 
-[English](RELEASE-NOTES-v2.8.1.md) | **简体中文**
+[English](RELEASE-NOTES-v2.8.2.md) | **简体中文**
 
-> v2.8.1 替代未发布的 `v2.8.0` 源码 tag。其候选工作流因容器 shell 配置错误在构建前
+> v2.8.2 替代未发布的 `v2.8.0` 源码 tag。其候选工作流因容器 shell 配置错误在构建前
 > 即停止，没有创建 v2.8.0 Release、软件包、镜像、`latest` 更新或发布资产；该 tag
 > 不会移动或复用。
+>
+> 替代它的 `v2.8.1` 源码 tag 同样是未发布且不可变的 tombstone。其候选通过了早期门禁和
+> 两个前端门禁，但因容器过晚信任 checkout、race 复用迁移测试数据库而在 runtime 构建前
+> 停止；同样没有创建 runtime、软件包、镜像、`latest` 更新、Release 或发布资产。
 
-v2.8.1 将原通用 RustDesk API 服务收紧为有明确边界的账户与管理控制面，并面向
+v2.8.2 将原通用 RustDesk API 服务收紧为有明确边界的账户与管理控制面，并面向
 `rustdesk-server-starry patch-v1.2.0` 配套使用。
 
 本文是受保护发布工作流使用的已审核发布说明。
@@ -23,11 +27,11 @@ v2.8.1 将原通用 RustDesk API 服务收紧为有明确边界的账户与管�
 - [内置 Web Client 配置范例](examples/config.docker-builtin.yaml)
 - [Starry 集成文档](docs/wiki/ZH-CN-Starry-Control.md)
 
-本版本把 `ghcr.io/q1ngyang/rustdesk-api-kessoku:v2.8.1` 与 `:latest` 发布为同一镜像。
+本版本把 `ghcr.io/q1ngyang/rustdesk-api-kessoku:v2.8.2` 与 `:latest` 发布为同一镜像。
 版本 tag 不可变；`latest` 只会在稳定版成功发布后移动。生产部署应解析并固定版本 tag 的
 digest。
 
-## v2.8.1 新特性
+## v2.8.2 新特性
 
 ### 认证与令牌生命周期
 
@@ -85,7 +89,7 @@ digest。
 
 ### 制品与自动化
 
-- v2.8.1 正式支持 Linux amd64：GHCR 镜像、Linux x86_64 archive/binary 与 amd64 DEB。
+- v2.8.2 正式支持 Linux amd64：GHCR 镜像、Linux x86_64 archive/binary 与 amd64 DEB。
 - 镜像使用非特权用户、包含 `resources/client`、暴露独立 21122，并拒绝历史浏览器
   客户端资产。
 - 候选 workflow 运行 Go/race、三数据库迁移、内置前端测试/审计/可复现检查、SBOM、
@@ -100,7 +104,7 @@ digest。
 - 外部 MySQL 现在要求 `mysql.tls: "true"`；可用 `mysql.ca-file` 把私有 CA 加入系统信任
   池。PostgreSQL 要求 `postgresql.sslmode: verify-full`，可配置 `ssl-root-cert`。不安全或
   不验证主机名的数据库传输会导致启动失败。
-- 迁移是增量的，但旧应用不能使用不含明文 token 的新凭据。v2.8.1 一旦签发令牌，回滚
+- 迁移是增量的，但旧应用不能使用不含明文 token 的新凭据。v2.8.2 一旦签发令牌，回滚
   旧应用必须恢复匹配且已验证的升级前数据库备份。
 - 旧 opaque 凭据只允许有界兼容期；已删除的 HS256 设置不属于受支持连接认证 profile。
 - Starry 认证应从 `off` 开始，再进入 `audit`；只有支持客户端真实矩阵不存在无法解释的
@@ -110,7 +114,7 @@ digest。
 详见[升级与回滚](docs/wiki/ZH-CN-Upgrade-and-Rollback.md)和
 [`MIGRATION.md`](MIGRATION.md)。
 
-## v2.8.1 接受的已知限制
+## v2.8.2 接受的已知限制
 
 RustDesk 1.4.9 的 audit/sysinfo 上传不携带认证头。Kessoku 保留有界兼容路由，并要求已经
 登记的 peer ID 与精确 UUID；但 UUID 不是秘密，已知这一组合仍可提交伪造运维 telemetry。
@@ -121,7 +125,7 @@ RustDesk 1.4.9 的 audit/sysinfo 上传不携带认证头。Kessoku 保留有界
 
 - 正式支持：Docker `linux/amd64`、Linux x86_64 archive/binary、amd64 DEB。
 - 尽力兼容且不阻断：ARM 源码/构建兼容。
-- 不属于 v2.8.1 发布承诺：Windows 制品。
+- 不属于 v2.8.2 发布承诺：Windows 制品。
 
 ## 发布前状态
 
@@ -143,5 +147,5 @@ native-to-WSS，并检查 Remote Desktop 窗口/截图和已建立 HBBR 连接�
 以下批准/workflow 操作：
 
 - 批准最终文档与新特性文案，包括已记录的 Web Client 验收结果；
-- 在发布不可变 tag、GHCR `v2.8.1`/`latest`、GitHub Release 与 Wiki 前，对该批准提交运行
+- 在发布不可变 tag、GHCR `v2.8.2`/`latest`、GitHub Release 与 Wiki 前，对该批准提交运行
   受保护的非发布候选 CI。
