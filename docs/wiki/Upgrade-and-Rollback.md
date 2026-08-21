@@ -28,7 +28,7 @@ merge a conflicting external identity.
 
 ## Upgrade sequence
 
-1. Deploy Kessoku v2.8.2 with authentication disabled and control read-only.
+1. Deploy Kessoku v2.8.3 with authentication disabled and control read-only.
 2. Verify database version 301, OAuth identity indexes, the final-admin
    invariant, and legacy-token migration.
 3. Enable EdDSA issuance with a bounded compatibility overlap if required.
@@ -44,8 +44,8 @@ merge a conflicting external identity.
 
 ## Rollback warning
 
-New v2.8.2 credentials leave the historical plaintext token column empty.
-Older applications cannot reconstruct or authenticate them. Once v2.8.2 has
+New v2.8.3 credentials leave the historical plaintext token column empty.
+Older applications cannot reconstruct or authenticate them. Once v2.8.3 has
 issued tokens, roll back the old application only with its matching verified
 pre-upgrade database backup, and expect sessions created after that backup to
 require re-login.

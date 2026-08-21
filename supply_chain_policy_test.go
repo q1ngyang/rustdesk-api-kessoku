@@ -116,9 +116,11 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 		`provenance: mode=max`,
 		`sbom: true`,
 		`candidate/release-assets/GO-BUILD-INFO.txt`,
+		`chmod 0755 candidate/docker/release/kessoku-api`,
+		`cmp "$archive_binary" candidate/docker/release/kessoku-api`,
 		`vcs.revision='"${GITHUB_SHA}"`,
 		`vcs.modified=false`,
-		`test "$release_tag" = v2.8.2`,
+		`test "$release_tag" = v2.8.3`,
 	} {
 		if !strings.Contains(workflow, required) {
 			t.Fatalf("publication workflow is missing fail-closed control %q", required)
@@ -131,7 +133,7 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(status), "status: APPROVED") || !strings.Contains(string(status), "release_tag: v2.8.2") {
+	if !strings.Contains(string(status), "status: APPROVED") || !strings.Contains(string(status), "release_tag: v2.8.3") {
 		t.Fatal("release source must name the explicitly approved immutable tag")
 	}
 }
@@ -160,6 +162,8 @@ func TestCompilerFrontendAndVulnerabilityScannerArePinned(t *testing.T) {
 			`git config --global --add safe.directory "$GITHUB_WORKSPACE"`,
 			`printf '%s\n' "$mod_before" "$sum_before" | sha256sum --check`,
 			`env -u KESSOKU_TEST_POSTGRES_DSN -u KESSOKU_TEST_MYSQL_DSN`,
+			"chmod 0755 runtime/release/kessoku-api",
+			`grep -Eq '^-rwxr-xr-x '`,
 			"npm sbom --omit=dev --sbom-format cyclonedx",
 			"npm audit signatures",
 			`diff -u "${RUNNER_TEMP}/admin-web-dist-1.sha256"`,

@@ -2,7 +2,7 @@
 
 [English](Web-Client.md) | **简体中文**
 
-Kessoku v2.8.2 从仓库 `web-client/` 源码构建 MIT 许可浏览器客户端，并把产物打包为
+Kessoku v2.8.3 从仓库 `web-client/` 源码构建 MIT 许可浏览器客户端，并把产物打包为
 `resources/client`。`admin-web/` 管理 UI 仍是独立应用。构建与打包策略永久拒绝历史
 `resources/web`、`resources/web2`、WebClient2/V2 和远程下载浏览器客户端。
 

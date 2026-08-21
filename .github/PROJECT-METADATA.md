@@ -3,7 +3,7 @@
 **English** | [简体中文](PROJECT-METADATA.zh-CN.md)
 
 This file records the release-owner-approved external GitHub values for
-v2.8.2. Remote changes remain restricted to the protected release process.
+v2.8.3. Remote changes remain restricted to the protected release process.
 
 ## Repository About
 
@@ -37,7 +37,7 @@ ldap
 
 Image description:
 
-> Kessoku v2.8.2 RustDesk account and administration API with EdDSA token
+> Kessoku v2.8.3 RustDesk account and administration API with EdDSA token
 > lifecycle, typed Starry control, and a repository-owned Relay-only Web
 > Client; Docker Compose is recommended.
 
@@ -51,7 +51,7 @@ points to [`CONTAINER.md`](../CONTAINER.md), which provides visible links to:
 - the [Starry integration guide](../docs/wiki/Starry-Control.md); and
 - the [built-in Web Client guide](../docs/wiki/Web-Client.md).
 
-The release publishes immutable `v2.8.2` and moving `latest` tags for the same
+The release publishes immutable `v2.8.3` and moving `latest` tags for the same
 image. `latest` identifies the newest successfully published stable release;
 production operators resolve and pin the version tag's digest.
 
@@ -66,12 +66,12 @@ is a separate Git repository; after explicit approval, copy these files to
 
 The protected release workflow is prepared to:
 
-- publish the exact successful, non-publishing v2.8.2 candidate;
+- publish the exact successful, non-publishing v2.8.3 candidate;
 - attach the Compose and environment examples plus bilingual container and
   release documents;
 - build the GitHub Release body from the reviewed English release notes and
   link the Chinese notes;
-- publish one linux/amd64 GHCR image under both `v2.8.2` and `latest`, with OCI
+- publish one linux/amd64 GHCR image under both `v2.8.3` and `latest`, with OCI
   provenance and SBOM; and
 - preserve the fail-closed checks for tag, commit, candidate run, contract,
   checksums, frontend source, and release approval.

@@ -211,11 +211,11 @@ install -m 0644 "$build_output/GO-VERIFY.txt" \
   "$candidate/GO-VERIFY.txt"
 sh "$backend_source/scripts/copy-runtime-resources.sh" \
   "$release/resources" "$backend_source/resources" require-admin require-client
-printf '%s\n' 'v2.8.2-local-candidate' > "$release/resources/version"
+printf '%s\n' 'v2.8.3-local-candidate' > "$release/resources/version"
 cp -a "$backend_source/conf" "$backend_source/docs" "$release/"
 for document in README.md README.zh-CN.md README_EN.md CONTAINER.md \
-  CONTAINER.zh-CN.md RELEASE-NOTES-v2.8.2.md \
-  RELEASE-NOTES-v2.8.2.zh-CN.md SECURITY-MODEL.md MIGRATION.md \
+  CONTAINER.zh-CN.md RELEASE-NOTES-v2.8.3.md \
+  RELEASE-NOTES-v2.8.3.zh-CN.md SECURITY-MODEL.md MIGRATION.md \
   OPERATOR-RUNBOOK.md ROLLBACK-RUNBOOK.md WEB-CLIENT.md WEB-CLIENT.zh-CN.md \
   ADMIN-WEB-PROVENANCE.md RELEASE-CHECKLIST.md RELEASE-PROCESS.md \
   RELEASE_STATUS LICENSE; do
@@ -236,7 +236,7 @@ install -m 0644 "$web_client_source/web-client.cdx.json" \
   printf 'repository=%s\n' 'q1ngyang/rustdesk-api-kessoku'
   printf 'source_commit=%s\n' "$source_sha"
   printf 'release_tag=%s\n' 'UNPUBLISHED'
-  printf 'artifact_label=%s\n' 'v2.8.2-local-candidate'
+  printf 'artifact_label=%s\n' 'v2.8.3-local-candidate'
   printf 'go_version=%s\n' '1.26.6'
   printf 'admin_web_path=%s\n' 'admin-web'
   printf 'admin_web_source_commit=%s\n' "$source_sha"
@@ -307,9 +307,9 @@ cmp "$candidate_root/candidate-a.tar.gz" \
   "$candidate_root/candidate-b.tar.gz"
 
 sh "$backend_source/scripts/build-deb.sh" "$release" \
-  '2.8.2~local.1-1' amd64 "$candidate_root/packages-a"
+  '2.8.3~local.1-1' amd64 "$candidate_root/packages-a"
 sh "$backend_source/scripts/build-deb.sh" "$release" \
-  '2.8.2~local.1-1' amd64 "$candidate_root/packages-b"
+  '2.8.3~local.1-1' amd64 "$candidate_root/packages-b"
 cmp "$candidate_root/packages-a/"*.deb "$candidate_root/packages-b/"*.deb
 dpkg-deb --contents "$candidate_root/packages-a/"*.deb \
   | grep -F '/resources/admin/index.html'
@@ -332,7 +332,7 @@ docker run --rm --platform linux/amd64 \
     chmod 0755 /usr/sbin/policy-rc.d
     apt-get update
     DEBIAN_FRONTEND=noninteractive apt-get install -y /packages/*.deb
-    test "$(dpkg-query -W -f=\${Version} kessoku-api)" = "2.8.2~local.1-1"
+    test "$(dpkg-query -W -f=\${Version} kessoku-api)" = "2.8.3~local.1-1"
     test "$(id -un kessoku-api)" = kessoku-api
     test "$(stat -c %a /var/lib/kessoku-api/data)" = 700
     test "$(stat -c %a /var/lib/kessoku-api/runtime)" = 700
@@ -401,7 +401,7 @@ test "$(curl -sS -o /dev/null -w '%{http_code}' \
 release_assets="$candidate_root/release-assets"
 mkdir -p "$release_assets"
 install -m 0644 "$candidate_root/candidate-a.tar.gz" \
-  "$release_assets/kessoku-v2.8.2-local-linux-amd64.tar.gz"
+  "$release_assets/kessoku-v2.8.3-local-linux-amd64.tar.gz"
 install -m 0644 "$candidate_root/packages-a/"*.deb "$release_assets/"
 for artifact in ADMIN-WEB-DIST-SHA256SUMS WEB-CLIENT-DIST-SHA256SUMS BUILD-INPUTS.txt \
   GO-BUILD-INFO.txt GO-VERIFY.txt GOVULNCHECK.txt LOCAL-IMAGE-IDENTITY.txt \
@@ -415,8 +415,8 @@ install -m 0644 "$web_client_source/LICENSE" "$release_assets/WEB-CLIENT-LICENSE
 install -m 0644 "$web_client_source/NOTICE.md" "$release_assets/WEB-CLIENT-NOTICE.md"
 install -m 0644 "$backend_source/RELEASE_STATUS" \
   "$backend_source/RELEASE-CHECKLIST.md" \
-  "$backend_source/RELEASE-NOTES-v2.8.2.md" \
-  "$backend_source/RELEASE-NOTES-v2.8.2.zh-CN.md" \
+  "$backend_source/RELEASE-NOTES-v2.8.3.md" \
+  "$backend_source/RELEASE-NOTES-v2.8.3.zh-CN.md" \
   "$backend_source/CONTAINER.md" "$backend_source/CONTAINER.zh-CN.md" \
   "$backend_source/docker-compose.yaml" \
   "$backend_source/examples/compose.env.example" \

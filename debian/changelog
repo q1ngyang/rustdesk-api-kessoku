@@ -1,6 +1,6 @@
-rustdesk-api-kessoku (2.8.2-1) UNRELEASED; urgency=medium
+rustdesk-api-kessoku (2.8.3-1) UNRELEASED; urgency=medium
 
-  * Prepare the non-publishing Kessoku v2.8.2 release candidate.
+  * Prepare the non-publishing Kessoku v2.8.3 release candidate.
   * Embed the reviewed management frontend source and build it with npm ci.
   * Support Docker linux/amd64 and native Linux amd64 as the primary targets.
 

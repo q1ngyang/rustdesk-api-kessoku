@@ -3,7 +3,7 @@
 This procedure is fail-closed. The candidate workflow never publishes, and the
 publication workflow accepts only a successful candidate from the exact tag
 commit. The reviewed source candidate sets `RELEASE_STATUS` to `APPROVED` and
-names `release_tag: v2.8.2`; this permits the protected sequence below but does
+names `release_tag: v2.8.3`; this permits the protected sequence below but does
 not claim that its tag or any public artifact already exists.
 
 The earlier `v2.8.0` tag is an unpublished tombstone: its candidate workflow
@@ -14,7 +14,12 @@ candidate run `32500982746` passed the early and frontend gates, then failed
 because the container checkout was trusted too late and the race run reused
 the preceding migration test databases. It likewise has no runtime, package,
 image, Release, or assets and must never be moved or reused. The reviewed
-replacement release is v2.8.2.
+replacement `v2.8.2` tag is also an unpublished tombstone: candidate run
+`32502697007` passed the complete source/runtime gates but failed closed when
+GitHub artifact extraction removed the executable mode before its DEB and image
+jobs. It produced no final candidate, package, image, Release, or published
+assets and must never be moved or reused. The reviewed replacement release is
+v2.8.3.
 
 ## Approval prerequisites
 
@@ -34,7 +39,7 @@ the rollout go/no-go decision. In particular:
   deployment RTO/RPO is not a software-publication requirement; and
 - the release owner must approve the final repository/image name, concise
   bilingual README, bilingual release/container notes, paired Wiki source,
-  Docker examples, GHCR description, deployment links, and v2.8.2 feature and
+  Docker examples, GHCR description, deployment links, and v2.8.3 feature and
   compatibility wording; and
 - the GitHub `kessoku-release` environment must require an explicit release-
   owner review and allow only the intended protected tag. Repositories with an
@@ -46,7 +51,7 @@ The final reviewed source change sets:
 
 ```text
 status: APPROVED
-release_tag: v2.8.2
+release_tag: v2.8.3
 ```
 
 Do not approve a floating branch, unpublished Starry contract, externally
@@ -68,7 +73,7 @@ the protected candidate workflow below.
    scans, both embedded-frontend checks, Web Client grant/origin/browser
    acceptance, Docker linux/amd64 smoke, Linux x86_64
    archive, and real amd64 DEB installation passed. ARM and Windows are not
-   v2.8.2 publication gates.
+   v2.8.3 publication gates.
 4. Download `kessoku-release-candidate-<commit>` and independently verify
    `SHA256SUMS`, `BUILD-INPUTS.txt`, `RELEASE_STATUS`, and `CONTRACT_VERSION`.
 5. Inspect the archive, DEB, Docker context, all three SPDX SBOMs, and separate

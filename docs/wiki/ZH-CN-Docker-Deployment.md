@@ -92,7 +92,7 @@ SQLite 数据库位于 `/app/data/rustdeskapi.db`，应一致备份整个数据�
 还需使用数据库厂商的一致性备份，并另外保存 Kessoku 密钥、PKI、配置、镜像 digest 与发布
 provenance。
 
-首次用 v2.8.2 启动前必须配置外部数据库：MySQL 要求 `tls: "true"`，PostgreSQL 要求
+首次用 v2.8.3 启动前必须配置外部数据库：MySQL 要求 `tls: "true"`，PostgreSQL 要求
 `sslmode: "verify-full"`。使用私有 PKI 时，把 CA 放入 `secrets/`，只读挂载到
 `/run/secrets`，再把 `mysql.ca-file` 或 `postgresql.ssl-root-cert` 指向容器内路径。数据库
 地址/host 必须匹配证书 SAN。不安全模式、无法读取/不受信任的 CA 或主机名不匹配都会让

@@ -19,8 +19,8 @@ def paired_documents() -> list[tuple[Path, Path]]:
         (ROOT / "README.md", ROOT / "README.zh-CN.md"),
         (ROOT / "CONTAINER.md", ROOT / "CONTAINER.zh-CN.md"),
         (
-            ROOT / "RELEASE-NOTES-v2.8.2.md",
-            ROOT / "RELEASE-NOTES-v2.8.2.zh-CN.md",
+            ROOT / "RELEASE-NOTES-v2.8.3.md",
+            ROOT / "RELEASE-NOTES-v2.8.3.zh-CN.md",
         ),
         (
             ROOT / ".github" / "PROJECT-METADATA.md",
@@ -95,8 +95,8 @@ def main() -> int:
         ROOT / "CONTAINER.zh-CN.md",
         ROOT / "examples" / "compose.env.example",
     ):
-        if "v2.8.2" not in required.read_text(encoding="utf-8"):
-            errors.append(f"v2.8.2 is missing from {required.relative_to(ROOT)}")
+        if "v2.8.3" not in required.read_text(encoding="utf-8"):
+            errors.append(f"v2.8.3 is missing from {required.relative_to(ROOT)}")
 
     if errors:
         for error in errors:

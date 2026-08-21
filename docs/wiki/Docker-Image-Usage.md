@@ -13,9 +13,9 @@ Quick links:
 - [Compose example](../../docker-compose.yaml)
 - [Environment example](../../examples/compose.env.example)
 - [Caddy HTTPS example](../../examples/Caddyfile.example)
-- [v2.8.2 release notes](../../RELEASE-NOTES-v2.8.2.md)
+- [v2.8.3 release notes](../../RELEASE-NOTES-v2.8.3.md)
 
 The supported image platform is `linux/amd64`. The release publishes immutable
-`v2.8.2` and moving `latest` tags for the same image. Production deployments
+`v2.8.3` and moving `latest` tags for the same image. Production deployments
 should inspect and pin the versioned tag's resolved digest; use `latest` only
 when intentionally following the newest stable release with rollback ready.
