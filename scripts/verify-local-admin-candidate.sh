@@ -10,11 +10,35 @@ fi
 
 repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 admin_web_root="$repo_root/admin-web"
+evidence_dir=${KESSOKU_LOCAL_EVIDENCE_DIR:-}
 admin_import_commit=2a9d037fc271cf96b39fd4add4b97c4ff4477f12
 admin_seed_commit=3998c2a9213fcd047252776d0f0db33e6717026c
 go_image=golang:1.26.6-bookworm@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36
 node_image=node:24.15.0-bookworm@sha256:f22d6a1f082c02f292e86929b5b0442ac2e5eaf438a5dea9b1566601c3e05940
 debian_test_image=debian:bookworm-slim@sha256:abd67ffcfa541b485a3dff59865ab629aa048a6c613e639d36e7456b0b229241
+
+if [[ -n $(git -C "$repo_root" status --porcelain --untracked-files=all) ]]; then
+  echo "local candidate requires a clean reviewed Git commit" >&2
+  exit 65
+fi
+source_sha=$(git -C "$repo_root" rev-parse HEAD)
+printf '%s' "$source_sha" | grep -Eq '^[0-9a-f]{40}$'
+if [[ -n "$evidence_dir" ]]; then
+  case "$evidence_dir" in
+    /*) ;;
+    *) echo "KESSOKU_LOCAL_EVIDENCE_DIR must be an absolute path" >&2; exit 64 ;;
+  esac
+  if [[ "$evidence_dir" == / || -e "$evidence_dir" ]]; then
+    echo "evidence destination must be a new non-root path: $evidence_dir" >&2
+    exit 64
+  fi
+  case "$evidence_dir" in
+    "$repo_root"|"$repo_root"/*)
+      echo "evidence destination must be outside the source repository" >&2
+      exit 64
+      ;;
+  esac
+fi
 
 if [[ "$admin_web_root" == / || ! -f "$admin_web_root/package-lock.json" ]]; then
   echo "refusing invalid admin-web source: $admin_web_root" >&2
@@ -68,27 +92,14 @@ backend_source="$candidate_root/backend-source"
 admin_source="$backend_source/admin-web"
 build_output="$candidate_root/build"
 candidate="$candidate_root/candidate"
-mkdir -p "$backend_source" "$build_output" \
+mkdir -p "$build_output" \
   "$candidate/release" "$candidate_root/packages-a" \
   "$candidate_root/packages-b"
 
-rsync -a \
-  --exclude='.git' \
-  --exclude='candidate' \
-  --exclude='data' \
-  --exclude='release' \
-  --exclude='resources/admin' \
-  --exclude='runtime/*' \
-  "$repo_root/" "$backend_source/"
-
-git -C "$backend_source" init -q
-git -C "$backend_source" config user.name 'Kessoku local candidate'
-git -C "$backend_source" config user.email 'kessoku-local@localhost'
-git -C "$backend_source" add -A
-GIT_AUTHOR_DATE='2026-08-19T00:00:00Z' \
-GIT_COMMITTER_DATE='2026-08-19T00:00:00Z' \
-  git -C "$backend_source" commit -qm 'local candidate snapshot'
-snapshot_sha=$(git -C "$backend_source" rev-parse HEAD)
+git clone --quiet --no-local "$repo_root" "$backend_source"
+git -C "$backend_source" checkout --quiet --detach "$source_sha"
+test "$(git -C "$backend_source" rev-parse HEAD)" = "$source_sha"
+test -z "$(git -C "$backend_source" status --porcelain --untracked-files=all)"
 
 docker run --rm \
   -v "$backend_source:/src" -w /src/admin-web "$node_image" \
@@ -142,7 +153,7 @@ docker run --rm \
     grep -F $'\tpath\tgithub.com/q1ngyang/rustdesk-api-kessoku/v2/cmd' \
       /out/GO-BUILD-INFO.txt
     grep -F $'\tbuild\tvcs=git' /out/GO-BUILD-INFO.txt
-    grep -F $'\tbuild\tvcs.revision=${snapshot_sha}' /out/GO-BUILD-INFO.txt
+    grep -F $'\tbuild\tvcs.revision=${source_sha}' /out/GO-BUILD-INFO.txt
     grep -F $'\tbuild\tvcs.modified=false' /out/GO-BUILD-INFO.txt
     chown -R ${current_uid}:${current_gid} /out
   "
@@ -170,15 +181,48 @@ install -m 0644 "$admin_source/admin-web.cdx.json" \
   "$candidate/kessoku-admin-web.cdx.json"
 {
   printf 'repository=%s\n' 'q1ngyang/rustdesk-api-kessoku'
-  printf 'source_commit=%s\n' "$snapshot_sha"
+  printf 'source_commit=%s\n' "$source_sha"
   printf 'release_tag=%s\n' 'UNPUBLISHED'
   printf 'artifact_label=%s\n' 'v2.8.0-local-candidate'
   printf 'go_version=%s\n' '1.26.6'
   printf 'admin_web_path=%s\n' 'admin-web'
-  printf 'admin_web_source_commit=%s\n' "$snapshot_sha"
+  printf 'admin_web_source_commit=%s\n' "$source_sha"
   printf 'admin_web_import_commit=%s\n' "$admin_import_commit"
   printf 'admin_web_seed_commit=%s\n' "$admin_seed_commit"
 } > "$candidate/BUILD-INPUTS.txt"
+
+tool_dir="$candidate_root/security-tools"
+sh "$backend_source/scripts/install-ci-tools.sh" "$tool_dir" \
+  | tee "$candidate/SECURITY-TOOL-VERSIONS.txt"
+"$tool_dir/actionlint"
+"$tool_dir/gitleaks" git "$backend_source" \
+  --redact --no-banner --exit-code 1
+"$tool_dir/gitleaks" dir "$release" \
+  --redact --no-banner --exit-code 1
+
+docker run --rm \
+  -v "$backend_source:/src:ro" \
+  -v "$build_output:/out" \
+  -v kessoku-go126-mod:/go/pkg/mod \
+  -v kessoku-go126-build:/root/.cache/go-build \
+  -w /src "$go_image" \
+  bash -euo pipefail -c "
+    cleanup_output() { chown -R ${current_uid}:${current_gid} /out; }
+    trap cleanup_output EXIT
+    go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./... \
+      | tee /out/GOVULNCHECK.txt
+  "
+install -m 0644 "$build_output/GOVULNCHECK.txt" \
+  "$candidate/GOVULNCHECK.txt"
+
+source_sbom_input="$candidate_root/source-sbom-input"
+mkdir -p "$source_sbom_input"
+git -C "$backend_source" archive "$source_sha" \
+  | tar -x -C "$source_sbom_input"
+"$tool_dir/syft" scan dir:"$source_sbom_input" \
+  -o spdx-json="$candidate/kessoku-source.spdx.json"
+"$tool_dir/syft" scan dir:"$release" \
+  -o spdx-json="$candidate/kessoku-runtime.spdx.json"
 
 test ! -e "$release/resources/web"
 test ! -e "$release/resources/web2"
@@ -274,7 +318,56 @@ test "$(curl -sS -o /dev/null -w '%{http_code}' \
 test "$(curl -sS -o /dev/null -w '%{http_code}' \
   "http://127.0.0.1:${http_port}/_admin/static/")" = 404
 
-printf 'snapshot_sha=%s\n' "$snapshot_sha"
+{
+  printf 'image_id=%s\n' "$(docker image inspect --format '{{.Id}}' "$image_tag")"
+  printf 'runtime_user=%s\n' "$(docker image inspect --format '{{.Config.User}}' "$image_tag")"
+  printf 'source_commit=%s\n' "$source_sha"
+} > "$candidate/LOCAL-IMAGE-IDENTITY.txt"
+
+release_assets="$candidate_root/release-assets"
+mkdir -p "$release_assets"
+install -m 0644 "$candidate_root/candidate-a.tar.gz" \
+  "$release_assets/kessoku-v2.8.0-local-linux-amd64.tar.gz"
+install -m 0644 "$candidate_root/packages-a/"*.deb "$release_assets/"
+for artifact in ADMIN-WEB-DIST-SHA256SUMS BUILD-INPUTS.txt \
+  GO-BUILD-INFO.txt GOVULNCHECK.txt LOCAL-IMAGE-IDENTITY.txt \
+  SECURITY-TOOL-VERSIONS.txt kessoku-admin-web.cdx.json \
+  kessoku-source.spdx.json kessoku-runtime.spdx.json; do
+  install -m 0644 "$candidate/$artifact" "$release_assets/$artifact"
+done
+install -m 0644 "$backend_source/RELEASE_STATUS" \
+  "$backend_source/RELEASE-CHECKLIST.md" \
+  "$backend_source/RELEASE-NOTES-v2.8.0.md" \
+  "$backend_source/RELEASE-NOTES-v2.8.0.zh-CN.md" \
+  "$backend_source/CONTAINER.md" "$backend_source/CONTAINER.zh-CN.md" \
+  "$backend_source/docker-compose.yaml" \
+  "$backend_source/examples/compose.env.example" \
+  "$backend_source/internal/starrycontrol/CONTRACT_VERSION" \
+  "$release_assets/"
+
+"$tool_dir/syft" scan dir:"$release_assets" \
+  -o spdx-json="$candidate_root/kessoku-candidate.spdx.json"
+install -m 0644 "$candidate_root/kessoku-candidate.spdx.json" \
+  "$release_assets/kessoku-candidate.spdx.json"
+"$tool_dir/gitleaks" dir "$release_assets" \
+  --redact --no-banner --exit-code 1
+(
+  cd "$release_assets"
+  checksum_file=$(mktemp "$candidate_root/SHA256SUMS.XXXXXX")
+  find . -maxdepth 1 -type f ! -name SHA256SUMS \
+    -printf '%f\0' | LC_ALL=C sort -z | xargs -0 sha256sum -- \
+    > "$checksum_file"
+  mv "$checksum_file" SHA256SUMS
+  sha256sum --check SHA256SUMS
+)
+
+if [[ -n "$evidence_dir" ]]; then
+  install -d -m 0755 "$evidence_dir"
+  cp -a "$release_assets/." "$evidence_dir/"
+  printf 'local_evidence_dir=%s\n' "$evidence_dir"
+fi
+
+printf 'source_sha=%s\n' "$source_sha"
 sha256sum "$build_output/kessoku-api" \
   "$candidate_root/candidate-a.tar.gz" \
   "$candidate_root/packages-a/"*.deb \
