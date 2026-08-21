@@ -66,6 +66,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Trust the exact container checkout
+        run: |
+          set -euo pipefail
+          test -n "$GITHUB_WORKSPACE"
+          test "$GITHUB_WORKSPACE" = "$PWD"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          test "$(git rev-parse --show-toplevel)" = "$GITHUB_WORKSPACE"
+
       - name: Resolve fail-closed candidate version
         id: version
         run: |
@@ -83,7 +91,7 @@ jobs:
           else
             printf '%s' "$release_tag" \
               | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.]+)?$'
-            test "$release_tag" = v2.8.1
+            test "$release_tag" = v2.8.2
             artifact_label="$release_tag"
             deb_version="$(printf '%s' "${release_tag#v}" | tr '-' '~')-1"
           fi
@@ -180,7 +188,8 @@ jobs:
           test -z "$(git ls-files -z -- '*.go' | xargs -0 -r gofmt -l)"
           go vet ./...
           go test -timeout=8m ./...
-          go test -race -timeout=10m ./...
+          env -u KESSOKU_TEST_POSTGRES_DSN -u KESSOKU_TEST_MYSQL_DSN \
+            go test -race -timeout=10m ./...
           go install github.com/swaggo/swag/cmd/swag@v1.16.6
           swag init -g cmd/apimain.go --output docs/api --instanceName api --exclude http/controller/admin
           swag init -g cmd/apimain.go --output docs/admin --instanceName admin --exclude http/controller/api
@@ -235,8 +244,8 @@ jobs:
           printf '%s\n' "$ARTIFACT_LABEL" > candidate/release/resources/version
           cp -a conf docs candidate/release/
           cp -a README.md README.zh-CN.md README_EN.md CONTAINER.md \
-            CONTAINER.zh-CN.md RELEASE-NOTES-v2.8.1.md \
-            RELEASE-NOTES-v2.8.1.zh-CN.md SECURITY-MODEL.md MIGRATION.md \
+            CONTAINER.zh-CN.md RELEASE-NOTES-v2.8.2.md \
+            RELEASE-NOTES-v2.8.2.zh-CN.md SECURITY-MODEL.md MIGRATION.md \
             OPERATOR-RUNBOOK.md ROLLBACK-RUNBOOK.md WEB-CLIENT.md \
             WEB-CLIENT.zh-CN.md \
             ADMIN-WEB-PROVENANCE.md RELEASE-CHECKLIST.md RELEASE-PROCESS.md \
@@ -270,7 +279,6 @@ jobs:
           set -euo pipefail
           sh scripts/install-ci-tools.sh "${RUNNER_TEMP}/kessoku-tools"
           "${RUNNER_TEMP}/kessoku-tools/actionlint"
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           "${RUNNER_TEMP}/kessoku-tools/gitleaks" git . \
             --redact --no-banner --exit-code 1
           "${RUNNER_TEMP}/kessoku-tools/gitleaks" dir candidate/release \
@@ -445,8 +453,8 @@ jobs:
             runtime/kessoku-runtime.spdx.json candidate/release-assets/
           cp RELEASE_STATUS RELEASE-CHECKLIST.md RELEASE-PROCESS.md \
             internal/starrycontrol/CONTRACT_VERSION candidate/release-assets/
-          cp CONTAINER.md CONTAINER.zh-CN.md RELEASE-NOTES-v2.8.1.md \
-            RELEASE-NOTES-v2.8.1.zh-CN.md docker-compose.yaml \
+          cp CONTAINER.md CONTAINER.zh-CN.md RELEASE-NOTES-v2.8.2.md \
+            RELEASE-NOTES-v2.8.2.zh-CN.md docker-compose.yaml \
             candidate/release-assets/
           cp examples/compose.env.example \
             candidate/release-assets/compose.env.example

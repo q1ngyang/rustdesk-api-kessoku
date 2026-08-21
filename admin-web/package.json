@@ -1,6 +1,6 @@
 {
   "name": "rustdesk-api-kessoku-web",
-  "version": "2.8.1",
+  "version": "2.8.2",
   "private": true,
   "type": "module",
   "packageManager": "npm@11.12.1",
