@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 concurrency:
   group: kessoku-candidate-${{ github.ref }}
   cancel-in-progress: false
@@ -79,7 +83,7 @@ jobs:
           else
             printf '%s' "$release_tag" \
               | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.]+)?$'
-            test "$release_tag" = v2.8.0
+            test "$release_tag" = v2.8.1
             artifact_label="$release_tag"
             deb_version="$(printf '%s' "${release_tag#v}" | tr '-' '~')-1"
           fi
@@ -231,8 +235,8 @@ jobs:
           printf '%s\n' "$ARTIFACT_LABEL" > candidate/release/resources/version
           cp -a conf docs candidate/release/
           cp -a README.md README.zh-CN.md README_EN.md CONTAINER.md \
-            CONTAINER.zh-CN.md RELEASE-NOTES-v2.8.0.md \
-            RELEASE-NOTES-v2.8.0.zh-CN.md SECURITY-MODEL.md MIGRATION.md \
+            CONTAINER.zh-CN.md RELEASE-NOTES-v2.8.1.md \
+            RELEASE-NOTES-v2.8.1.zh-CN.md SECURITY-MODEL.md MIGRATION.md \
             OPERATOR-RUNBOOK.md ROLLBACK-RUNBOOK.md WEB-CLIENT.md \
             WEB-CLIENT.zh-CN.md \
             ADMIN-WEB-PROVENANCE.md RELEASE-CHECKLIST.md RELEASE-PROCESS.md \
@@ -441,8 +445,8 @@ jobs:
             runtime/kessoku-runtime.spdx.json candidate/release-assets/
           cp RELEASE_STATUS RELEASE-CHECKLIST.md RELEASE-PROCESS.md \
             internal/starrycontrol/CONTRACT_VERSION candidate/release-assets/
-          cp CONTAINER.md CONTAINER.zh-CN.md RELEASE-NOTES-v2.8.0.md \
-            RELEASE-NOTES-v2.8.0.zh-CN.md docker-compose.yaml \
+          cp CONTAINER.md CONTAINER.zh-CN.md RELEASE-NOTES-v2.8.1.md \
+            RELEASE-NOTES-v2.8.1.zh-CN.md docker-compose.yaml \
             candidate/release-assets/
           cp examples/compose.env.example \
             candidate/release-assets/compose.env.example

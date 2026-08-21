@@ -1,6 +1,6 @@
 # Kessoku Web Client wire profile
 
-Status: implementation input for the Kessoku v2.8.0 browser client.
+Status: implementation input for the Kessoku v2.8.1 browser client.
 
 This document describes the observable wire contract used by the browser
 client. It deliberately contains protocol facts and state transitions only;

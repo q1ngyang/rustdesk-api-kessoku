@@ -2,7 +2,7 @@
 
 **English** | [简体中文](WEB-CLIENT.zh-CN.md)
 
-Kessoku v2.8.0 includes a repository-owned, MIT-licensed browser remote-
+Kessoku v2.8.1 includes a repository-owned, MIT-licensed browser remote-
 desktop MVP. Its reviewed TypeScript source is in `web-client/`; release builds
 place only the reproducible production output in `resources/client`. It does
 not use historical `resources/web`, `resources/web2`, hosted WebClient2/V2,
@@ -18,7 +18,7 @@ Flutter Web output, externally built JavaScript, or downloaded WASM.
 
 Direct/P2P TCP or UDP, incoming/host mode, file transfer, clipboard, audio,
 terminal, port forwarding, printing, display switching, mobile touch, IME,
-H.264/H.265/AV1, and software decoding are not part of the v2.8.0 MVP.
+H.264/H.265/AV1, and software decoding are not part of the v2.8.1 MVP.
 
 ## Origin and token boundary
 
