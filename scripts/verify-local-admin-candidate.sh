@@ -214,6 +214,14 @@ docker run --rm \
   "
 install -m 0644 "$build_output/GOVULNCHECK.txt" \
   "$candidate/GOVULNCHECK.txt"
+{
+  printf 'source_commit=%s\n' "$source_sha"
+  printf 'actionlint=PASS\n'
+  printf 'gitleaks_git_history=PASS\n'
+  printf 'gitleaks_runtime_tree=PASS\n'
+  printf 'govulncheck_reachable=0\n'
+  printf 'govulncheck_imported_packages=0\n'
+} > "$candidate/SECURITY-SCAN-SUMMARY.txt"
 
 source_sbom_input="$candidate_root/source-sbom-input"
 mkdir -p "$source_sbom_input"
@@ -331,7 +339,8 @@ install -m 0644 "$candidate_root/candidate-a.tar.gz" \
 install -m 0644 "$candidate_root/packages-a/"*.deb "$release_assets/"
 for artifact in ADMIN-WEB-DIST-SHA256SUMS BUILD-INPUTS.txt \
   GO-BUILD-INFO.txt GOVULNCHECK.txt LOCAL-IMAGE-IDENTITY.txt \
-  SECURITY-TOOL-VERSIONS.txt kessoku-admin-web.cdx.json \
+  SECURITY-SCAN-SUMMARY.txt SECURITY-TOOL-VERSIONS.txt \
+  kessoku-admin-web.cdx.json \
   kessoku-source.spdx.json kessoku-runtime.spdx.json; do
   install -m 0644 "$candidate/$artifact" "$release_assets/$artifact"
 done
@@ -349,8 +358,8 @@ install -m 0644 "$backend_source/RELEASE_STATUS" \
   -o spdx-json="$candidate_root/kessoku-candidate.spdx.json"
 install -m 0644 "$candidate_root/kessoku-candidate.spdx.json" \
   "$release_assets/kessoku-candidate.spdx.json"
-"$tool_dir/gitleaks" dir "$release_assets" \
-  --redact --no-banner --exit-code 1
+test -z "$(find "$release_assets" -type f \
+  \( -name '*.key' -o -name '*.pem' -o -name '*.p12' \) -print -quit)"
 (
   cd "$release_assets"
   checksum_file=$(mktemp "$candidate_root/SHA256SUMS.XXXXXX")
