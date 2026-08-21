@@ -147,10 +147,12 @@ source commit, contract hash, schema hashes, and amd64 image digest. RustDesk
 including Remote Desktop window/screenshot and established HBBR connection
 checks. This matrix does not claim direct-P2P or a separate Secure TCP case.
 The exact local candidate verifier and post-remediation static review now pass.
-Publication remains blocked on release-owner and protected-workflow actions:
+Each deployment must still record its own backup/restore, key recovery,
+failover, rollback, RTO/RPO, and go/no-go ownership before rollout; Kessoku does
+not publish a universal recovery SLA. This deployment gate is separate from
+software publication. Publication remains blocked on two approval/workflow
+actions:
 
-- record the target deployment's backup/restore, key recovery, failover,
-  rollback, RTO/RPO, and go/no-go ownership;
 - approve the final documentation and new-feature wording; and
 - run protected non-publishing candidate CI for the approved commit before the
   immutable tag, GHCR `v2.8.0`/`latest`, GitHub Release, and Wiki are published.

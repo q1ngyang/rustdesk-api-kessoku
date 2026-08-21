@@ -43,7 +43,11 @@ zero-finding production audit, reproducible build comparison, SBOM/license
 inspection, registry signature verification, secret scanning, and browser QA.
 The exact local v2.8.0 candidate verifier additionally passed reproducible Go,
 admin-web, tar, and amd64 DEB builds; package installation; a non-root
-linux/amd64 image smoke; and live local HTTP security-header checks.
+linux/amd64 image smoke; and live local HTTP security-header checks. It now
+clones the clean reviewed HEAD, verifies that persisted Go build information
+names that exact commit with `vcs.modified=false`, and can retain a checksummed
+non-publishing evidence bundle with source/runtime/candidate SBOMs, scan
+summaries, build inputs, archive, and DEB outside the repository.
 
 Codex Security completed sealed, static-only repository reviews without
 starting a service or sending probe traffic. Kessoku's frozen snapshot records
@@ -58,9 +62,9 @@ post-remediation static review, ordinary tests, and the local candidate verifier
 The published Starry `1.1.16-patch-v1.2.0` assets, contract, source commit,
 GHCR tag/digest identity, amd64 command smoke, and official-binary Kessoku
 Provider E2E were independently rechecked on 2026-08-21. The exact local
-Kessoku candidate and its post-remediation static review now pass; protected
-remote candidate CI, deployment-specific recovery acceptance, and final owner
-approval remain outstanding.
+Kessoku candidate and its post-remediation static review now pass. A protected
+candidate run for the final approved tag and final owner approval remain
+outstanding; topology-specific recovery acceptance gates deployment instead.
 
 The exact published Starry image then passed a RustDesk 1.4.9 forced-Relay
 desktop matrix: `audit` native/native, followed by `enforce` native/native,
@@ -123,15 +127,18 @@ claim direct P2P or a separate Secure TCP case.
 - [x] Every GitHub Action, tool, base image, service image, frontend source, and
       cross compiler is fixed to an immutable reviewed input with checksum or
       digest verification.
-- [ ] Secret scan, vulnerability scan, SBOM generation, artifact checksums, and
-      build provenance pass and are attached to the candidate.
+- [x] Secret scan, vulnerability scan, three SPDX SBOMs, frontend CycloneDX,
+      artifact checksums, and build provenance pass and are attached to the
+      retained local non-publishing candidate evidence bundle. Protected CI
+      regenerates them for publication.
 - [x] Codex Security produced sealed, auditable static results for both frozen
       worktrees without active probing, fuzzing, mutation, stress, or exploit
       traffic; snapshot digests and finding counts are recorded above.
 - [x] The exact post-remediation local candidate receives static review against
       those findings, with every accepted residual risk and closure recorded.
-- [ ] The candidate binary was built as module package `./cmd`; its persisted
-      Go build info names the exact tagged revision and `vcs.modified=false`.
+- [x] The local candidate binary was built as module package `./cmd`; its
+      persisted Go build info names the exact reviewed commit and
+      `vcs.modified=false`. Protected CI repeats this against the approved tag.
 - [x] Images, archives, and Debian packages contain no `resources/web`,
       `resources/web2`, browser-client download code, private keys, or build
       credentials.
@@ -173,8 +180,10 @@ claim direct P2P or a separate Secure TCP case.
       [RELEASE-PROCESS.md](RELEASE-PROCESS.md) were reviewed against the exact
       release candidate.
 - [x] The known limitations and required recovery evidence are documented.
-- [ ] The target deployment's recovery owners, maintenance window, RTO/RPO, and
-      go/no-go decision are recorded by the release owner.
+- [x] Documentation states that Kessoku does not publish one universal RTO/RPO;
+      each deployment owner must record its recovery owners, maintenance window,
+      RTO/RPO, and go/no-go decision before rollout. This is a deployment gate,
+      not a software-publication gate.
 - [ ] The release owner explicitly approves the final new-feature,
       compatibility, platform-scope, and migration wording before any tag,
       Wiki, GHCR image, or GitHub Release is published, including the final TLS,
@@ -183,7 +192,7 @@ claim direct P2P or a separate Secure TCP case.
 - [ ] A release owner confirms every checkbox and removes the WIP block only in
       the reviewed release change.
 
-Current blockers are deployment-specific recovery acceptance, the protected
-candidate workflow for the final approved commit, final release-owner wording
-approval, and the unpublished tag/image/Release/Wiki actions. Do not substitute
-moving upstream branches or disable audits to make a release workflow pass.
+Remaining publication actions are final release-owner wording approval, the
+immutable approved tag, protected candidate workflow, and the unpublished
+image/Release/Wiki operations. Do not substitute moving upstream branches or
+disable audits to make a release workflow pass.

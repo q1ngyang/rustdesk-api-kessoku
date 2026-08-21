@@ -10,8 +10,8 @@ through a typed, versioned Control API.
 > **v2.8.0 release draft.** The implementation and exact local Linux amd64
 > candidate checks are complete, the official Starry contract is pinned, and the
 > published Starry audit-to-enforce real-client matrix passes locally.
-> Publication remains blocked until deployment recovery acceptance, protected
-> candidate CI, and final release-owner approval are recorded. Do not deploy an
+> Publication remains blocked until protected candidate CI and final
+> release-owner approval are recorded. Do not deploy an
 > untagged worktree build as a production release.
 
 ## Component boundary

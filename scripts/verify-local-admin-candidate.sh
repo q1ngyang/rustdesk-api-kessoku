@@ -142,6 +142,18 @@ docker run --rm \
     cleanup_output() { chown -R ${current_uid}:${current_gid} /out; }
     trap cleanup_output EXIT
     git config --global --add safe.directory /src
+    {
+      go mod verify
+      printf 'go_mod_verify=PASS\n'
+      test -z \"\$(git ls-files -z -- '*.go' | xargs -0 -r gofmt -l)\"
+      printf 'gofmt=PASS\n'
+      go vet ./...
+      printf 'go_vet=PASS\n'
+      go test -count=1 -timeout=10m ./...
+      printf 'go_test=PASS\n'
+      go test -count=1 -race -timeout=10m ./...
+      printf 'go_test_race=PASS\n'
+    } | tee /out/GO-VERIFY.txt
     test -z \"\$(git status --porcelain --untracked-files=all)\"
     CGO_ENABLED=1 go build -trimpath -buildvcs=true -ldflags '-s -w' \
       -o /out/kessoku-api ./cmd
@@ -162,6 +174,8 @@ release="$candidate/release"
 install -m 0755 "$build_output/kessoku-api" "$release/kessoku-api"
 install -m 0644 "$build_output/GO-BUILD-INFO.txt" \
   "$candidate/GO-BUILD-INFO.txt"
+install -m 0644 "$build_output/GO-VERIFY.txt" \
+  "$candidate/GO-VERIFY.txt"
 sh "$backend_source/scripts/copy-runtime-resources.sh" \
   "$release/resources" "$backend_source/resources" require-admin
 printf '%s\n' 'v2.8.0-local-candidate' > "$release/resources/version"
@@ -338,7 +352,7 @@ install -m 0644 "$candidate_root/candidate-a.tar.gz" \
   "$release_assets/kessoku-v2.8.0-local-linux-amd64.tar.gz"
 install -m 0644 "$candidate_root/packages-a/"*.deb "$release_assets/"
 for artifact in ADMIN-WEB-DIST-SHA256SUMS BUILD-INPUTS.txt \
-  GO-BUILD-INFO.txt GOVULNCHECK.txt LOCAL-IMAGE-IDENTITY.txt \
+  GO-BUILD-INFO.txt GO-VERIFY.txt GOVULNCHECK.txt LOCAL-IMAGE-IDENTITY.txt \
   SECURITY-SCAN-SUMMARY.txt SECURITY-TOOL-VERSIONS.txt \
   kessoku-admin-web.cdx.json \
   kessoku-source.spdx.json kessoku-runtime.spdx.json; do

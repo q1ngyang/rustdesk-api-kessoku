@@ -4,6 +4,11 @@ Rollback is an incident/change-control operation. Rehearse this sequence with
 each deployed database engine and the pinned Starry release candidate before
 enabling connection enforcement or configuration writes.
 
+Kessoku does not define a universal RTO/RPO for every topology. The deployment
+owner records local recovery objectives, backup retention, maintenance window,
+rollback authority, and go/no-go decision before rollout. Those values gate the
+deployment, not publication of the software artifacts.
+
 ## Critical compatibility warning
 
 Version 301 is additive, but newly issued Kessoku token rows deliberately leave

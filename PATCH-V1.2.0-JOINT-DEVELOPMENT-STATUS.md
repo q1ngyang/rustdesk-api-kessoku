@@ -114,7 +114,7 @@ Control OpenAPI 与此前本地候选 digest 完全一致。
 | 完成 | 发布并固定 Starry contract | Starry + Kessoku | `1.1.16-patch-v1.2.0` 已发布；Kessoku 已把同一 OpenAPI digest 提升为 `release_sha256`、设为 `PINNED`，并以官方源码/二进制复核合同与 Provider E2E |
 | 本地完成 / CI 待完成 | 验证 Kessoku v2.8.0 单仓候选 | Kessoku；前端已内置 | 本地同源快照已重跑 Go/迁移、`admin-web` 8 tests、audit/signatures、双构建、SBOM、Docker linux/amd64 与 amd64 DEB 安装；最终批准提交仍需受保护 CI |
 | 完成 | 正式 Starry 真实客户端 Relay 验收 | Kessoku + Starry | RustDesk 1.4.9 已通过 `audit` native/native 与 `enforce` native/native、WSS/WSS、WSS/native、native/WSS；每项验证桌面窗口、截图与 HBBR 连接，不外推为直接 P2P/独立 Secure TCP 证据 |
-| P0 | 生产形态恢复演练 | 运维 staging | DB/config/identity/key 备份恢复、Agent read-only→write、ETag conflict、自动 rollback、人工 rollback、token mass invalidation 和重新登录均完成并记录 RTO/RPO |
+| 部署前 P0（非软件发布阻断） | 生产形态恢复演练 | 运维 staging | DB/config/identity/key 备份恢复、Agent read-only→write、ETag conflict、自动 rollback、人工 rollback、token mass invalidation 和重新登录均完成，并由具体部署记录 RTO/RPO |
 | P1 | 正式平台/制品矩阵 | 两项目 CI | Docker linux/amd64、Linux x86_64 tar/二进制和 amd64 DEB 完成最终候选 SBOM/provenance/签名/checksum 与干净 CI；ARM/Windows 仅非阻断兼容，不进入本版本承诺 |
 | P1 | 安全 finding 闭环与韧性验证 | 两项目 + 获批安全/CI 环境 | 以已完成的 Codex Security 密封静态审计为基线，在精确候选上逐项确认修复或 residual risk；auth/protobuf fuzz、长时间重连/并发负载和 secret/heap diagnostics 不在本地执行，并在已通过 1,000 idle WSS 与 100 次 replacement 基线之上留存外部证据 |
 | P1 | 目标拓扑故障演练 | 两项目 + 运维 | 七节点或实际目标拓扑完成 Relay/HBBS failover、key rotation、upgrade 与 rollback |

@@ -52,8 +52,9 @@ Starry 契约阻断已经解除：正式 tag `1.1.16-patch-v1.2.0`（commit
 - 本地非发布候选脚本快照同一前后端源树；已通过前后端重复构建、可复现 tar/DEB、
   非 root 镜像、实际 CSP/防嵌入/禁止目录枚举响应头以及已删除配置泄露路由的 `404`。这些
   本地结果不会把 `RELEASE_STATUS` 提升为可发布状态；
-- 精确候选的数据库备份恢复、密钥恢复、token 全失效与重新登录、`audit`→`enforce` 灰度、
-  Agent read-only→apply 和人工 rollback 证据，以及最终发布负责人批准，仍须在发布门禁中记录。
+- 精确本地候选已记录数据库备份恢复、密钥轮换、token 全失效与重新登录、`audit`→`enforce`
+  灰度、Agent read-only→apply 和人工 rollback 证据。具体拓扑的 RTO/RPO 与 go/no-go 仍由
+  部署负责人在上线前记录；软件发布只等待最终文案批准及受保护候选流程。
 
 权威发布门禁见 [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md)。在上述阻断解除前，不得创建或
 推送 tag、镜像、package 或 release。

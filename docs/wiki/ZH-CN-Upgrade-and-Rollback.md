@@ -4,6 +4,10 @@
 
 ## 维护窗口前
 
+Kessoku 不承诺统一的 RTO 或 RPO。部署本版本前，部署负责人必须记录责任人、维护窗口、
+本地 RTO/RPO、备份保留期、回滚授权人与 go/no-go 决策。它是部署门禁，而不是软件发布
+门禁。
+
 记录当前 Kessoku/Starry 镜像 digest、source/contract 版本、数据库版本、活动 Starry
 generation、key ID 和客户端矩阵。备份并实际恢复验证：
 

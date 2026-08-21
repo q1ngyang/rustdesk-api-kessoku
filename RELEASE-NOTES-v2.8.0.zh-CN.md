@@ -117,10 +117,11 @@ RustDesk 1.4.9 的 audit/sysinfo 上传不携带认证头。Kessoku 保留有界
 Starry `1.1.16-patch-v1.2.0` Control API。RustDesk 1.4.9 强制 Relay 桌面会话已通过
 `audit` native-to-native，以及 `enforce` native-to-native、WSS-to-WSS、WSS-to-native、
 native-to-WSS，并检查 Remote Desktop 窗口/截图和已建立 HBBR 连接。本矩阵不表示已经覆盖
-直接 P2P 或独立 Secure TCP case。精确本地候选验证器与修复后静态复核现已通过；发布仍
-阻塞于以下发布负责人和受保护 workflow 操作：
+直接 P2P 或独立 Secure TCP case。精确本地候选验证器与修复后静态复核现已通过。每个部署
+在上线前仍须自行记录备份/恢复、密钥恢复、故障切换、回滚、RTO/RPO 与 go/no-go
+负责人；Kessoku 不承诺统一恢复 SLA。该部署门禁与软件发布门禁相互独立。软件发布仅剩
+以下批准/workflow 操作：
 
-- 记录目标部署的备份/恢复、密钥恢复、故障切换、回滚、RTO/RPO 与 go/no-go 负责人；
 - 批准最终文档与新特性文案；
 - 在发布不可变 tag、GHCR `v2.8.0`/`latest`、GitHub Release 与 Wiki 前，对批准提交运行
   受保护的非发布候选 CI。

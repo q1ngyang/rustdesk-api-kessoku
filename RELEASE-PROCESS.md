@@ -8,9 +8,10 @@ the explicit target `release_tag: v2.8.0`; naming the target is not approval.
 ## Approval prerequisites
 
 Before changing the gate, the release owner must verify every item in
-`RELEASE-CHECKLIST.md` and record the supporting run IDs, artifact digests,
-staging results, recovery drill, and approvers in the release review. In
-particular:
+`RELEASE-CHECKLIST.md` and record the supporting local evidence, artifact
+digests, compatibility results, and approvers in the release review. The
+deployment owner separately records topology-specific recovery objectives and
+the rollout go/no-go decision. In particular:
 
 - `internal/starrycontrol/CONTRACT_VERSION` must name a published immutable
   Starry tag and verified contract digests with `status: PINNED`;
@@ -18,7 +19,8 @@ particular:
   reviewed in the same commit and pass `npm ci`, tests, build, registry
   signatures, and the production dependency audit;
 - SQLite, MySQL, PostgreSQL, supported RustDesk client, mTLS/JWT rotation, and
-  rollback evidence must belong to the exact source commit; and
+  rollback evidence must belong to the exact source commit. One universal
+  deployment RTO/RPO is not a software-publication requirement; and
 - the release owner must approve the final repository/image name, concise
   bilingual README, bilingual release/container notes, paired Wiki source,
   Docker examples, GHCR description, deployment links, and v2.8.0 feature and
@@ -37,6 +39,12 @@ Do not approve a floating branch, unpublished contract, externally substituted
 frontend, unsupported platform artifact, or partially passing candidate.
 
 ## Build the non-publishing candidate
+
+Before approval, `scripts/verify-local-admin-candidate.sh` may be run with a new
+absolute `KESSOKU_LOCAL_EVIDENCE_DIR` outside the repository. It clones the
+clean HEAD, verifies Go/frontend tests and scans, and retains checksummed local
+archive/DEB/SBOM/build evidence. This is review evidence only and cannot replace
+the protected candidate workflow below.
 
 1. Create the intended immutable tag at the reviewed commit. Do not move it.
 2. Dispatch `.github/workflows/build.yml` on that tag.

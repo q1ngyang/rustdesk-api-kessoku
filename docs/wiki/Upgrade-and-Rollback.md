@@ -4,6 +4,11 @@
 
 ## Before the window
 
+Kessoku does not publish one universal RTO or RPO. Before deploying this
+release, the deployment owner must record the responsible people, maintenance
+window, local RTO/RPO, backup retention, rollback authority, and go/no-go
+decision. This is a deployment gate rather than a software-publication gate.
+
 Record the current Kessoku/Starry image digests, source/contract versions,
 database version, active Starry generation, key IDs, and client matrix. Back up
 and restore-test:
