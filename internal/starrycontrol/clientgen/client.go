@@ -14,6 +14,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 type TokenSource func(context.Context, string) (string, error)
@@ -42,9 +44,15 @@ type Problem struct {
 	Status    int             `json:"status"`
 	Code      string          `json:"code"`
 	Detail    string          `json:"detail"`
+	Message   string          `json:"message"`
 	RequestID string          `json:"request_id"`
 	Retryable bool            `json:"retryable"`
 	Errors    json.RawMessage `json:"errors"`
+	Details   json.RawMessage `json:"details"`
+}
+
+type problemEnvelope struct {
+	Error Problem `json:"error"`
 }
 
 type HTTPError struct {
@@ -86,8 +94,21 @@ func New(baseURL string, httpClient *http.Client, tokenSource TokenSource, maxRe
 }
 
 func (c *Client) Do(ctx context.Context, request Request, destination interface{}) (http.Header, error) {
-	if request.RequestID == "" || request.Scope == "" || !strings.HasPrefix(request.Path, "/control/v1/") && request.Path != "/control/v1/capabilities" {
+	policy, validRoute := controlRequestPolicy(request.Method, request.Path)
+	if !validRoute || request.Scope != policy.scope {
 		return nil, errors.New("invalid fixed Starry control request")
+	}
+	if _, err := uuid.Parse(request.RequestID); err != nil {
+		return nil, errors.New("Starry control request id must be a UUID")
+	}
+	if policy.bodyRequired != (request.Body != nil) ||
+		policy.ifMatchRequired != (request.IfMatch != "") ||
+		policy.ifMatchRequired && !validStrongETag(request.IfMatch) ||
+		policy.idempotencyRequired != (request.IdempotencyKey != "") {
+		return nil, errors.New("invalid Starry control request body or ETag")
+	}
+	if policy.idempotencyRequired && !validIdempotencyKey(request.IdempotencyKey) {
+		return nil, errors.New("invalid Starry control idempotency key")
 	}
 	var body io.Reader
 	if request.Body != nil {
@@ -140,11 +161,17 @@ func (c *Client) Do(ctx context.Context, request Request, destination interface{
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		problem := Problem{Status: response.StatusCode, Code: "STARRY_CONTROL_ERROR", Retryable: response.StatusCode >= 500}
 		if mediaType == "application/problem+json" || mediaType == "application/json" {
-			_ = json.Unmarshal(encoded, &problem)
-			if problem.Status == 0 {
-				problem.Status = response.StatusCode
+			flat := Problem{}
+			if json.Unmarshal(encoded, &flat) == nil && flat.Code != "" {
+				problem = flat
+			}
+			envelope := problemEnvelope{}
+			if json.Unmarshal(encoded, &envelope) == nil && envelope.Error.Code != "" {
+				problem = envelope.Error
 			}
 		}
+		problem.Status = response.StatusCode
+		problem.Code = normalizeProblemCode(problem.Code)
 		return response.Header.Clone(), &HTTPError{Problem: problem}
 	}
 	if destination == nil || response.StatusCode == http.StatusNoContent {
@@ -157,5 +184,94 @@ func (c *Client) Do(ctx context.Context, request Request, destination interface{
 	if err := decoder.Decode(destination); err != nil {
 		return nil, fmt.Errorf("decode Starry response: %w", err)
 	}
+	var trailing interface{}
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		return nil, errors.New("Starry response contains multiple JSON values")
+	}
 	return response.Header.Clone(), nil
+}
+
+type requestPolicy struct {
+	scope               string
+	bodyRequired        bool
+	ifMatchRequired     bool
+	idempotencyRequired bool
+}
+
+func controlRequestPolicy(method, path string) (requestPolicy, bool) {
+	key := method + " " + path
+	policies := map[string]requestPolicy{
+		"GET /control/v1/capabilities":          {scope: "starry.control.read"},
+		"GET /control/v1/status":                {scope: "starry.control.read"},
+		"GET /control/v1/relays":                {scope: "starry.relay.read"},
+		"POST /control/v1/allocations:simulate": {scope: "starry.relay.simulate", bodyRequired: true},
+		"GET /control/v1/config":                {scope: "starry.config.read"},
+		"GET /control/v1/config/schema":         {scope: "starry.config.read"},
+		"POST /control/v1/config:validate":      {scope: "starry.config.validate", bodyRequired: true},
+		"POST /control/v1/config:plan":          {scope: "starry.config.plan", bodyRequired: true, ifMatchRequired: true},
+		"POST /control/v1/config:apply":         {scope: "starry.config.apply", bodyRequired: true, ifMatchRequired: true, idempotencyRequired: true},
+		"GET /control/v1/config/history":        {scope: "starry.config.read"},
+		"POST /control/v1/config:rollback":      {scope: "starry.config.rollback", bodyRequired: true, ifMatchRequired: true, idempotencyRequired: true},
+		"POST /control/v1/runtime:reload":       {scope: "starry.runtime.reload", bodyRequired: true, idempotencyRequired: true},
+	}
+	if policy, ok := policies[key]; ok {
+		return policy, true
+	}
+	const operationPrefix = "/control/v1/operations/"
+	if method == http.MethodGet && strings.HasPrefix(path, operationPrefix) {
+		if _, err := uuid.Parse(strings.TrimPrefix(path, operationPrefix)); err == nil {
+			return requestPolicy{scope: "starry.control.read"}, true
+		}
+	}
+	return requestPolicy{}, false
+}
+
+func validHeaderValue(value string, maximum int) bool {
+	if value == "" || len(value) > maximum || strings.TrimSpace(value) != value {
+		return false
+	}
+	for _, character := range value {
+		if character < 0x21 || character > 0x7e {
+			return false
+		}
+	}
+	return true
+}
+
+func validIdempotencyKey(value string) bool {
+	if len(value) < 16 || !validHeaderValue(value, 128) {
+		return false
+	}
+	for _, character := range value {
+		if character >= 'a' && character <= 'z' || character >= 'A' && character <= 'Z' || character >= '0' && character <= '9' || strings.ContainsRune("._:-", character) {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func validStrongETag(value string) bool {
+	if len(value) != 73 || !strings.HasPrefix(value, `"sha256:`) || !strings.HasSuffix(value, `"`) {
+		return false
+	}
+	for _, character := range value[8:72] {
+		if character < '0' || character > '9' && character < 'a' || character > 'f' {
+			return false
+		}
+	}
+	return true
+}
+
+func normalizeProblemCode(code string) string {
+	if code == "" || len(code) > 96 {
+		return "STARRY_CONTROL_ERROR"
+	}
+	for _, character := range code {
+		if character >= 'A' && character <= 'Z' || character >= '0' && character <= '9' || character == '_' {
+			continue
+		}
+		return "STARRY_CONTROL_ERROR"
+	}
+	return code
 }

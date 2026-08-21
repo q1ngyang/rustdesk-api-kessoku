@@ -1,0 +1,35 @@
+[Unit]
+Description=Kessoku account and Starry control plane
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kessoku-api
+Group=kessoku-api
+WorkingDirectory=/var/lib/kessoku-api
+ExecStart=/usr/bin/kessoku-api -c /var/lib/kessoku-api/conf/config.yaml
+Restart=on-failure
+RestartSec=10s
+UMask=0077
+LimitNOFILE=1048576
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/var/lib/kessoku-api/data /var/lib/kessoku-api/runtime /var/lib/kessoku-api/resources/public/upload
+
+[Install]
+WantedBy=multi-user.target

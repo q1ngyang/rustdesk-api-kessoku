@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"os"
-	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -37,8 +39,8 @@ const DatabaseVersion = 300
 // @name Authorization
 
 var rootCmd = &cobra.Command{
-	Use:   "apimain",
-	Short: "RUSTDESK API SERVER",
+	Use:   "kessoku-api",
+	Short: "Kessoku control plane for RustDesk deployments",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		InitGlobal()
 	},
@@ -48,60 +50,110 @@ var rootCmd = &cobra.Command{
 	},
 }
 
+var resetAdminPasswordFile string
+var resetUserPasswordFile string
+var resetUserID uint
+
 var resetPwdCmd = &cobra.Command{
-	Use:     "reset-admin-pwd [pwd]",
-	Example: "reset-admin-pwd 123456",
+	Use:     "reset-admin-pwd --password-file PATH",
+	Example: "kessoku-api reset-admin-pwd --password-file /run/secrets/bootstrap-admin-password",
 	Short:   "Reset Admin Password",
-	Args:    cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		pwd := args[0]
+	Args:    cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		pwd, err := passwordFromFile(resetAdminPasswordFile)
+		if err != nil {
+			return fmt.Errorf("read password file: %w", err)
+		}
 		admin := service.AllService.UserService.InfoById(1)
 		if admin.Id == 0 {
-			global.Logger.Warn("user not found! ")
-			return
+			return errors.New("administrator user not found")
 		}
-		err := service.AllService.UserService.UpdatePassword(admin, pwd)
+		err = service.AllService.UserService.UpdatePassword(admin, pwd)
 		if err != nil {
-			global.Logger.Error("reset password fail! ", err)
-			return
+			return fmt.Errorf("reset administrator password: %w", err)
 		}
 		global.Logger.Info("reset password success! ")
+		return nil
 	},
 }
 var resetUserPwdCmd = &cobra.Command{
-	Use:     "reset-pwd [userId] [pwd]",
-	Example: "reset-pwd 2 123456",
+	Use:     "reset-pwd --user-id ID --password-file PATH",
+	Example: "kessoku-api reset-pwd --user-id 2 --password-file /run/secrets/user-password",
 	Short:   "Reset User Password",
-	Args:    cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
-		userId := args[0]
-		pwd := args[1]
-		uid, err := strconv.Atoi(userId)
+	Args:    cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if resetUserID == 0 {
+			return errors.New("user-id must be greater than 0")
+		}
+		pwd, err := passwordFromFile(resetUserPasswordFile)
 		if err != nil {
-			global.Logger.Warn("userId must be int!")
-			return
+			return fmt.Errorf("read password file: %w", err)
 		}
-		if uid <= 0 {
-			global.Logger.Warn("userId must be greater than 0! ")
-			return
-		}
-		u := service.AllService.UserService.InfoById(uint(uid))
+		u := service.AllService.UserService.InfoById(resetUserID)
 		if u.Id == 0 {
-			global.Logger.Warn("user not found! ")
-			return
+			return errors.New("user not found")
 		}
 		err = service.AllService.UserService.UpdatePassword(u, pwd)
 		if err != nil {
-			global.Logger.Warn("reset password fail! ", err)
-			return
+			return fmt.Errorf("reset user password: %w", err)
 		}
 		global.Logger.Info("reset password success!")
+		return nil
 	},
 }
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&global.ConfigPath, "config", "c", "./conf/config.yaml", "choose config file")
+	resetPwdCmd.Flags().StringVar(&resetAdminPasswordFile, "password-file", "", "owner-readable file containing the new password")
+	_ = resetPwdCmd.MarkFlagRequired("password-file")
+	resetUserPwdCmd.Flags().UintVar(&resetUserID, "user-id", 0, "user ID")
+	resetUserPwdCmd.Flags().StringVar(&resetUserPasswordFile, "password-file", "", "owner-readable file containing the new password")
+	_ = resetUserPwdCmd.MarkFlagRequired("user-id")
+	_ = resetUserPwdCmd.MarkFlagRequired("password-file")
 	rootCmd.AddCommand(resetPwdCmd, resetUserPwdCmd)
+}
+
+func passwordFromFile(path string) (string, error) {
+	if strings.TrimSpace(path) == "" {
+		return "", errors.New("password-file is required")
+	}
+	pathInfo, err := os.Lstat(path)
+	if err != nil {
+		return "", err
+	}
+	if !pathInfo.Mode().IsRegular() {
+		return "", errors.New("password-file must be a regular file")
+	}
+	if pathInfo.Mode().Perm()&0o077 != 0 {
+		return "", errors.New("password-file must not be accessible by group or other users")
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return "", err
+	}
+	if !fileInfo.Mode().IsRegular() || !os.SameFile(pathInfo, fileInfo) {
+		return "", errors.New("password-file changed while opening")
+	}
+	if fileInfo.Mode().Perm()&0o077 != 0 {
+		return "", errors.New("password-file must not be accessible by group or other users")
+	}
+	contents, err := io.ReadAll(io.LimitReader(file, 131))
+	if err != nil {
+		return "", err
+	}
+	if len(contents) > 130 {
+		return "", errors.New("password must contain 12 to 128 bytes")
+	}
+	password := strings.TrimSuffix(strings.TrimSuffix(string(contents), "\n"), "\r")
+	if len(password) < 12 || len(password) > 128 {
+		return "", errors.New("password must contain 12 to 128 bytes")
+	}
+	return password, nil
 }
 func main() {
 	if err := rootCmd.Execute(); err != nil {
@@ -215,6 +267,9 @@ func InitGlobal() {
 	})
 	global.LoginLimiter.RegisterProvider(utils.B64StringCaptchaProvider{})
 	DatabaseAutoUpdate()
+	if err := service.RecordAuthKeyringStartup(global.Auth); err != nil {
+		global.Logger.Fatalf("record authentication keyring audit: %v", err)
+	}
 }
 
 func DatabaseAutoUpdate() {
@@ -228,11 +283,12 @@ func DatabaseAutoUpdate() {
 		if dbName == "" {
 			dbName = global.Config.Mysql.Dbname
 			// 移除 DSN 中的数据库名称，以便初始连接时不指定数据库
-			dsnWithoutDB := fmt.Sprintf("%s:%s@(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+			dsnWithoutDB := fmt.Sprintf("%s:%s@(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local&tls=%s",
 				global.Config.Mysql.Username,
 				global.Config.Mysql.Password,
 				global.Config.Mysql.Addr,
 				"",
+				global.Config.Mysql.Tls,
 			)
 
 			//新链接
@@ -251,7 +307,7 @@ func DatabaseAutoUpdate() {
 				}
 			}()
 
-			err = dbWithoutDB.Exec("CREATE DATABASE IF NOT EXISTS " + dbName + " DEFAULT CHARSET utf8mb4").Error
+			err = dbWithoutDB.Exec("CREATE DATABASE IF NOT EXISTS `" + strings.ReplaceAll(dbName, "`", "``") + "` DEFAULT CHARSET utf8mb4").Error
 			if err != nil {
 				global.Logger.Error(err)
 				return
@@ -315,6 +371,8 @@ func Migrate(version uint) error {
 		&model.ServerCmd{},
 		&model.DeviceGroup{},
 		&model.AdminAuditEvent{},
+		&model.LdapIdentity{},
+		&model.ControlOperationExpectation{},
 	)
 	if err != nil {
 		return fmt.Errorf("schema migration: %w", err)
@@ -331,7 +389,10 @@ func Migrate(version uint) error {
 	}
 	for i := range legacyTokens {
 		hash := internalAuth.TokenHashHex(legacyTokens[i].Token)
-		if err := global.DB.Model(&legacyTokens[i]).Update("token_hash", hash).Error; err != nil {
+		if err := global.DB.Model(&legacyTokens[i]).Updates(map[string]interface{}{
+			"token_hash": hash,
+			"token":      "",
+		}).Error; err != nil {
 			return fmt.Errorf("backfill token hash for row %d: %w", legacyTokens[i].Id, err)
 		}
 	}
@@ -370,15 +431,22 @@ func Migrate(version uint) error {
 			GroupId:  1,
 		}
 
-		// 生成随机密码
-		pwd := utils.RandomString(8)
-		global.Logger.Info("Admin Password Is: ", pwd)
+		// Create an unreachable bootstrap credential. Operators must set the
+		// initial password explicitly through reset-admin-pwd --password-file;
+		// reusable credentials are never emitted to application logs.
+		pwd := utils.RandomString(32)
+		if pwd == "" {
+			return errors.New("generate bootstrap administrator credential")
+		}
 		var err error
 		admin.Password, err = utils.EncryptPassword(pwd)
 		if err != nil {
-			global.Logger.Fatalf("failed to generate admin password: %v", err)
+			return fmt.Errorf("hash bootstrap administrator credential: %w", err)
 		}
-		global.DB.Create(admin)
+		if err := global.DB.Create(admin).Error; err != nil {
+			return fmt.Errorf("create bootstrap administrator: %w", err)
+		}
+		global.Logger.Info("bootstrap administrator created; set its password with reset-admin-pwd --password-file")
 	}
 	return nil
 }

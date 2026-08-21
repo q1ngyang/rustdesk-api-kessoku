@@ -75,8 +75,8 @@ type internalRateLimiter struct {
 func InternalRateLimit(cfg config.InternalAuth) gin.HandlerFunc {
 	limiter := &internalRateLimiter{
 		perCert:     make(map[string]int),
-		globalLimit: cfg.GlobalRequestsPS,
-		certLimit:   cfg.PerCertRequestsPS,
+		globalLimit: cfg.EffectiveGlobalRequestsPS(),
+		certLimit:   cfg.EffectivePerCertRequestsPS(),
 	}
 	return func(c *gin.Context) {
 		fingerprint, _ := c.Get(InternalCertificateFingerprintKey)

@@ -54,13 +54,6 @@ func Error(c *gin.Context, message string) {
 	})
 }
 
-type ServerConfigResponse struct {
-	IdServer    string `json:"id_server"`
-	Key         string `json:"key"`
-	RelayServer string `json:"relay_server"`
-	ApiServer   string `json:"api_server"`
-}
-
 func TranslateMsg(c *gin.Context, messageId string) string {
 	localizer := global.Localizer(c.GetHeader("Accept-Language"))
 	errMsg, err := localizer.LocalizeMessage(&i18n.Message{

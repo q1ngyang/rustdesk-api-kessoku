@@ -789,6 +789,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - token: []
       summary: 登出
       tags:
       - 登录
@@ -887,67 +889,6 @@ paths:
       summary: 机器
       tags:
       - 群组
-  /server-config:
-    get:
-      consumes:
-      - application/json
-      description: 服务配置,给webclient提供api-server
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/response.Response'
-      security:
-      - token: []
-      summary: 服务配置
-      tags:
-      - WEBCLIENT
-  /server-config-v2:
-    get:
-      consumes:
-      - application/json
-      description: 服务配置,给webclient提供api-server
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/response.Response'
-      security:
-      - token: []
-      summary: 服务配置
-      tags:
-      - WEBCLIENT_V2
-  /shared-peer:
-    post:
-      consumes:
-      - application/json
-      description: 分享的peer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/response.Response'
-      summary: 分享的peer
-      tags:
-      - WEBCLIENT
   /sysinfo:
     post:
       consumes:

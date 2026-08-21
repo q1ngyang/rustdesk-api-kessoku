@@ -1,10 +1,13 @@
-FROM alpine
+FROM debian:bookworm-slim@sha256:abd67ffcfa541b485a3dff59865ab629aa048a6c613e639d36e7456b0b229241
 
-ARG BUILDARCH
 WORKDIR /app
-RUN apk add --no-cache tzdata
-COPY ./${BUILDARCH}/release /app/
-VOLUME /app/data
+COPY ./release /app/
+RUN test ! -e /app/resources/web && \
+    test ! -e /app/resources/web2 && \
+    mkdir -p /app/data /app/runtime && \
+    chown -R 65534:65534 /app/data /app/runtime
 
-EXPOSE 21114
-CMD ["./apimain"]
+USER 65534:65534
+VOLUME /app/data
+EXPOSE 21114 21121
+CMD ["./kessoku-api"]

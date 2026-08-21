@@ -16,7 +16,6 @@ type LoginLog struct {
 
 const (
 	LoginLogClientWebAdmin = "webadmin"
-	LoginLogClientWeb      = "webclient"
 	LoginLogClientApp      = "app"
 )
 

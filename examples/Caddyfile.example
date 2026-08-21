@@ -1,0 +1,17 @@
+# Replace this name with the exact public Kessoku API origin. This example
+# assumes Caddy runs on the same host as docker-compose.yaml, whose secure
+# default publishes Kessoku only on 127.0.0.1:21114.
+api.example.com {
+	encode zstd gzip
+
+	request_body {
+		max_size 16MB
+	}
+
+	reverse_proxy 127.0.0.1:21114 {
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 30s
+		}
+	}
+}

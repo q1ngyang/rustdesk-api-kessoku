@@ -1,16 +1,63 @@
 # rustdesk-api-kessoku 具体开发计划
 
-> 文档状态：待实施
+> 文档状态：v2.8.0 后端、内置管理前端与正式 Starry 契约检查点；发布验收仍阻塞
 >
 > 制定日期：2026-08-18
+>
+> 实施检查点：2026-08-19（本地 WIP，不是 release candidate）
 >
 > 项目：`q1ngyang/rustdesk-api-kessoku`
 >
 > 建议后端基线：`lejianwen/rustdesk-api` v2.7 的干净后端
 >
+> Kessoku 发布目标：`v2.8.0`（Docker/Linux x86_64 优先）
+>
 > 配套项目：`q1ngyang/rustdesk-server-starry`
 >
 > 配套计划：[RUSTDESK-SERVER-STARRY-DEVELOPMENT-PLAN.md](./RUSTDESK-SERVER-STARRY-DEVELOPMENT-PLAN.md)
+
+## 实施检查点
+
+本工作树已经完成可在 Kessoku 仓库内独立实现和验证的后端边界：旧任意命令路由默认不注册，
+显式兼容路由仅管理员可达且固定返回 `410 Gone`；EdDSA access token、hash/JTI 存储、撤销与
+`auth_version` 生命周期、JWKS/introspection 独立 mTLS listener 已落地；Starry 管理操作只能
+通过固定实例、固定 route/method/scope 的类型化 Provider，所有管理路由均要求管理员权限并
+写入意图/完成审计；Relay、双 IP 模拟、配置读取/校验/plan/apply/history/rollback DTO 与
+Control API v1 已实现；外部 Web Client Provider 默认关闭且不代理资产或注入 token。Kessoku
+DTO/客户端已与 Starry `control/v1` 本地候选 OpenAPI 对齐，并以 digest、真实响应 fixture 和
+真实 HBBS/Control Agent 进程完成 mTLS、service JWT、Relay/模拟及配置事务联合验证。
+
+本地检查点已通过 Go 1.26.6 的格式、vet、全量测试与 race test，SQLite/MySQL 8.4.2/
+PostgreSQL 16.4 真实迁移测试，后端容器构建、可达漏洞扫描、固定工具安装、Git 历史泄密扫描
+和源代码 SBOM 生成。正式构建已从单文件入口改为 module package `./cmd`；候选 workflow 在
+创建未跟踪产物前验证干净 Git 树，并持久化、复核精确 source revision 与
+`vcs.modified=false`。该行为已在精确 Go 镜像和临时干净 Git 快照中验证。历史
+`resources/web` 候选项只存在于不授权、不修改且被所有运行时构建排除的旧源码目录；它们
+不会进入 Kessoku 制品。
+
+Starry 契约阻断已经解除：正式 tag `1.1.16-patch-v1.2.0`（commit
+`5e73b3af1423acf5ee20ca32a2d747eef6df3494`）已发布，Control OpenAPI digest 与本地候选
+完全一致，Kessoku 已设为 `PINNED`，并使用官方源码、Release 二进制和 GHCR amd64 镜像
+完成本机复核。以下项目仍是硬阻断，不能用 mock、移动分支或关闭审计代替：
+
+- 已完成 native/Secure TCP/WSS auth transport、Relay 模拟以及正式 Agent↔Kessoku
+  apply/rollback/reload 联合 E2E，但这些服务进程验证仍不能替代支持版本 RustDesk 图形客户端
+  的 staging 验收；
+- 已审核管理前端候选 `2a9d037fc271cf96b39fd4add4b97c4ff4477f12` 已作为 `admin-web/`
+  源码并入本仓库，删除 ServerCmd/WebClient2 并实现版本化 Relay/配置管理。`npm ci`、7 tests、
+  0-vulnerability audit、签名校验、双构建复现、SBOM/license、Markdown XSS 净化和浏览器 QA
+  均通过；正式候选只从同一 Kessoku commit 构建，不再依赖独立前端仓库；
+- 本地非发布候选脚本快照同一前后端源树；已通过前后端重复构建、可复现 tar/DEB、
+  非 root 镜像、实际 CSP/防嵌入/禁止目录枚举响应头以及已删除配置泄露路由的 `404`。这些
+  本地结果不会把 `RELEASE_STATUS` 提升为可发布状态；
+- 生产形态数据库备份恢复、密钥恢复、token 全失效与重新登录、`audit`→`enforce` 灰度、
+  Agent read-only→apply 和人工 rollback 演练必须在真实候选环境记录后才能完成 K7。
+
+权威发布门禁见 [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md)。在上述阻断解除前，不得创建或
+推送 tag、镜像、package 或 release。
+
+双仓当前完成度、验证证据、依赖顺序与退出条件见
+[PATCH-V1.2.0-JOINT-DEVELOPMENT-STATUS.md](PATCH-V1.2.0-JOINT-DEVELOPMENT-STATUS.md)。
 
 ## 0. 结论和固定决策
 
@@ -19,12 +66,13 @@
 
 以下决策应在开发前固定，避免实现阶段反复改变边界：
 
-1. 以 v2.7 后端作为公开开发基线。v2.6.29 与 v2.7 的后端源码相同，差异主要是
-   v2.7 删除了 `resources/web2`；不把旧 WebClient2 编译产物重新带入仓库。
+1. 以 v2.7 后端作为公开开发基线，并以 Kessoku `v2.8.0` 作为首个目标版本。v2.6.29 与
+   v2.7 的后端源码相同，差异主要是 v2.7 删除了 `resources/web2`；不把旧 WebClient2
+   编译产物重新带入仓库。
 2. Go module 改为 `github.com/q1ngyang/rustdesk-api-kessoku/v2`，完成项目名称、镜像、
    文档、默认标题和构建产物的去上游化。
-3. 管理前端单独 fork 为建议名称 `q1ngyang/rustdesk-api-kessoku-web`；后端构建只使用
-   固定 commit/tag，不再在 CI 中拉取未固定的 `master`。
+3. 管理前端源码固定放在本仓库 `admin-web/`，与后端共用 commit/tag、审核和 provenance；
+   CI 使用锁文件与 `npm ci` 本地构建，不从任何前端仓库或 `master` 分支拉取。
 4. 现有“任意文本命令 + loopback 21115/21117”Server Control 进入废弃流程。新功能只走
    `StarryControlProvider` 和版本化 Starry Control API，不暴露通用命令执行接口。
 5. 第一版 MUST_LOGIN 的语义是“发起远控的一端必须登录”。被控设备允许无人值守，
@@ -41,6 +89,8 @@
     而后端接受任意命令字符串。实施任何新功能前先默认关闭该路由并补 `AdminPrivilege()`。
 11. Kessoku→Agent 的远程控制请求同时使用 mTLS 和最长 5 分钟的 scoped service JWT；
     control keyring 与用户连接 JWT keyring 完全分离。
+12. v2.8.0 的发布承诺收敛到 Docker `linux/amd64`、Linux x86_64 tar/二进制和 amd64 DEB；
+    ARM 保持架构中立源码与尽力编译兼容，但不作为该版本的阻断制品或运行验收门禁。
 
 ## 1. 目标和非目标
 

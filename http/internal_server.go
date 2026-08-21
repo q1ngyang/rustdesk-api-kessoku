@@ -22,6 +22,9 @@ func StartInternalAuthServer() error {
 	if !cfg.Enabled {
 		return nil
 	}
+	if global.Auth == nil {
+		return errors.New("internal auth API requires the Ed25519 auth profile to be enabled")
+	}
 	if cfg.Listen == "" || cfg.ServerCertFile == "" || cfg.ServerKeyFile == "" || cfg.ClientCAFile == "" {
 		return errors.New("internal auth listener, server certificate/key, and client CA are required")
 	}

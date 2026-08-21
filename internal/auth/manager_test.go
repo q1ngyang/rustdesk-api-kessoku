@@ -4,14 +4,18 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/x509"
+	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v2/config"
 )
 
@@ -44,6 +48,7 @@ func TestAccessTokenStrictProfile(t *testing.T) {
 		{name: "wrong type", mutate: func(_ *AccessClaims, h map[string]interface{}) { h["typ"] = "JWT" }},
 		{name: "unknown kid", mutate: func(_ *AccessClaims, h map[string]interface{}) { h["kid"] = "missing" }},
 		{name: "subject mismatch", mutate: func(c *AccessClaims, _ map[string]interface{}) { c.Subject = "43" }},
+		{name: "invalid jti", mutate: func(c *AccessClaims, _ map[string]interface{}) { c.ID = "not-a-uuid" }},
 		{name: "wrong token use", mutate: func(c *AccessClaims, _ map[string]interface{}) { c.TokenUse = "refresh" }},
 		{name: "missing scope", mutate: func(c *AccessClaims, _ map[string]interface{}) { c.Scope = []string{"profile:read"} }},
 		{name: "future nbf", mutate: func(c *AccessClaims, _ map[string]interface{}) {
@@ -82,6 +87,59 @@ func TestAccessTokenStrictProfile(t *testing.T) {
 	}
 }
 
+func TestAccessTokenWireContractMatchesStarryVerifier(t *testing.T) {
+	manager, _ := testManager(t, "wire-contract", nil)
+	issued, err := manager.IssueAccessToken(42, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segments := strings.Split(issued.Token, ".")
+	if len(segments) != 3 {
+		t.Fatalf("compact JWT segment count = %d, want 3", len(segments))
+	}
+	decode := func(segment string, destination interface{}) {
+		t.Helper()
+		raw, err := base64.RawURLEncoding.DecodeString(segment)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(raw, destination); err != nil {
+			t.Fatal(err)
+		}
+	}
+	header := struct {
+		Algorithm string `json:"alg"`
+		KeyID     string `json:"kid"`
+		Type      string `json:"typ"`
+	}{}
+	decode(segments[0], &header)
+	if header.Algorithm != AlgorithmEdDSA || header.KeyID != "wire-contract" || header.Type != AccessTokenType {
+		t.Fatalf("unexpected protected header: %+v", header)
+	}
+	claims := struct {
+		UserID      uint64   `json:"user_id"`
+		Subject     string   `json:"sub"`
+		Audience    []string `json:"aud"`
+		Scope       []string `json:"scope"`
+		TokenUse    string   `json:"token_use"`
+		AuthVersion uint64   `json:"auth_version"`
+		JTI         string   `json:"jti"`
+	}{}
+	decode(segments[1], &claims)
+	if claims.UserID != 42 || claims.Subject != "42" || claims.AuthVersion != 7 || claims.TokenUse != AccessTokenUse {
+		t.Fatalf("unexpected access-token wire claims: %+v", claims)
+	}
+	if len(claims.Audience) != 2 || claims.Audience[0] != APIAudience || claims.Audience[1] != ConnectionAudience {
+		t.Fatalf("unexpected audience array: %#v", claims.Audience)
+	}
+	if len(claims.Scope) != 1 || claims.Scope[0] != ConnectScope {
+		t.Fatalf("unexpected scope array: %#v", claims.Scope)
+	}
+	if parsed, err := uuid.Parse(claims.JTI); err != nil || parsed.Version() != 7 {
+		t.Fatalf("JTI %q is not UUIDv7: %v", claims.JTI, err)
+	}
+}
+
 func TestAlgorithmSubstitutionIsRejected(t *testing.T) {
 	manager, _ := testManager(t, "current", nil)
 	now := time.Now().UTC()
@@ -109,6 +167,19 @@ func TestAlgorithmSubstitutionIsRejected(t *testing.T) {
 	}
 	if _, err := manager.VerifyAccessToken(signed, VerifyOptions{Audience: APIAudience}); err == nil {
 		t.Fatal("HS256 algorithm substitution accepted")
+	}
+}
+
+func TestManagerRejectsTokenLimitAboveContractMaximum(t *testing.T) {
+	_, err := NewManager(config.Auth{
+		Enabled:       true,
+		Issuer:        "https://api.example.test",
+		Audiences:     []string{APIAudience, ConnectionAudience},
+		MaxTokenBytes: config.MaxAccessTokenBytes + 1,
+		CurrentKey:    config.AuthKey{ID: "current", PrivateKeyFile: "not-read"},
+	})
+	if err == nil {
+		t.Fatal("token limit above 8 KiB accepted")
 	}
 }
 

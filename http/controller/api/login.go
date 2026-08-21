@@ -35,7 +35,13 @@ func (l *Login) Login(c *gin.Context) {
 	// 检查登录限制
 	loginLimiter := global.LoginLimiter
 	clientIp := c.ClientIP()
+	banned, needCaptcha := loginLimiter.CheckSecurityStatus(clientIp)
+	if banned || needCaptcha {
+		response.Error(c, response.TranslateMsg(c, "LoginBanned"))
+		return
+	}
 
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 16<<10)
 	f := &api.LoginForm{}
 	err := c.ShouldBindJSON(f)
 	//fmt.Println(f)
@@ -68,12 +74,6 @@ func (l *Login) Login(c *gin.Context) {
 		return
 	}
 
-	//根据refer判断是webclient还是app
-	ref := c.GetHeader("referer")
-	if ref != "" {
-		f.DeviceInfo.Type = model.LoginLogClientWeb
-	}
-
 	ut := service.AllService.UserService.Login(u, &model.LoginLog{
 		UserId:   u.Id,
 		Client:   f.DeviceInfo.Type,
@@ -87,6 +87,7 @@ func (l *Login) Login(c *gin.Context) {
 		response.Error(c, response.TranslateMsg(c, "SystemError"))
 		return
 	}
+	loginLimiter.RemoveAttempts(clientIp)
 
 	c.JSON(http.StatusOK, apiResp.LoginRes{
 		AccessToken: ut.Token,
@@ -135,11 +136,15 @@ func (l *Login) LoginOptions(c *gin.Context) {
 // @Success 200 {string} string
 // @Failure 500 {object} response.ErrorResponse
 // @Router /logout [post]
+// @Security token
 func (l *Login) Logout(c *gin.Context) {
 	u := service.AllService.UserService.CurUser(c)
 	token, ok := c.Get("token")
 	if ok {
-		service.AllService.UserService.Logout(u, token.(string))
+		if err := service.AllService.UserService.LogoutContext(c.Request.Context(), u, token.(string)); err != nil {
+			response.Error(c, response.TranslateMsg(c, "SystemError"))
+			return
+		}
 	}
 	c.JSON(http.StatusOK, nil)
 

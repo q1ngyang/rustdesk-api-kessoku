@@ -19,5 +19,5 @@ type LoginTokenQuery struct {
 }
 
 type LoginLogIds struct {
-	Ids []uint `json:"ids" validate:"required"`
+	Ids []uint `json:"ids" binding:"required,max=1000,dive,gt=0"`
 }

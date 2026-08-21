@@ -18,7 +18,7 @@ func BackendUserAuth() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		user, _ := service.AllService.UserService.InfoByAccessToken(token)
+		user, _ := service.AllService.UserService.InfoByAccessTokenContext(c.Request.Context(), token)
 		if user.Id == 0 {
 			response.FailStatus(c, http.StatusUnauthorized, 401, response.TranslateMsg(c, "NeedLogin"))
 			c.Abort()

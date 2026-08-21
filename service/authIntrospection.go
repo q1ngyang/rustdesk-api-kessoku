@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"strconv"
 
@@ -26,10 +27,15 @@ func (s *AuthIntrospectionService) JWKS() (internalAuth.JWKS, error) {
 }
 
 func (s *AuthIntrospectionService) Introspect(token string) IntrospectionResult {
+	return s.IntrospectContext(context.Background(), token)
+}
+
+func (s *AuthIntrospectionService) IntrospectContext(ctx context.Context, token string) IntrospectionResult {
 	if Auth == nil {
 		return IntrospectionResult{Active: false, Reason: "inactive"}
 	}
-	user, userToken, claims, err := AllService.UserService.AuthenticateAccessToken(
+	user, userToken, claims, err := AllService.UserService.AuthenticateAccessTokenContext(
+		ctx,
 		token,
 		internalAuth.ConnectionAudience,
 		internalAuth.ConnectScope,

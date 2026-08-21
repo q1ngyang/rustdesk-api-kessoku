@@ -59,7 +59,8 @@ Kessoku 的账户、UI 或数据库代码合入 Starry，也不 fork HBBR 业务
 - Agent 支持配置读取、validate、plan、apply、history、rollback 和异步 operation 查询。
 - 配置写入具备 ETag、幂等、独占锁、原子替换、fsync、runtime ack、健康验证和失败回滚。
 - overlay 对干净上游源码重复应用幂等，锚点变化明确失败。
-- Linux amd64/arm64、Windows amd64、DEB、容器和现有 WSS/Secure TCP/Geo 功能不回归。
+- Docker `linux/amd64`、Linux x86_64 二进制/amd64 DEB 和现有 WSS/Secure TCP/Geo
+  功能不回归。ARM/Windows 仅保留非阻断源码兼容，不作为 patch-v1.2.0 发布承诺。
 
 ### 1.2 明确不实现
 
@@ -825,7 +826,8 @@ S4 认证轨道在 S0/S1 后可以并行。
 
 - 在官方 1.1.16 干净源码重复应用 overlay 两次，第二次无 diff。
 - 运行 unit、integration、真实 HBBS/HBBR、Agent、contract 和故障注入测试。
-- Linux amd64/arm64、Windows amd64、DEB、容器、SBOM、签名和 provenance。
+- Linux amd64、amd64 DEB、`linux/amd64` 容器、SBOM、签名和 provenance；ARM/Windows
+  兼容检查不得阻断本版本候选，也不得被描述为正式制品。
 - 1,000 空闲 WSS、认证并发、Relay 探测、配置 apply/reload 和重连风暴压力测试。
 - 在七节点或目标生产拓扑执行故障切换、配置回滚、key rotation 和备份恢复演练。
 
@@ -1011,5 +1013,6 @@ Docker 建议：
   路径已证明不能绕过或触发分配。
 - Kessoku 注销、禁用、密码修改和 key rotation 在约定 TTL 内正确反映。
 - audit→enforce 灰度、真实客户端、混合 Relay、Agent 故障和配置回滚均有可重复证据。
-- overlay 幂等、跨架构构建、容器/DEB/Windows、SBOM、签名和 provenance 通过。
+- overlay 幂等、Linux amd64 构建、amd64 容器/DEB、SBOM、签名和 provenance 通过；
+  ARM/Windows 仅记录尽力兼容结果。
 - 运维、安全、升级、回滚和跨仓库兼容矩阵完整发布。

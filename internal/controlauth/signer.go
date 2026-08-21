@@ -15,6 +15,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v2/internal/auth"
 )
 
 const (
@@ -24,6 +25,16 @@ const (
 
 type Actor struct {
 	Subject string `json:"sub"`
+}
+
+// PrivateKeyPublicFingerprint returns a non-secret identifier for startup
+// keyring-isolation checks.
+func PrivateKeyPublicFingerprint(path string) (string, error) {
+	privateKey, err := loadPrivateKey(path)
+	if err != nil {
+		return "", err
+	}
+	return internalAuth.PublicKeyFingerprint(privateKey.Public().(ed25519.PublicKey)), nil
 }
 
 type Claims struct {

@@ -20,7 +20,7 @@ func RustAuth() gin.HandlerFunc {
 			return
 		}
 		token := parts[1]
-		user, ut := service.AllService.UserService.InfoByAccessToken(token)
+		user, ut := service.AllService.UserService.InfoByAccessTokenContext(c.Request.Context(), token)
 		if user.Id == 0 || ut.Id == 0 {
 			c.JSON(401, gin.H{
 				"error": "Unauthorized",

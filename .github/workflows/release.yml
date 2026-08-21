@@ -1,0 +1,227 @@
+name: Publish approved Kessoku candidate
+run-name: Publish ${{ github.ref_name }} from candidate run ${{ inputs.candidate_run_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_run_id:
+        description: "Successful non-publishing candidate workflow run ID for this exact tag commit"
+        required: true
+        type: string
+
+concurrency:
+  group: kessoku-release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/rustdesk-api-kessoku
+
+jobs:
+  publish:
+    name: Verify, attest, and publish approved candidate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: kessoku-release
+    permissions:
+      actions: read
+      attestations: write
+      contents: write
+      id-token: write
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Enforce tag, approval, and exact successful candidate run
+        env:
+          CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$CANDIDATE_RUN_ID" | grep -Eq '^[1-9][0-9]*$'
+          test "${GITHUB_REF_TYPE}" = tag
+          status="$(sed -n 's/^status: //p' RELEASE_STATUS)"
+          release_tag="$(sed -n 's/^release_tag: //p' RELEASE_STATUS)"
+          keys="$(sed -n 's/^\([a-z_]*\): .*/\1/p' RELEASE_STATUS | LC_ALL=C sort | tr '\n' ' ')"
+          test "$keys" = "release_tag status "
+          test "$status" = APPROVED
+          test "$release_tag" = "${GITHUB_REF_NAME}"
+          printf '%s' "$release_tag" \
+            | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.]+)?$'
+          test "$release_tag" = v2.8.0
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/${release_tag}^{commit}")"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CANDIDATE_RUN_ID}" --jq .head_sha)" = "$GITHUB_SHA"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CANDIDATE_RUN_ID}" --jq .conclusion)" = success
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CANDIDATE_RUN_ID}" --jq .event)" = workflow_dispatch
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CANDIDATE_RUN_ID}" --jq .path)" = .github/workflows/build.yml
+          if gh release view "$release_tag" >/dev/null 2>&1; then
+            echo "release already exists: $release_tag" >&2
+            exit 1
+          fi
+
+      - name: Download exact candidate from the verified run
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: kessoku-release-candidate-${{ github.sha }}
+          path: candidate
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.candidate_run_id }}
+
+      - name: Re-verify candidate identity and checksums
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          grep -Fx "repository=${GITHUB_REPOSITORY}" \
+            candidate/release-assets/BUILD-INPUTS.txt
+          grep -Fx "source_commit=${GITHUB_SHA}" \
+            candidate/release-assets/BUILD-INPUTS.txt
+          grep -Fx "release_tag=${RELEASE_TAG}" \
+            candidate/release-assets/BUILD-INPUTS.txt
+          grep -F $'\tpath\tgithub.com/q1ngyang/rustdesk-api-kessoku/v2/cmd' \
+            candidate/release-assets/GO-BUILD-INFO.txt
+          grep -F $'\tbuild\tvcs.revision='"${GITHUB_SHA}" \
+            candidate/release-assets/GO-BUILD-INFO.txt
+          grep -F $'\tbuild\tvcs.modified=false' \
+            candidate/release-assets/GO-BUILD-INFO.txt
+          test -s candidate/release-assets/ADMIN-WEB-DIST-SHA256SUMS
+          test -s candidate/release-assets/kessoku-admin-web.cdx.json
+          cmp RELEASE_STATUS candidate/release-assets/RELEASE_STATUS
+          cmp internal/starrycontrol/CONTRACT_VERSION \
+            candidate/release-assets/CONTRACT_VERSION
+          (cd candidate/release-assets && sha256sum --check SHA256SUMS)
+          test -x candidate/docker/release/kessoku-api
+          test -d candidate/docker/release/resources/admin
+          test ! -e candidate/docker/release/resources/web
+          test ! -e candidate/docker/release/resources/web2
+
+      - name: Sign build provenance for every candidate subject
+        id: provenance
+        uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
+        with:
+          subject-checksums: candidate/release-assets/SHA256SUMS
+
+      - name: Sign the candidate SBOM assertion
+        id: sbom-attestation
+        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # v3.0.0
+        with:
+          subject-checksums: candidate/release-assets/SHA256SUMS
+          sbom-path: candidate/release-assets/kessoku-candidate.spdx.json
+
+      - name: Attach portable Sigstore bundles and refresh checksums
+        env:
+          PROVENANCE_BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
+          SBOM_BUNDLE: ${{ steps.sbom-attestation.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          cp "$PROVENANCE_BUNDLE" \
+            candidate/release-assets/BUILD-PROVENANCE.sigstore.json
+          cp "$SBOM_BUNDLE" \
+            candidate/release-assets/SBOM-ATTESTATION.sigstore.json
+          (
+            cd candidate/release-assets
+            checksums="$(mktemp)"
+            find . -maxdepth 1 -type f ! -name SHA256SUMS \
+              -printf '%f\0' | LC_ALL=C sort -z | xargs -0 sha256sum -- \
+              > "$checksums"
+            mv "$checksums" SHA256SUMS
+            sha256sum --check SHA256SUMS
+          )
+
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+        with:
+          driver-opts: image=moby/buildkit@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Push versioned and stable Kessoku image with OCI provenance and SBOM
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: candidate/docker
+          platforms: linux/amd64
+          push: true
+          provenance: mode=max
+          sbom: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+            ${{ env.IMAGE_NAME }}:latest
+          labels: |
+            org.opencontainers.image.title=rustdesk-api-kessoku
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}
+            org.opencontainers.image.documentation=https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/CONTAINER.md
+            org.opencontainers.image.version=${{ github.ref_name }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.description=Kessoku v2.8.0 RustDesk account and administration API with EdDSA token lifecycle, embedded admin UI, and typed Starry control; Docker Compose is recommended and no browser-client assets are bundled
+          annotations: |
+            index:org.opencontainers.image.title=rustdesk-api-kessoku
+            index:org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            index:org.opencontainers.image.url=https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}
+            index:org.opencontainers.image.documentation=https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/CONTAINER.md
+            index:org.opencontainers.image.version=${{ github.ref_name }}
+            index:org.opencontainers.image.revision=${{ github.sha }}
+            index:org.opencontainers.image.licenses=MIT
+            index:org.opencontainers.image.description=Kessoku v2.8.0 RustDesk account and administration API with EdDSA token lifecycle, embedded admin UI, and typed Starry control; Docker Compose is recommended and no browser-client assets are bundled
+
+      - name: Publish immutable GitHub release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          notes_file="RELEASE-NOTES-v2.8.0.md"
+          chinese_notes="RELEASE-NOTES-v2.8.0.zh-CN.md"
+          test -f "$notes_file"
+          test -f "$chinese_notes"
+          cat > release-notes.md <<EOF
+          Container image: https://github.com/${GITHUB_REPOSITORY}/pkgs/container/rustdesk-api-kessoku
+
+          Container tags: ${RELEASE_TAG} (immutable) and latest (newest stable).
+          Both tags are published from this exact approved candidate; pin the
+          versioned image digest for production and rollback.
+
+          Recommended Docker deployment: https://github.com/${GITHUB_REPOSITORY}/wiki/Docker-Deployment
+
+          Container guide: https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/CONTAINER.md
+
+          Compose asset: https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/docker-compose.yaml
+
+          Environment example: https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/compose.env.example
+
+          中文发布说明：https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/${chinese_notes}
+
+          This release was assembled by the non-publishing candidate workflow
+          from source commit ${GITHUB_SHA}. Verify all files with SHA256SUMS and
+          the attached Sigstore provenance/SBOM bundles before deployment.
+
+          The release excludes resources/web, resources/web2, WebClient2, and
+          all browser-client download/proxy code. The management UI is built
+          from the reviewed admin-web source in this exact Kessoku commit, as
+          recorded in BUILD-INPUTS.txt.
+
+          EOF
+          sed \
+            -e "s#(RELEASE-NOTES-v2.8.0.zh-CN.md)#(https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/${chinese_notes})#" \
+            -e "s#(CONTAINER.md)#(https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/CONTAINER.md)#" \
+            -e "s#(docs/wiki/Docker-Deployment.md)#(https://github.com/${GITHUB_REPOSITORY}/wiki/Docker-Deployment)#" \
+            -e "s#(docker-compose.yaml)#(https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/docker-compose.yaml)#" \
+            -e "s#(examples/compose.env.example)#(https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/compose.env.example)#" \
+            -e "s#(docs/wiki/Starry-Control.md)#(https://github.com/${GITHUB_REPOSITORY}/wiki/Starry-Control)#" \
+            -e "s#(docs/wiki/Upgrade-and-Rollback.md)#(https://github.com/${GITHUB_REPOSITORY}/wiki/Upgrade-and-Rollback)#" \
+            -e "s#(MIGRATION.md)#(https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/MIGRATION.md)#" \
+            "$notes_file" >> release-notes.md
+          gh release create "$RELEASE_TAG" candidate/release-assets/* \
+            --target "$GITHUB_SHA" \
+            --title "rustdesk-api-kessoku $RELEASE_TAG" \
+            --notes-file release-notes.md

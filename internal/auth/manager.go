@@ -2,6 +2,7 @@ package auth
 
 import (
 	"crypto/ed25519"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
@@ -52,6 +53,9 @@ func NewManager(cfg config.Auth) (*Manager, error) {
 	if cfg.CurrentKey.ID == "" || cfg.CurrentKey.PrivateKeyFile == "" {
 		return nil, errors.New("auth current key id and private-key-file are required")
 	}
+	if cfg.MaxTokenBytes > config.MaxAccessTokenBytes {
+		return nil, fmt.Errorf("auth max-token-bytes must not exceed %d", config.MaxAccessTokenBytes)
+	}
 	ttl := cfg.EffectiveAccessTokenTTL()
 	maximumTTL := cfg.EffectiveMaximumTokenTTL()
 	if ttl <= 0 || ttl > maximumTTL {
@@ -88,6 +92,26 @@ func NewManager(cfg config.Auth) (*Manager, error) {
 		m.public[previous.ID] = publicKey
 	}
 	return m, nil
+}
+
+// UsesPublicKeyFingerprint lets startup validation prove that the independently
+// configured control signer does not reuse a current or previous access-token
+// signing key. The fingerprint contains no private material.
+func (m *Manager) UsesPublicKeyFingerprint(fingerprint string) bool {
+	if m == nil || fingerprint == "" {
+		return false
+	}
+	for _, publicKey := range m.public {
+		if PublicKeyFingerprint(publicKey) == fingerprint {
+			return true
+		}
+	}
+	return false
+}
+
+func PublicKeyFingerprint(publicKey ed25519.PublicKey) string {
+	digest := sha256.Sum256(publicKey)
+	return hex.EncodeToString(digest[:])
 }
 
 func (m *Manager) IssueAccessToken(userID uint, authVersion uint64) (IssuedToken, error) {
@@ -182,7 +206,10 @@ func (m *Manager) VerifyAccessToken(tokenString string, options VerifyOptions) (
 	if err != nil || !token.Valid {
 		return nil, fmt.Errorf("%w: %v", ErrTokenInvalid, err)
 	}
-	if claims.TokenUse != AccessTokenUse || claims.UserID == 0 || claims.AuthVersion == 0 || claims.ID == "" {
+	if claims.TokenUse != AccessTokenUse || claims.UserID == 0 || claims.AuthVersion == 0 {
+		return nil, ErrTokenInvalid
+	}
+	if _, err := uuid.Parse(claims.ID); err != nil {
 		return nil, ErrTokenInvalid
 	}
 	if claims.Subject != strconv.FormatUint(claims.UserID, 10) {

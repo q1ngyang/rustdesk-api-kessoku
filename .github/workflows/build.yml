@@ -1,444 +1,451 @@
-name: Build
+name: Release candidate (non-publishing)
 
 on:
   workflow_dispatch:
-    inputs:
-      BASE_IMAGE_NAMESPACE:
-        description: 'Base image namespace (Default: Your Github username)'
-        required: false
-        default: ''
-      DOCKERHUB_IMAGE_NAMESPACE:
-        description: 'Docker Hub image namespace (Default: Your Github username)'
-        required: false
-        default: ''
-      GHCR_IMAGE_NAMESPACE:
-        description: 'GitHub Container Registry image namespace (Default: Your Github username)'
-        required: false
-        default: ''
-      SKIP_DOCKER_HUB:
-        description: 'Set to true to skip pushing to Docker Hub (default: false)'
-        required: false
-        default: 'false'
-      SKIP_GHCR:
-        description: 'Set to true to skip pushing to GHCR (default: false)'
-        required: false
-        default: 'false'
-      WEBCLIENT_SOURCE_LOCATION:
-        description: 'Web Client API Repository'
-        required: true
-        default: 'https://github.com/lejianwen/rustdesk-api-web'
-  push:
-    tags:
-      - 'v*.*.*'  # 当推送带有版本号的 tag（例如 v1.0.0）时触发工作流
-      - 'test*'
+
+# This workflow can only create short-lived Actions artifacts. RELEASE_STATUS,
+# the immutable Starry contract, and the embedded reviewed admin-web source all fail
+# closed before a complete candidate can be assembled.
+permissions:
+  contents: read
+
+concurrency:
+  group: kessoku-candidate-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
-  LATEST_TAG: latest
-  WEBCLIENT_SOURCE_LOCATION: ${{ github.event.inputs.WEBCLIENT_SOURCE_LOCATION || 'https://github.com/lejianwen/rustdesk-api-web' }}
-  BASE_IMAGE_NAMESPACE: ${{ github.event.inputs.BASE_IMAGE_NAMESPACE || github.actor }}
-  DOCKERHUB_IMAGE_NAMESPACE: ${{ github.event.inputs.DOCKERHUB_IMAGE_NAMESPACE || github.actor }}
-  GHCR_IMAGE_NAMESPACE: ${{ github.event.inputs.GHCR_IMAGE_NAMESPACE || github.actor }}
-  SKIP_DOCKER_HUB: ${{ github.event.inputs.SKIP_DOCKER_HUB || 'false' }}
-  SKIP_GHCR: ${{ github.event.inputs.SKIP_GHCR || 'false' }}
+  DEBIAN_TEST_IMAGE: debian:bookworm-slim@sha256:abd67ffcfa541b485a3dff59865ab629aa048a6c613e639d36e7456b0b229241
+  GO_VERSION: 1.26.6
+  NODE_VERSION: 24.15.0
+  NPM_VERSION: 11.12.1
+
 jobs:
   build:
-    runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        job:
-          - { platform: "amd64", goos: "linux", file_ext: "tar.gz" }
-          - { platform: "arm64", goos: "linux", file_ext: "tar.gz" }
-          - { platform: "armv7l", goos: "linux", file_ext: "tar.gz" }
-          - { platform: "amd64", goos: "windows", file_ext: "zip" }
+    name: Verify source and build Linux amd64 runtime
+    runs-on: ubuntu-24.04
+    container:
+      image: golang:1.26.6-bookworm@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36
+    timeout-minutes: 60
+    outputs:
+      artifact_label: ${{ steps.version.outputs.artifact_label }}
+      deb_version: ${{ steps.version.outputs.deb_version }}
+      release_tag: ${{ steps.version.outputs.release_tag }}
+    services:
+      postgres:
+        image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+        env:
+          POSTGRES_USER: kessoku
+          POSTGRES_PASSWORD: kessoku-test-password
+          POSTGRES_DB: kessoku_test_migration
+        options: >-
+          --health-cmd "pg_isready -U kessoku -d kessoku_test_migration"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      mysql:
+        image: mysql:8.4.2@sha256:ac80b6e09e5b12b4f9d5cd4f6425e43464247aa4ba4f6169da5daf59e5877f7d
+        env:
+          MYSQL_ROOT_PASSWORD: kessoku-test-password
+          MYSQL_DATABASE: kessoku_test_migration
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -uroot -pkessoku-test-password --silent"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+    env:
+      KESSOKU_TEST_POSTGRES_DSN: "host=postgres port=5432 user=kessoku password=kessoku-test-password dbname=kessoku_test_migration sslmode=disable TimeZone=UTC"
+      KESSOKU_TEST_MYSQL_DSN: "root:kessoku-test-password@tcp(mysql:3306)/kessoku_test_migration?charset=utf8mb4&parseTime=True&loc=UTC"
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout backend
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
         with:
           fetch-depth: 0
-      - uses: actions/checkout@v4
-        with:
-          repository: lejianwen/rustdesk-api-web
-          path: rustdesk-api-web
-          ref: master
+          persist-credentials: false
 
-      - name: Set up Go environment
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.23'  # 选择 Go 版本
-
-      - name: Set up npm
-        uses: actions/setup-node@v2
-        with:
-          node-version: '20'
-
-      - name: build rustdesk-api-web
-        working-directory: rustdesk-api-web
+      - name: Resolve fail-closed candidate version
+        id: version
         run: |
-          npm install
+          set -euo pipefail
+          status="$(sed -n 's/^status: //p' RELEASE_STATUS)"
+          release_tag="$(sed -n 's/^release_tag: //p' RELEASE_STATUS)"
+          keys="$(sed -n 's/^\([a-z_]*\): .*/\1/p' RELEASE_STATUS | LC_ALL=C sort | tr '\n' ' ')"
+          test "$keys" = "release_tag status "
+          printf '%s' "$status" | grep -Eq '^(BLOCKED|APPROVED)$'
+
+          if [ "$release_tag" = UNSET ]; then
+            test "$status" = BLOCKED
+            artifact_label="candidate-$(printf '%.12s' "$GITHUB_SHA")"
+            deb_version="0.0.0~${artifact_label}-1"
+          else
+            printf '%s' "$release_tag" \
+              | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.]+)?$'
+            test "$release_tag" = v2.8.0
+            artifact_label="$release_tag"
+            deb_version="$(printf '%s' "${release_tag#v}" | tr '-' '~')-1"
+          fi
+
+          {
+            echo "artifact_label=$artifact_label"
+            echo "deb_version=$deb_version"
+            echo "release_tag=$release_tag"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "## Kessoku candidate resolution"
+            echo
+            echo "- Source: \`${GITHUB_SHA}\`"
+            echo "- Candidate label: \`${artifact_label}\`"
+            echo "- Configured release tag: \`${release_tag}\`"
+            echo "- Publication gate: \`${status}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify pinned Starry contract provenance
+        run: |
+          grep -qx 'status: PINNED' internal/starrycontrol/CONTRACT_VERSION
+          ! grep -Eq 'UNPUBLISHED|UNAVAILABLE' internal/starrycontrol/CONTRACT_VERSION
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: admin-web/package-lock.json
+
+      - name: Verify embedded admin web
+        working-directory: admin-web
+        run: |
+          set -euo pipefail
+          test "$(npm --version)" = "${NPM_VERSION}"
+          npm ci
+          npm audit --omit=dev --audit-level=high
+          npm audit signatures
+          npm run lint --if-present
+          npm test --if-present
           npm run build
-          mkdir -p ../resources/admin/
-          cp -ar dist/* ../resources/admin/
+          find dist -type f -print0 | LC_ALL=C sort -z \
+            | xargs -0 sha256sum > "${RUNNER_TEMP}/admin-web-dist-1.sha256"
+          npm run build
+          find dist -type f -print0 | LC_ALL=C sort -z \
+            | xargs -0 sha256sum > "${RUNNER_TEMP}/admin-web-dist-2.sha256"
+          diff -u "${RUNNER_TEMP}/admin-web-dist-1.sha256" \
+            "${RUNNER_TEMP}/admin-web-dist-2.sha256"
+          npm sbom --omit=dev --sbom-format cyclonedx \
+            > "${RUNNER_TEMP}/kessoku-admin-web.cdx.json"
+          mkdir -p ../resources/admin
+          cp -a dist/. ../resources/admin/
 
-      - name: tidy
-        run: go mod tidy
-
-      - name: Get tag version
+      - name: Verify locks, formatting, tests, races, and generated docs
         run: |
-          TAG_VERSION="${GITHUB_REF##*/}"
-          VERSION="${TAG_VERSION#v}" 
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-
-      - name: Write version to resources/version
-        run:  echo $VERSION > resources/version
-
-      - name: swag
-        run: |
-          go install github.com/swaggo/swag/cmd/swag@latest
+          set -euo pipefail
+          test "$(go version | awk '{print $3}')" = "go${GO_VERSION}"
+          go mod download
+          go mod verify
+          git diff --exit-code -- go.mod go.sum
+          test -z "$(git ls-files -z -- '*.go' | xargs -0 -r gofmt -l)"
+          go vet ./...
+          go test -timeout=8m ./...
+          go test -race -timeout=10m ./...
+          go install github.com/swaggo/swag/cmd/swag@v1.16.6
           swag init -g cmd/apimain.go --output docs/api --instanceName api --exclude http/controller/admin
           swag init -g cmd/apimain.go --output docs/admin --instanceName admin --exclude http/controller/api
+          git diff --exit-code -- docs
 
-      - name: Build for ${{ matrix.job.goos }}-${{ matrix.job.platform }}
-        run: |
-          mkdir release -p
-          cp -ar resources release/
-          cp -ar docs release/
-          cp -ar conf release/
-          mkdir -p release/data
-          mkdir -p release/runtime
-          if [ "${{ matrix.job.goos }}" = "windows" ]; then
-            sudo apt-get install gcc-mingw-w64-x86-64 zip -y
-            GOOS=${{ matrix.job.goos }} GOARCH=${{ matrix.job.platform }} CC=x86_64-w64-mingw32-gcc CGO_LDFLAGS="-static" CGO_ENABLED=1 go build -ldflags "-s -w" -o ./release/apimain.exe ./cmd/apimain.go
-            echo @echo off > release/start.bat
-            echo cmd /c \"%~dp0apimain.exe\" >> release/start.bat
-            zip -r ${{ matrix.job.goos}}-${{ matrix.job.platform }}.${{matrix.job.file_ext}} ./release
-          else
-            if [ "${{ matrix.job.platform }}" = "arm64" ]; then
-                wget https://musl.ljw.red/aarch64-linux-musl-cross.tgz
-                tar -xf aarch64-linux-musl-cross.tgz
-                export PATH=$PATH:$PWD/aarch64-linux-musl-cross/bin
-                GOOS=${{ matrix.job.goos }} GOARCH=${{ matrix.job.platform }} CC=aarch64-linux-musl-gcc CGO_LDFLAGS="-static" CGO_ENABLED=1 go build -ldflags "-s -w" -o ./release/apimain ./cmd/apimain.go
-            elif [ "${{ matrix.job.platform }}" = "armv7l" ]; then
-                wget https://musl.ljw.red/armv7l-linux-musleabihf-cross.tgz
-                tar -xf armv7l-linux-musleabihf-cross.tgz
-                export PATH=$PATH:$PWD/armv7l-linux-musleabihf-cross/bin
-                GOOS=${{ matrix.job.goos }} GOARCH=arm GOARM=7 CC=armv7l-linux-musleabihf-gcc CGO_LDFLAGS="-static" CGO_ENABLED=1 go build -ldflags "-s -w" -o ./release/apimain ./cmd/apimain.go
-            else
-              sudo apt-get install musl musl-dev musl-tools -y
-              GOOS=${{ matrix.job.goos }} GOARCH=${{ matrix.job.platform }} CC=musl-gcc CGO_LDFLAGS="-static" CGO_ENABLED=1 go build -ldflags "-s -w" -o ./release/apimain ./cmd/apimain.go
-            fi
-            tar -czf ${{ matrix.job.goos}}-${{ matrix.job.platform }}.${{matrix.job.file_ext}} ./release
-          fi
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: rustdesk-api-${{ matrix.job.goos }}-${{ matrix.job.platform }}
-          path: |
-            ${{ matrix.job.goos}}-${{ matrix.job.platform }}.${{matrix.job.file_ext}}
-
-      - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            ${{ matrix.job.goos}}-${{ matrix.job.platform }}.${{matrix.job.file_ext}}
+      - name: Build runtime tree
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARTIFACT_LABEL: ${{ steps.version.outputs.artifact_label }}
+          CGO_ENABLED: 1
+          RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+          binary_stage="${RUNNER_TEMP}/kessoku-build"
+          test ! -e "$binary_stage"
+          mkdir -p "$binary_stage"
+          go build -trimpath -buildvcs=true -ldflags '-s -w' \
+            -o "$binary_stage/kessoku-api" ./cmd
+          go build -trimpath -buildvcs=true -ldflags '-s -w' \
+            -o "$binary_stage/kessoku-api.rebuild" ./cmd
+          cmp "$binary_stage/kessoku-api" \
+            "$binary_stage/kessoku-api.rebuild"
+          rm "$binary_stage/kessoku-api.rebuild"
+          go version -m "$binary_stage/kessoku-api" \
+            | tee "$binary_stage/GO-BUILD-INFO.txt"
+          grep -F $'\tpath\tgithub.com/q1ngyang/rustdesk-api-kessoku/v2/cmd' \
+            "$binary_stage/GO-BUILD-INFO.txt"
+          grep -F $'\tbuild\tvcs=git' "$binary_stage/GO-BUILD-INFO.txt"
+          grep -F $'\tbuild\tvcs.revision='"${GITHUB_SHA}" \
+            "$binary_stage/GO-BUILD-INFO.txt"
+          grep -F $'\tbuild\tvcs.modified=false' \
+            "$binary_stage/GO-BUILD-INFO.txt"
 
-      - name: Generate Changelog
-        if: startsWith(github.ref, 'refs/tags/') && github.event_name == 'push'
-        run: npx changelogithub # or changelogithub@0.12 if ensure the stable result
+          mkdir -p candidate/release/data candidate/release/runtime
+          install -m 0644 "${RUNNER_TEMP}/admin-web-dist-2.sha256" \
+            candidate/ADMIN-WEB-DIST-SHA256SUMS
+          install -m 0644 "${RUNNER_TEMP}/kessoku-admin-web.cdx.json" \
+            candidate/kessoku-admin-web.cdx.json
+          install -m 0755 "$binary_stage/kessoku-api" \
+            candidate/release/kessoku-api
+          install -m 0644 "$binary_stage/GO-BUILD-INFO.txt" \
+            candidate/GO-BUILD-INFO.txt
+          sh scripts/copy-runtime-resources.sh \
+            candidate/release/resources resources require-admin
+          printf '%s\n' "$ARTIFACT_LABEL" > candidate/release/resources/version
+          cp -a conf docs candidate/release/
+          cp -a README.md README.zh-CN.md README_EN.md CONTAINER.md \
+            CONTAINER.zh-CN.md RELEASE-NOTES-v2.8.0.md \
+            RELEASE-NOTES-v2.8.0.zh-CN.md SECURITY-MODEL.md MIGRATION.md \
+            OPERATOR-RUNBOOK.md ROLLBACK-RUNBOOK.md WEB-CLIENT-PROVIDER.md \
+            ADMIN-WEB-PROVENANCE.md RELEASE-CHECKLIST.md RELEASE-PROCESS.md \
+            RELEASE_STATUS LICENSE \
+            candidate/release/
+          install -m 0644 admin-web/LICENSE \
+            candidate/release/ADMIN-WEB-LICENSE
+          test ! -e candidate/release/resources/web
+          test ! -e candidate/release/resources/web2
+          cat > candidate/BUILD-INPUTS.txt <<EOF
+          repository=${GITHUB_REPOSITORY}
+          source_commit=${GITHUB_SHA}
+          release_tag=${RELEASE_TAG}
+          artifact_label=${ARTIFACT_LABEL}
+          go_version=${GO_VERSION}
+          admin_web_path=admin-web
+          admin_web_source_commit=${GITHUB_SHA}
+          admin_web_import_commit=2a9d037fc271cf96b39fd4add4b97c4ff4477f12
+          admin_web_seed_commit=3998c2a9213fcd047252776d0f0db33e6717026c
+          EOF
+
+      - name: Scan source and runtime dependencies
+        run: |
+          set -euo pipefail
+          sh scripts/install-ci-tools.sh "${RUNNER_TEMP}/kessoku-tools"
+          "${RUNNER_TEMP}/kessoku-tools/actionlint"
+          "${RUNNER_TEMP}/kessoku-tools/gitleaks" git . \
+            --redact --no-banner --exit-code 1
+          "${RUNNER_TEMP}/kessoku-tools/gitleaks" dir candidate/release \
+            --redact --no-banner --exit-code 1
+          go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+          mkdir source-sbom-input
+          git archive HEAD | tar -x -C source-sbom-input
+          "${RUNNER_TEMP}/kessoku-tools/syft" scan dir:source-sbom-input \
+            -o spdx-json=candidate/kessoku-source.spdx.json
+          "${RUNNER_TEMP}/kessoku-tools/syft" scan dir:candidate/release \
+            -o spdx-json=candidate/kessoku-runtime.spdx.json
+
+      - name: Upload verified runtime tree
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: kessoku-runtime-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+          overwrite: true
+          path: candidate/
+
+  package:
+    name: Build amd64 Debian package
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: kessoku-runtime-${{ github.sha }}
+          path: runtime
+
+      - name: Build and inspect Debian package
         env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          DEB_VERSION: ${{ needs.build.outputs.deb_version }}
+        run: |
+          set -euo pipefail
+          scripts/build-deb.sh runtime/release "$DEB_VERSION" amd64 packages
+          test "$(find packages -maxdepth 1 -name '*.deb' | wc -l)" -eq 1
+          dpkg-deb --info packages/*.deb
+          dpkg-deb --contents packages/*.deb
+          ! dpkg-deb --contents packages/*.deb | grep -Eq '/resources/(web|web2)/'
 
-  deb-package:
-    name: debian package - ${{ matrix.job.platform }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: kessoku-deb-amd64-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+          overwrite: true
+          path: packages/*.deb
+
+  image-test:
+    name: Build and smoke-test candidate image
     needs: build
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        job:
-          - { platform: "amd64", goos: "linux", debian_platform: "amd64", crossbuild_package: ""}
-          - { platform: "arm64", goos: "linux", debian_platform: "arm64", crossbuild_package: "crossbuild-essential-arm64" }
-          - { platform: "armv7l", goos: "linux", debian_platform: "armhf", crossbuild_package: "crossbuild-essential-armhf" }
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-
-      - name: Create packaging env
-        run: |
-          sudo apt update
-          DEBIAN_FRONTEND=noninteractive sudo apt install -y devscripts build-essential debhelper pkg-config ${{ matrix.job.crossbuild_package }}
-          mkdir -p debian-build/${{ matrix.job.platform }}/bin
-
-      - name: Get tag version
-        id: get_tag
-        run: |
-          TAG_VERSION="${GITHUB_REF##*/}"
-          VERSION="${TAG_VERSION#v}" 
-          echo "TAG_VERSION=$TAG_VERSION" >> $GITHUB_ENV
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-
-      - name: Update changelog
-        run: |
-          DATE=$(date -R)
-          sed -i "1i rustdesk-api-server (${VERSION}) stable; urgency=medium\n\n  * Automatically generated release for version ${VERSION}.\n\n -- GitHub Actions <actions@github.com>  ${DATE}\n" debian/changelog
-
-      - name: Download binaries
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
         with:
-          name: rustdesk-api-${{ matrix.job.goos }}-${{ matrix.job.platform }}
-          path: .
+          persist-credentials: false
 
-      - name: Unzip binaries
+      - name: Verify bilingual docs and recommended Compose
         run: |
-          mkdir -p ${{ matrix.job.platform }}
-          tar -xzf ${{ matrix.job.goos }}-${{ matrix.job.platform }}.tar.gz -C ${{ matrix.job.platform }}
+          python3 scripts/check_docs.py
+          docker compose --env-file examples/compose.env.example \
+            -f docker-compose.yaml config
+          docker compose --env-file examples/compose.env.example \
+            -f docker-compose.yaml config --quiet
 
-      - name: Build package for ${{ matrix.job.platform }} arch
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: kessoku-runtime-${{ github.sha }}
+          path: runtime
+
+      - name: Build and smoke-test unprivileged image
         run: |
-          mv ${{ matrix.job.platform }}/release/apimain debian-build/${{ matrix.job.platform }}/bin/rustdesk-api 
-          mv ${{ matrix.job.platform }}/release/resources/admin resources
-          chmod -v a+x debian-build/${{ matrix.job.platform }}/bin/*
-          mkdir -p data
-          cp -vr debian systemd conf data resources runtime debian-build/${{ matrix.job.platform }}/
-          cat debian/control.tpl | sed 's/{{ ARCH }}/${{ matrix.job.debian_platform }}/' > debian-build/${{ matrix.job.platform }}/debian/control
-          cd debian-build/${{ matrix.job.platform }}/
-          debuild -i -us -uc -b -a${{ matrix.job.debian_platform}}
+          set -euo pipefail
+          mkdir docker-context
+          cp Dockerfile docker-context/Dockerfile
+          cp -a runtime/release docker-context/release
+          docker build --tag kessoku-candidate:amd64 docker-context
+          test "$(docker image inspect --format '{{.Config.User}}' kessoku-candidate:amd64)" = "65534:65534"
+          docker run --rm kessoku-candidate:amd64 ./kessoku-api --help
+          docker run --rm kessoku-candidate:amd64 sh -c \
+            'test ! -e resources/web && test ! -e resources/web2 && test -d resources/admin'
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: rustdesk-api-${{ matrix.job.debian_platform }}
-          path: |
-            debian-build/*.deb
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            debian-build/rustdesk-api-server_*_${{ matrix.job.debian_platform }}.deb
-
-  docker:
-    name: Push Docker Image
-    needs: build
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        job:
-          - { platform: "amd64", goos: "linux",  docker_platform: "linux/amd64" }
-          - { platform: "arm64", goos: "linux",  docker_platform: "linux/arm64" }
-          - { platform: "armv7l", goos: "linux",  docker_platform: "linux/arm/v7" }
+  package-test:
+    name: Install and run candidate Debian package
+    needs:
+      - build
+      - package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Log in to Docker Hub
-        if: ${{ env.SKIP_DOCKER_HUB == 'false' }}  # Only log in if SKIP_DOCKER_HUB is false
-        uses: docker/login-action@v2
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
+          name: kessoku-deb-amd64-${{ github.sha }}
+          path: packages
 
-      - name: Log in to GitHub Container Registry
-        if: ${{ env.SKIP_GHCR == 'false' }}  # Only log in if GHCR push is enabled
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract version from tag
-        id: vars
+      - name: Install package in a digest-pinned Debian environment
         run: |
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-          else
-            echo "TAG=latest" >> $GITHUB_ENV  # Default to 'latest' if not a tag
+          set -euo pipefail
+          docker run --rm --platform linux/amd64 \
+            -v "${PWD}/packages:/packages:ro" \
+            "${DEBIAN_TEST_IMAGE}" sh -euxc '
+              printf "#!/bin/sh\nexit 101\n" > /usr/sbin/policy-rc.d
+              chmod 0755 /usr/sbin/policy-rc.d
+              apt-get update
+              DEBIAN_FRONTEND=noninteractive apt-get install -y /packages/*.deb
+              test "$(id -un kessoku-api)" = kessoku-api
+              test "$(stat -c %a /var/lib/kessoku-api/data)" = 700
+              test "$(stat -c %a /var/lib/kessoku-api/runtime)" = 700
+              test ! -e /var/lib/kessoku-api/resources/web
+              test ! -e /var/lib/kessoku-api/resources/web2
+              test -d /var/lib/kessoku-api/resources/admin
+              /usr/bin/kessoku-api --help
+            '
+
+  candidate:
+    name: Assemble final auditable candidate
+    needs:
+      - build
+      - package
+      - image-test
+      - package-test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: kessoku-runtime-${{ github.sha }}
+          path: runtime
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: kessoku-deb-amd64-${{ github.sha }}
+          path: packages
+
+      - name: Assemble exact archive, package, and image context
+        env:
+          ARTIFACT_LABEL: ${{ needs.build.outputs.artifact_label }}
+        run: |
+          set -euo pipefail
+          mkdir -p candidate/docker candidate/release-assets
+          cp Dockerfile candidate/docker/Dockerfile
+          cp -a runtime/release candidate/docker/release
+          tar --sort=name --mtime='UTC 1970-01-01' \
+            --owner=0 --group=0 --numeric-owner -C runtime -cf - release \
+            | gzip -n > \
+              "candidate/release-assets/kessoku-${ARTIFACT_LABEL}-linux-amd64.tar.gz"
+          cp packages/*.deb candidate/release-assets/
+          cp runtime/BUILD-INPUTS.txt runtime/GO-BUILD-INFO.txt \
+            runtime/ADMIN-WEB-DIST-SHA256SUMS \
+            runtime/kessoku-admin-web.cdx.json \
+            runtime/kessoku-source.spdx.json \
+            runtime/kessoku-runtime.spdx.json candidate/release-assets/
+          cp RELEASE_STATUS RELEASE-CHECKLIST.md RELEASE-PROCESS.md \
+            internal/starrycontrol/CONTRACT_VERSION candidate/release-assets/
+          cp CONTAINER.md CONTAINER.zh-CN.md RELEASE-NOTES-v2.8.0.md \
+            RELEASE-NOTES-v2.8.0.zh-CN.md docker-compose.yaml \
+            candidate/release-assets/
+          cp examples/compose.env.example \
+            candidate/release-assets/compose.env.example
+
+      - name: Generate candidate-filesystem SBOM and checksums
+        run: |
+          set -euo pipefail
+          sh scripts/install-ci-tools.sh "${RUNNER_TEMP}/kessoku-tools"
+          "${RUNNER_TEMP}/kessoku-tools/syft" scan \
+            dir:candidate/release-assets \
+            -o spdx-json=candidate/kessoku-candidate.spdx.json
+          mv candidate/kessoku-candidate.spdx.json candidate/release-assets/
+          (
+            cd candidate/release-assets
+            checksums="$(mktemp)"
+            find . -maxdepth 1 -type f ! -name SHA256SUMS \
+              -printf '%f\0' | LC_ALL=C sort -z | xargs -0 sha256sum -- \
+              > "$checksums"
+            mv "$checksums" SHA256SUMS
+            sha256sum --check SHA256SUMS
+          )
+
+      - name: Reject forbidden or incomplete candidate contents
+        run: |
+          set -euo pipefail
+          test -s candidate/release-assets/SHA256SUMS
+          test -s candidate/release-assets/GO-BUILD-INFO.txt
+          test -s candidate/release-assets/ADMIN-WEB-DIST-SHA256SUMS
+          test -s candidate/release-assets/kessoku-admin-web.cdx.json
+          test -s candidate/release-assets/kessoku-source.spdx.json
+          test -s candidate/release-assets/kessoku-runtime.spdx.json
+          test -s candidate/release-assets/kessoku-candidate.spdx.json
+          test "$(find candidate/release-assets -maxdepth 1 -name '*.deb' | wc -l)" -eq 1
+          test "$(find candidate/release-assets -maxdepth 1 -name '*.tar.gz' | wc -l)" -eq 1
+          test -x candidate/docker/release/kessoku-api
+          test -d candidate/docker/release/resources/admin
+          test ! -e candidate/docker/release/resources/web
+          test ! -e candidate/docker/release/resources/web2
+          if tar -tzf candidate/release-assets/*.tar.gz \
+            | grep -Eq '(^|/)(web|web2)/'; then
+            echo "browser-client directory entered archive" >&2
+            exit 1
           fi
-
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: ${{ env.BASE_IMAGE_NAMESPACE }}/rustdesk-api
-
-      - name: Download binaries
-        uses: actions/download-artifact@v4
-        with:
-          name: rustdesk-api-${{ matrix.job.goos }}-${{ matrix.job.platform }}
-          path: ./
-
-      - name: Unzip binaries
-        run: |
-          mkdir -p ${{ matrix.job.platform }}
-          tar -xzf ${{ matrix.job.goos }}-${{ matrix.job.platform }}.tar.gz -C ${{ matrix.job.platform }}
-
-      - name: Build and push Docker image to Docker Hub ${{ matrix.job.platform }}
-        if: ${{ env.SKIP_DOCKER_HUB == 'false' }}  # Only run this step if SKIP_DOCKER_HUB is false
-        uses: docker/build-push-action@v5
-        with:
-          context: "."
-          file: ./Dockerfile
-          platforms: ${{ matrix.job.docker_platform }}
-          push: true
-          provenance: false
-          build-args: |
-            BUILDARCH=${{ matrix.job.platform }}
-          tags: |
-            ${{ env.DOCKERHUB_IMAGE_NAMESPACE }}/rustdesk-api:${{ env.LATEST_TAG }}-${{ matrix.job.platform }},
-            ${{ env.DOCKERHUB_IMAGE_NAMESPACE }}/rustdesk-api:${{ env.TAG }}-${{ matrix.job.platform }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-      - name: Build and push Docker Full S6 image to Docker Hub ${{ matrix.job.platform }}
-        if: ${{ env.SKIP_DOCKER_HUB == 'false' }}  # Only run this step if SKIP_DOCKER_HUB is false
-        uses: docker/build-push-action@v5
-        with:
-          context: "."
-          file: ./Dockerfile_full_s6
-          platforms: ${{ matrix.job.docker_platform }}
-          push: true
-          provenance: false
-          build-args: |
-            BUILDARCH=${{ matrix.job.platform }}
-          tags: |
-            ${{ env.DOCKERHUB_IMAGE_NAMESPACE }}/rustdesk-api:full-s6-${{ matrix.job.platform }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-      - name: Build and push Docker image to GHCR ${{ matrix.job.platform }}
-        if: ${{ env.SKIP_GHCR == 'false' }}  # Only run this step if SKIP_GHCR is false
-        uses: docker/build-push-action@v5
-        with:
-          context: "."
-          file: ./Dockerfile
-          platforms: ${{ matrix.job.docker_platform }}
-          push: true
-          provenance: false
-          build-args: |
-            BUILDARCH=${{ matrix.job.platform }}
-          tags: |
-            ghcr.io/${{ env.GHCR_IMAGE_NAMESPACE }}/rustdesk-api:${{ env.LATEST_TAG }}-${{ matrix.job.platform }},
-            ghcr.io/${{ env.GHCR_IMAGE_NAMESPACE }}/rustdesk-api:${{ env.TAG }}-${{ matrix.job.platform }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-      - name: Build and push Docker Full S6 image to GHCR ${{ matrix.job.platform }}
-        if: ${{ env.SKIP_GHCR == 'false' }}  # Only run this step if SKIP_GHCR is false
-        uses: docker/build-push-action@v5
-        with:
-          context: "."
-          file: ./Dockerfile
-          platforms: ${{ matrix.job.docker_platform }}
-          push: true
-          provenance: false
-          build-args: |
-            BUILDARCH=${{ matrix.job.platform }}
-          tags: |
-            ghcr.io/${{ env.GHCR_IMAGE_NAMESPACE }}/rustdesk-api:full-s6-${{ matrix.job.platform }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-  #
-  docker-manifest:
-    name: Push Docker Manifest
-    needs: docker
-    runs-on: ubuntu-latest
-    steps:
-      - name: Extract version from tag
-        id: vars
-        run: |
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-          else
-            echo "TAG=latest" >> $GITHUB_ENV  # Default to 'latest' if not a tag
+          if dpkg-deb --contents candidate/release-assets/*.deb \
+            | grep -Eq '/resources/(web|web2)/'; then
+            echo "browser-client directory entered Debian package" >&2
+            exit 1
           fi
+          ! find candidate -type f \
+            \( -name '*.key' -o -name '*.pem' -o -name '*.p12' \) -print -quit \
+            | grep -q .
 
-      - name: Log in to Docker Hub
-        if: ${{ env.SKIP_DOCKER_HUB == 'false' }}  # Only log in if Docker Hub push is enabled
-        uses: docker/login-action@v2
+      - name: Upload complete non-publishing candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
-
-      - name: Log in to GitHub Container Registry
-        if: ${{ env.SKIP_GHCR == 'false' }}  # Only log in if GHCR push is enabled
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create and push manifest Docker Hub (:version)
-        if: ${{ env.SKIP_DOCKER_HUB == 'false' }}
-        uses: Noelware/docker-manifest-action@v0.2.3
-        with:
-          base-image: ${{ env.BASE_IMAGE_NAMESPACE }}/rustdesk-api:${{ env.TAG }}
-          extra-images: ${{ env.DOCKERHUB_IMAGE_NAMESPACE }}/rustdesk-api:${{ env.TAG }}-amd64,
-            ${{ env.DOCKERHUB_IMAGE_NAMESPACE }}/rustdesk-api:${{ env.TAG }}-armv7l,
-            ${{ env.DOCKERHUB_IMAGE_NAMESPACE }}/rustdesk-api:${{ env.TAG }}-arm64
-          push: true
-
-      - name: Create and push manifest GHCR (:version)
-        if: ${{ env.SKIP_GHCR == 'false' }}
-        uses: Noelware/docker-manifest-action@v0.2.3
-        with:
-          base-image: ghcr.io/${{ env.BASE_IMAGE_NAMESPACE }}/rustdesk-api:${{ env.TAG }}
-          extra-images: ghcr.io/${{ env.GHCR_IMAGE_NAMESPACE }}/rustdesk-api:${{ env.TAG }}-amd64,
-            ghcr.io/${{ env.GHCR_IMAGE_NAMESPACE }}/rustdesk-api:${{ env.TAG }}-armv7l,
-            ghcr.io/${{ env.GHCR_IMAGE_NAMESPACE }}/rustdesk-api:${{ env.TAG }}-arm64
-          push: true
-          amend: true
-
-      - name: Create and push manifest Docker Hub (:latest)
-        if: ${{ env.SKIP_DOCKER_HUB == 'false' }}
-        uses: Noelware/docker-manifest-action@v0.2.3
-        with:
-          base-image: ${{ env.BASE_IMAGE_NAMESPACE }}/rustdesk-api:latest
-          extra-images: ${{ env.DOCKERHUB_IMAGE_NAMESPACE }}/rustdesk-api:latest-amd64,
-            ${{ env.DOCKERHUB_IMAGE_NAMESPACE }}/rustdesk-api:latest-armv7l,
-            ${{ env.DOCKERHUB_IMAGE_NAMESPACE }}/rustdesk-api:latest-arm64
-          push: true
-
-      - name: Create and push manifest GHCR (:latest)
-        if: ${{ env.SKIP_GHCR == 'false' }}
-        uses: Noelware/docker-manifest-action@v0.2.3
-        with:
-          base-image: ghcr.io/${{ env.BASE_IMAGE_NAMESPACE }}/rustdesk-api:latest
-          extra-images: ghcr.io/${{ env.GHCR_IMAGE_NAMESPACE }}/rustdesk-api:latest-amd64,
-            ghcr.io/${{ env.GHCR_IMAGE_NAMESPACE }}/rustdesk-api:latest-armv7l,
-            ghcr.io/${{ env.GHCR_IMAGE_NAMESPACE }}/rustdesk-api:latest-arm64
-          push: true
-          amend: true
-
-      - name: Create and push Full S6 manifest Docker Hub (:version)
-        if: ${{ env.SKIP_DOCKER_HUB == 'false' }}
-        uses: Noelware/docker-manifest-action@v0.2.3
-        with:
-          base-image: ${{ env.BASE_IMAGE_NAMESPACE }}/rustdesk-api:full-s6
-          extra-images: ${{ env.DOCKERHUB_IMAGE_NAMESPACE }}/rustdesk-api:full-s6-amd64,
-            ${{ env.DOCKERHUB_IMAGE_NAMESPACE }}/rustdesk-api:full-s6-armv7l,
-            ${{ env.DOCKERHUB_IMAGE_NAMESPACE }}/rustdesk-api:full-s6-arm64
-          push: true
-          amend: true
-
-      - name: Create and push Full S6 manifest GHCR (:latest)
-        if: ${{ env.SKIP_GHCR == 'false' }}
-        uses: Noelware/docker-manifest-action@v0.2.3
-        with:
-          base-image: ghcr.io/${{ env.BASE_IMAGE_NAMESPACE }}/rustdesk-api:full-s6
-          extra-images: ghcr.io/${{ env.GHCR_IMAGE_NAMESPACE }}/rustdesk-api:full-s6-amd64,
-            ghcr.io/${{ env.GHCR_IMAGE_NAMESPACE }}/rustdesk-api:full-s6-armv7l,
-            ghcr.io/${{ env.GHCR_IMAGE_NAMESPACE }}/rustdesk-api:full-s6-arm64
-          push: true
-          amend: true
+          name: kessoku-release-candidate-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+          overwrite: true
+          path: candidate/

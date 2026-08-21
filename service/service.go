@@ -9,6 +9,11 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	MaxPageSize  uint = 1000
+	MaxBatchSize      = 1000
+)
+
 type Service struct {
 	//AdminService     *AdminService
 	//AdminRoleService *AdminRoleService
@@ -49,7 +54,7 @@ func New(c *config.Config, g *gorm.DB, l *log.Logger, authManager *internalAuth.
 	Logger = l
 	Auth = authManager
 	Lock = lo
-	AllService = &Service{StarryControlService: NewStarryControlService(c, l)}
+	AllService = &Service{StarryControlService: NewStarryControlService(c, l, authManager)}
 	return AllService
 }
 
@@ -61,8 +66,16 @@ func Paginate(page, pageSize uint) func(db *gorm.DB) *gorm.DB {
 		if pageSize == 0 {
 			pageSize = 10
 		}
-		offset := (page - 1) * pageSize
-		return db.Offset(int(offset)).Limit(int(pageSize))
+		if pageSize > MaxPageSize {
+			pageSize = MaxPageSize
+		}
+		pageIndex := uint64(page - 1)
+		size := uint64(pageSize)
+		maximumInt := uint64(^uint(0) >> 1)
+		if pageIndex > maximumInt/size {
+			return db.Where("1 = 0").Limit(int(pageSize))
+		}
+		return db.Offset(int(pageIndex * size)).Limit(int(pageSize))
 	}
 }
 

@@ -46,29 +46,49 @@ type AgentLimits struct {
 	OperationRetentionSeconds int64 `json:"operation_retention_seconds"`
 }
 
-type Health struct {
-	InstanceID   string          `json:"instance_id"`
-	Status       string          `json:"status"`
-	ObservedAt   time.Time       `json:"observed_at"`
-	Config       ComponentHealth `json:"config"`
-	HBBS         ComponentHealth `json:"hbbs"`
-	Auth         ComponentHealth `json:"auth"`
-	NativeRelay  ComponentHealth `json:"native_relay"`
-	WebSocket    ComponentHealth `json:"websocket"`
-	RecentErrors []AgentError    `json:"recent_errors"`
+// Status mirrors Starry's /control/v1/status response. Instance identity is
+// negotiated separately through Capabilities before every operation.
+type Status struct {
+	Ready  bool               `json:"ready"`
+	Config RuntimeConfigState `json:"config"`
+	Auth   AuthStatus         `json:"auth"`
 }
 
-type ComponentHealth struct {
-	Status     string    `json:"status"`
-	ObservedAt time.Time `json:"observed_at,omitempty"`
-	Message    string    `json:"message,omitempty"`
+type RuntimeConfigState struct {
+	Status          string         `json:"status"`
+	Generation      uint64         `json:"generation"`
+	SchemaVersion   *int           `json:"schema_version"`
+	SourceDigest    *string        `json:"source_digest"`
+	EffectiveDigest *string        `json:"effective_digest"`
+	ActivatedAt     *time.Time     `json:"activated_at"`
+	SubsystemAcks   []SubsystemAck `json:"subsystem_acks"`
+	LastError       *string        `json:"last_error"`
 }
 
-type AgentError struct {
-	Code       string    `json:"code"`
-	ObservedAt time.Time `json:"observed_at"`
-	Retryable  bool      `json:"retryable"`
-	Message    string    `json:"message,omitempty"`
+type AuthStatus struct {
+	ConfiguredMode string      `json:"configured_mode"`
+	EffectiveMode  string      `json:"effective_mode"`
+	VerifierState  string      `json:"verifier_state"`
+	KeyCount       uint64      `json:"key_count"`
+	KeyAgeSeconds  *uint64     `json:"key_age_seconds"`
+	Metrics        AuthMetrics `json:"metrics"`
+}
+
+type AuthMetrics struct {
+	Attempts              uint64 `json:"attempts"`
+	Allowed               uint64 `json:"allowed"`
+	Denied                uint64 `json:"denied"`
+	AuditWouldDeny        uint64 `json:"audit_would_deny"`
+	CacheHits             uint64 `json:"cache_hits"`
+	IntrospectionRequests uint64 `json:"introspection_requests"`
+	IntrospectionFailures uint64 `json:"introspection_failures"`
+}
+
+type RelayInventory struct {
+	ConfigGeneration uint64  `json:"config_generation"`
+	HealthSnapshotID string  `json:"health_snapshot_id"`
+	Relays           []Relay `json:"relays"`
+	Warning          string  `json:"warning"`
 }
 
 type Relay struct {
@@ -87,11 +107,11 @@ type NativeRelayStatus struct {
 
 type WebSocketRelayStatus struct {
 	Configured  bool       `json:"configured"`
-	URL         string     `json:"url,omitempty"`
+	URL         *string    `json:"url"`
 	State       string     `json:"state"`
-	LastProbeAt *time.Time `json:"last_probe_at,omitempty"`
-	LatencyMS   *int64     `json:"latency_ms,omitempty"`
-	ErrorCode   *string    `json:"error_code,omitempty"`
+	LastProbeAt *time.Time `json:"last_probe_at"`
+	LatencyMS   *int64     `json:"latency_ms"`
+	ErrorCode   *string    `json:"error_code"`
 }
 
 type Transport string
@@ -134,41 +154,39 @@ type MatchedRule struct {
 }
 
 type AllocationCandidate struct {
-	RelayID     string   `json:"relay_id"`
-	Priority    int      `json:"priority"`
-	Eligible    bool     `json:"eligible"`
-	ReasonCodes []string `json:"reason_codes"`
+	RelayID         string  `json:"relay_id"`
+	ConfiguredOrder int     `json:"configured_order"`
+	Priority        *int    `json:"priority"`
+	Eligible        bool    `json:"eligible"`
+	ExclusionReason *string `json:"exclusion_reason"`
 }
 
 type AllocationSelection struct {
-	Kind       string  `json:"kind"`
-	RelayID    *string `json:"relay_id,omitempty"`
-	NonBinding bool    `json:"non_binding"`
+	Kind           string  `json:"kind"`
+	RelayID        *string `json:"relay_id"`
+	PredictedIndex *int    `json:"predicted_index"`
+	NonBinding     bool    `json:"non_binding"`
 }
 
 type ConfigDocument struct {
-	ETag            string                 `json:"etag"`
-	Generation      uint64                 `json:"generation"`
-	SchemaVersion   int                    `json:"schema_version"`
-	SourceDigest    string                 `json:"source_digest"`
-	EffectiveDigest string                 `json:"effective_digest"`
-	YAML            string                 `json:"yaml"`
-	Values          map[string]interface{} `json:"values"`
-	RuntimeInSync   bool                   `json:"runtime_in_sync"`
+	RuntimeConfigState
+	ETag     string `json:"etag"`
+	Drift    bool   `json:"drift"`
+	Document string `json:"document"`
+	Format   string `json:"format"`
 }
 
 type SchemaBundle struct {
 	ETag     string          `json:"etag"`
 	Digest   string          `json:"digest"`
-	Schema   json.RawMessage `json:"schema"`
-	UISchema json.RawMessage `json:"ui_schema"`
+	Schema   json.RawMessage `json:"schema" swaggertype:"object"`
+	UISchema json.RawMessage `json:"ui_schema" swaggertype:"object"`
 }
 
 type ConfigCandidate struct {
-	YAML     *string                `json:"yaml,omitempty"`
-	Values   map[string]interface{} `json:"values,omitempty"`
-	BaseETag string                 `json:"-"`
-	Comment  string                 `json:"comment,omitempty"`
+	Document string `json:"document"`
+	Format   string `json:"format"`
+	BaseETag string `json:"-"`
 }
 
 type Diagnostic struct {
@@ -182,61 +200,93 @@ type Diagnostic struct {
 
 type ValidationResult struct {
 	Valid           bool         `json:"valid"`
-	CandidateDigest string       `json:"candidate_digest,omitempty"`
-	SchemaVersion   int          `json:"schema_version,omitempty"`
+	SourceDigest    *string      `json:"source_digest"`
+	EffectiveDigest *string      `json:"effective_digest"`
 	Diagnostics     []Diagnostic `json:"diagnostics"`
 }
 
 type ConfigPlan struct {
-	PlanID           string          `json:"plan_id"`
-	BaseETag         string          `json:"base_etag"`
-	BaseGeneration   uint64          `json:"base_generation"`
-	TargetGeneration uint64          `json:"target_generation"`
-	CandidateDigest  string          `json:"candidate_digest"`
-	SchemaVersion    int             `json:"schema_version"`
-	Changes          json.RawMessage `json:"changes"`
-	Warnings         []string        `json:"warnings"`
-	RestartRequired  bool            `json:"restart_required"`
-	ExpiresAt        time.Time       `json:"expires_at"`
+	PlanID          string            `json:"plan_id"`
+	InstanceID      string            `json:"instance_id"`
+	BaseETag        string            `json:"base_etag"`
+	BaseGeneration  uint64            `json:"base_generation"`
+	CandidateDigest string            `json:"candidate_digest"`
+	Changes         []json.RawMessage `json:"changes" swaggertype:"array,object"`
+	Impact          PlanImpact        `json:"impact"`
+	ExpiresAt       time.Time         `json:"expires_at"`
+}
+
+type PlanImpact struct {
+	Risk            string `json:"risk"`
+	RestartRequired bool   `json:"restart_required"`
 }
 
 type ApplyRequest struct {
-	PlanID         string `json:"plan_id"`
-	IfMatch        string `json:"-"`
-	IdempotencyKey string `json:"-"`
-	Comment        string `json:"comment,omitempty"`
+	PlanID          string `json:"plan_id"`
+	CandidateDigest string `json:"candidate_digest"`
+	IfMatch         string `json:"-"`
+	IdempotencyKey  string `json:"-"`
+	Comment         string `json:"comment,omitempty"`
 }
 
 type RollbackRequest struct {
-	Generation     uint64 `json:"generation"`
+	RevisionID     string `json:"revision_id"`
 	IfMatch        string `json:"-"`
 	IdempotencyKey string `json:"-"`
 	Comment        string `json:"comment,omitempty"`
 }
 
-type ApplyResult struct {
-	OperationID string `json:"operation_id"`
-	Status      string `json:"status"`
+type RuntimeReloadRequest struct {
+	ExpectedSourceDigest string `json:"expected_source_digest"`
+	IdempotencyKey       string `json:"-"`
+}
+
+type SubsystemAck struct {
+	Subsystem string `json:"subsystem"`
+	Accepted  bool   `json:"accepted"`
+	Detail    string `json:"detail"`
+}
+
+type ActivationAck struct {
+	Generation      uint64         `json:"generation"`
+	SchemaVersion   int            `json:"schema_version"`
+	SourceDigest    string         `json:"source_digest"`
+	EffectiveDigest string         `json:"effective_digest"`
+	ActivatedAt     time.Time      `json:"activated_at"`
+	AuditID         *string        `json:"audit_id"`
+	SubsystemAcks   []SubsystemAck `json:"subsystem_acks"`
+}
+
+type OperationProblem struct {
+	Type      string       `json:"type"`
+	Title     string       `json:"title"`
+	Status    int          `json:"status"`
+	Code      string       `json:"code"`
+	Detail    string       `json:"detail"`
+	RequestID string       `json:"request_id"`
+	Retryable bool         `json:"retryable"`
+	Errors    []Diagnostic `json:"errors"`
 }
 
 type Operation struct {
-	ID                 string     `json:"id"`
-	Kind               string     `json:"kind"`
-	Status             string     `json:"status"`
-	StartedAt          time.Time  `json:"started_at"`
-	FinishedAt         *time.Time `json:"finished_at,omitempty"`
-	TargetGeneration   uint64     `json:"target_generation,omitempty"`
-	ActiveGeneration   uint64     `json:"active_generation,omitempty"`
-	RollbackGeneration *uint64    `json:"rollback_generation,omitempty"`
-	ErrorCode          string     `json:"error_code,omitempty"`
+	ID            string            `json:"id"`
+	AuditID       *string           `json:"audit_id"`
+	Kind          string            `json:"kind"`
+	State         string            `json:"state"`
+	CreatedAt     time.Time         `json:"created_at"`
+	UpdatedAt     time.Time         `json:"updated_at"`
+	ActivationAck *ActivationAck    `json:"activation_ack"`
+	Error         *OperationProblem `json:"error"`
 }
 
 type ConfigRevision struct {
-	Generation  uint64    `json:"generation"`
-	ETag        string    `json:"etag"`
-	Digest      string    `json:"digest"`
-	Actor       string    `json:"actor"`
-	Comment     string    `json:"comment,omitempty"`
-	AppliedAt   time.Time `json:"applied_at"`
-	ApplyResult string    `json:"apply_result"`
+	ID              string    `json:"id"`
+	Generation      uint64    `json:"generation"`
+	BeforeETag      string    `json:"before_etag"`
+	AfterETag       string    `json:"after_etag"`
+	CandidateDigest string    `json:"candidate_digest"`
+	Actor           string    `json:"actor"`
+	Comment         string    `json:"comment"`
+	CreatedAt       time.Time `json:"created_at"`
+	Result          string    `json:"result"`
 }

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"net"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
@@ -17,7 +19,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -35,32 +36,46 @@ type OidcEndpoint struct {
 }
 
 type OauthCacheItem struct {
-	UserId     uint   `json:"user_id"`
-	Id         string `json:"id"` //rustdesk的设备ID
-	Op         string `json:"op"`
-	Action     string `json:"action"`
-	Uuid       string `json:"uuid"`
-	DeviceName string `json:"device_name"`
-	DeviceOs   string `json:"device_os"`
-	DeviceType string `json:"device_type"`
-	OpenId     string `json:"open_id"`
-	Username   string `json:"username"`
-	Name       string `json:"name"`
-	Email      string `json:"email"`
-	Verifier   string `json:"verifier"` // used for oauth pkce
-	Nonce      string `json:"nonce"`
+	UserId        uint      `json:"-"`
+	Id            string    `json:"id"` //rustdesk的设备ID
+	Op            string    `json:"op"`
+	Action        string    `json:"action"`
+	Uuid          string    `json:"uuid"`
+	DeviceName    string    `json:"device_name"`
+	DeviceOs      string    `json:"device_os"`
+	DeviceType    string    `json:"device_type"`
+	OpenId        string    `json:"open_id"`
+	Username      string    `json:"username"`
+	Name          string    `json:"name"`
+	Email         string    `json:"email"`
+	VerifiedEmail bool      `json:"verified_email"`
+	Verifier      string    `json:"-"` // used for oauth pkce
+	Nonce         string    `json:"-"`
+	ExpiresAt     time.Time `json:"-"`
 }
 
 func (oci *OauthCacheItem) ToOauthUser() *model.OauthUser {
 	return &model.OauthUser{
-		OpenId:   oci.OpenId,
-		Username: oci.Username,
-		Name:     oci.Name,
-		Email:    oci.Email,
+		OpenId:        oci.OpenId,
+		Username:      oci.Username,
+		Name:          oci.Name,
+		Email:         oci.Email,
+		VerifiedEmail: oci.VerifiedEmail,
 	}
 }
 
-var OauthCache = &sync.Map{}
+const (
+	maxOauthStates       = 4096
+	oauthStateLifetime   = 5 * time.Minute
+	maxOauthResponseBody = 1 << 20
+)
+
+type oauthStateStore struct {
+	mu    sync.Mutex
+	items map[string]*OauthCacheItem
+}
+
+var OauthCache = &oauthStateStore{items: make(map[string]*OauthCacheItem)}
 
 const (
 	OauthActionTypeLogin = "login"
@@ -72,43 +87,105 @@ func (oci *OauthCacheItem) UpdateFromOauthUser(oauthUser *model.OauthUser) {
 	oci.Username = oauthUser.Username
 	oci.Name = oauthUser.Name
 	oci.Email = oauthUser.Email
+	oci.VerifiedEmail = oauthUser.VerifiedEmail
 }
 
 func (os *OauthService) GetOauthCache(key string) *OauthCacheItem {
-	v, ok := OauthCache.Load(key)
+	OauthCache.mu.Lock()
+	defer OauthCache.mu.Unlock()
+	purgeExpiredOauthStatesLocked(time.Now())
+	v, ok := OauthCache.items[key]
 	if !ok {
 		return nil
 	}
-	return v.(*OauthCacheItem)
+	clone := *v
+	return &clone
 }
 
-func (os *OauthService) SetOauthCache(key string, item *OauthCacheItem, expire uint) {
-	OauthCache.Store(key, item)
-	if expire > 0 {
-		time.AfterFunc(time.Duration(expire)*time.Second, func() {
-			os.DeleteOauthCache(key)
-		})
+func (os *OauthService) SetOauthCache(key string, item *OauthCacheItem, expire uint) error {
+	if key == "" || item == nil {
+		return errors.New("invalid OAuth state")
 	}
+	OauthCache.mu.Lock()
+	defer OauthCache.mu.Unlock()
+	now := time.Now()
+	purgeExpiredOauthStatesLocked(now)
+	if _, exists := OauthCache.items[key]; !exists && len(OauthCache.items) >= maxOauthStates {
+		return errors.New("OAuth state capacity reached")
+	}
+	clone := *item
+	if expire > 0 || clone.ExpiresAt.IsZero() {
+		lifetime := time.Duration(expire) * time.Second
+		if lifetime <= 0 || lifetime > oauthStateLifetime {
+			lifetime = oauthStateLifetime
+		}
+		clone.ExpiresAt = now.Add(lifetime)
+	}
+	OauthCache.items[key] = &clone
+	return nil
 }
 
 func (os *OauthService) DeleteOauthCache(key string) {
-	OauthCache.Delete(key)
+	OauthCache.mu.Lock()
+	delete(OauthCache.items, key)
+	OauthCache.mu.Unlock()
 }
 
-func (os *OauthService) BeginAuth(op string) (error error, state, verifier, nonce, url string) {
-	state = utils.RandomString(10) + strconv.FormatInt(time.Now().Unix(), 10)
+func (os *OauthService) TakeOauthLoginResult(key, deviceID, deviceUUID string) (*OauthCacheItem, bool) {
+	OauthCache.mu.Lock()
+	defer OauthCache.mu.Unlock()
+	purgeExpiredOauthStatesLocked(time.Now())
+	item, ok := OauthCache.items[key]
+	if !ok || item.Action != OauthActionTypeLogin || item.Id != deviceID || item.Uuid != deviceUUID {
+		return nil, false
+	}
+	clone := *item
+	if clone.UserId != 0 {
+		delete(OauthCache.items, key)
+	}
+	return &clone, true
+}
+
+func purgeExpiredOauthStatesLocked(now time.Time) {
+	for key, item := range OauthCache.items {
+		if item == nil || !item.ExpiresAt.After(now) {
+			delete(OauthCache.items, key)
+		}
+	}
+}
+
+func reserveOauthState(key string) error {
+	return (&OauthService{}).SetOauthCache(key, &OauthCacheItem{}, uint(oauthStateLifetime/time.Second))
+}
+
+func (os *OauthService) BeginAuth(op string) (authErr error, state, verifier, nonce, authURL string) {
+	state = utils.RandomString(32)
+	if state == "" {
+		return errors.New("generate OAuth state"), "", "", "", ""
+	}
+	if err := reserveOauthState(state); err != nil {
+		return err, "", "", "", ""
+	}
+	defer func() {
+		if authErr != nil {
+			os.DeleteOauthCache(state)
+		}
+	}()
 	verifier = ""
 	nonce = ""
 	if op == model.OauthTypeWebauth {
-		url = Config.Rustdesk.ApiServer + "/_admin/#/oauth/" + state
+		authURL = Config.Rustdesk.ApiServer + "/_admin/#/oauth/" + state
 		//url = "http://localhost:8888/_admin/#/oauth/" + code
-		return nil, state, verifier, nonce, url
+		return nil, state, verifier, nonce, authURL
 	}
 	err, oauthInfo, oauthConfig, _ := os.GetOauthConfig(op)
 	if err == nil {
 		extras := make([]oauth2.AuthCodeOption, 0, 3)
 
-		nonce = utils.RandomString(10)
+		nonce = utils.RandomString(32)
+		if nonce == "" {
+			return errors.New("generate OIDC nonce"), state, "", "", ""
+		}
 		extras = append(extras, oauth2.SetAuthURLParam("nonce", nonce))
 
 		if oauthInfo.PkceEnable != nil && *oauthInfo.PkceEnable {
@@ -117,9 +194,8 @@ func (os *OauthService) BeginAuth(op string) (error error, state, verifier, nonc
 			switch oauthInfo.PkceMethod {
 			case model.PKCEMethodS256:
 				extras = append(extras, oauth2.S256ChallengeOption(verifier))
-			case model.PKCEMethodPlain:
-				// oauth2 does not have a plain challenge option, so we add it manually
-				extras = append(extras, oauth2.SetAuthURLParam("code_challenge_method", "plain"), oauth2.SetAuthURLParam("code_challenge", verifier))
+			default:
+				return errors.New("PKCE-enabled providers must use S256"), state, "", "", ""
 			}
 		}
 
@@ -130,6 +206,9 @@ func (os *OauthService) BeginAuth(op string) (error error, state, verifier, nonc
 }
 
 func (os *OauthService) FetchOidcProvider(issuer string) (error, *oidc.Provider) {
+	if err := validateOauthEndpointURL(issuer); err != nil {
+		return err, nil
+	}
 
 	// Get the HTTP client (with or without proxy based on configuration)
 	client := getHTTPClientWithProxy()
@@ -213,26 +292,91 @@ func (os *OauthService) GetOauthConfig(op string) (err error, oauthInfo *model.O
 }
 
 func getHTTPClientWithProxy() *http.Client {
-	//add timeout 30s
-	timeout := time.Duration(60) * time.Second
+	timeout := 15 * time.Second
+	dialer := &net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
+			host, port, err := net.SplitHostPort(address)
+			if err != nil {
+				return nil, err
+			}
+			addresses, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+			if err != nil {
+				return nil, err
+			}
+			for _, address := range addresses {
+				if isDisallowedOauthIP(address.IP) {
+					return nil, errors.New("OAuth endpoint resolved to a private or local address")
+				}
+			}
+			if len(addresses) == 0 {
+				return nil, errors.New("OAuth endpoint did not resolve")
+			}
+			return dialer.DialContext(ctx, network, net.JoinHostPort(addresses[0].IP.String(), port))
+		},
+		TLSHandshakeTimeout:   5 * time.Second,
+		ResponseHeaderTimeout: 10 * time.Second,
+		IdleConnTimeout:       30 * time.Second,
+	}
 	if Config.Proxy.Enable {
 		if Config.Proxy.Host == "" {
 			Logger.Warn("Proxy is enabled but proxy host is empty.")
-			return http.DefaultClient
+			return &http.Client{Transport: boundedOauthTransport{base: transport}, Timeout: timeout, CheckRedirect: rejectOauthRedirect}
 		}
 		proxyURL, err := url.Parse(Config.Proxy.Host)
-		if err != nil {
+		if err != nil || (proxyURL.Scheme != "http" && proxyURL.Scheme != "https") || proxyURL.Hostname() == "" {
 			Logger.Warn("Invalid proxy URL: ", err)
-			return http.DefaultClient
+			return &http.Client{Transport: boundedOauthTransport{base: transport}, Timeout: timeout, CheckRedirect: rejectOauthRedirect}
 		}
-		transport := &http.Transport{
-			Proxy: http.ProxyURL(proxyURL),
-		}
-		return &http.Client{Transport: transport, Timeout: timeout}
+		transport.Proxy = http.ProxyURL(proxyURL)
+		transport.DialContext = dialer.DialContext
 	}
-	return http.DefaultClient
+	return &http.Client{Transport: boundedOauthTransport{base: transport}, Timeout: timeout, CheckRedirect: rejectOauthRedirect}
 }
-func (os *OauthService) callbackBase(oauthConfig *oauth2.Config, provider *oidc.Provider, code string, verifier string, nonce string, userData interface{}) (err error, client *http.Client) {
+
+type boundedOauthTransport struct{ base http.RoundTripper }
+
+func (t boundedOauthTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	if err := validateOauthEndpointURL(request.URL.String()); err != nil {
+		return nil, err
+	}
+	response, err := t.base.RoundTrip(request)
+	if err != nil {
+		return nil, err
+	}
+	response.Body = struct {
+		io.Reader
+		io.Closer
+	}{Reader: io.LimitReader(response.Body, maxOauthResponseBody+1), Closer: response.Body}
+	return response, nil
+}
+
+func rejectOauthRedirect(_ *http.Request, _ []*http.Request) error {
+	return http.ErrUseLastResponse
+}
+
+func validateOauthEndpointURL(raw string) error {
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return err
+	}
+	if parsed.Scheme != "https" || parsed.Hostname() == "" || parsed.User != nil {
+		return errors.New("OAuth endpoints must use an absolute HTTPS URL without credentials")
+	}
+	if strings.EqualFold(parsed.Hostname(), "localhost") || strings.HasSuffix(strings.ToLower(parsed.Hostname()), ".localhost") {
+		return errors.New("OAuth endpoint host is local")
+	}
+	if ip := net.ParseIP(parsed.Hostname()); ip != nil && isDisallowedOauthIP(ip) {
+		return errors.New("OAuth endpoint address is private or local")
+	}
+	return nil
+}
+
+func isDisallowedOauthIP(ip net.IP) bool {
+	return ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsMulticast()
+}
+
+func (os *OauthService) callbackBase(oauthConfig *oauth2.Config, provider *oidc.Provider, code string, verifier string, nonce string, requireIDToken bool, userData interface{}) (err error, client *http.Client) {
 
 	// 设置代理客户端
 	httpClient := getHTTPClientWithProxy()
@@ -252,6 +396,9 @@ func (os *OauthService) callbackBase(oauthConfig *oauth2.Config, provider *oidc.
 
 	// 获取 ID Token， github没有id_token
 	rawIDToken, ok := token.Extra("id_token").(string)
+	if requireIDToken && (!ok || rawIDToken == "") {
+		return errors.New("IdTokenMissing"), nil
+	}
 	if ok && rawIDToken != "" {
 		// 验证 ID Token
 		v := provider.Verifier(&oidc.Config{ClientID: oauthConfig.ClientID})
@@ -289,6 +436,9 @@ func (os *OauthService) callbackBase(oauthConfig *oauth2.Config, provider *oidc.
 			Logger.Warn("failed closing response body: ", closeErr)
 		}
 	}()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return errors.New("GetOauthUserInfoError"), nil
+	}
 
 	// 解析用户信息
 	if err = json.NewDecoder(resp.Body).Decode(userData); err != nil {
@@ -302,7 +452,7 @@ func (os *OauthService) callbackBase(oauthConfig *oauth2.Config, provider *oidc.
 // githubCallback github回调
 func (os *OauthService) githubCallback(oauthConfig *oauth2.Config, provider *oidc.Provider, code, verifier, nonce string) (error, *model.OauthUser) {
 	var user = &model.GithubUser{}
-	err, client := os.callbackBase(oauthConfig, provider, code, verifier, nonce, user)
+	err, client := os.callbackBase(oauthConfig, provider, code, verifier, nonce, false, user)
 	if err != nil {
 		return err, nil
 	}
@@ -316,7 +466,7 @@ func (os *OauthService) githubCallback(oauthConfig *oauth2.Config, provider *oid
 // linuxdoCallback linux.do回调
 func (os *OauthService) linuxdoCallback(oauthConfig *oauth2.Config, provider *oidc.Provider, code, verifier, nonce string) (error, *model.OauthUser) {
 	var user = &model.LinuxdoUser{}
-	err, _ := os.callbackBase(oauthConfig, provider, code, verifier, nonce, user)
+	err, _ := os.callbackBase(oauthConfig, provider, code, verifier, nonce, false, user)
 	if err != nil {
 		return err, nil
 	}
@@ -326,7 +476,7 @@ func (os *OauthService) linuxdoCallback(oauthConfig *oauth2.Config, provider *oi
 // oidcCallback oidc回调, 通过code获取用户信息
 func (os *OauthService) oidcCallback(oauthConfig *oauth2.Config, provider *oidc.Provider, code, verifier, nonce string) (error, *model.OauthUser) {
 	var user = &model.OidcUser{}
-	if err, _ := os.callbackBase(oauthConfig, provider, code, verifier, nonce, user); err != nil {
+	if err, _ := os.callbackBase(oauthConfig, provider, code, verifier, nonce, true, user); err != nil {
 		return err, nil
 	}
 	return nil, user.ToOauthUser()
@@ -350,6 +500,9 @@ func (os *OauthService) Callback(code, verifier, op, nonce string) (err error, o
 	default:
 		return errors.New("unsupported OAuth type"), nil
 	}
+	if err == nil && (oauthUser == nil || strings.TrimSpace(oauthUser.OpenId) == "" || strings.TrimSpace(oauthUser.Username) == "") {
+		return errors.New("OauthIdentityIncomplete"), nil
+	}
 	return err, oauthUser
 }
 
@@ -361,6 +514,9 @@ func (os *OauthService) UserThirdInfo(op string, openId string) *model.UserThird
 
 // BindOauthUser: Bind third party account
 func (os *OauthService) BindOauthUser(userId uint, oauthUser *model.OauthUser, op string) error {
+	if userId == 0 || oauthUser == nil || strings.TrimSpace(oauthUser.OpenId) == "" {
+		return errors.New("invalid OAuth binding")
+	}
 	utr := &model.UserThird{}
 	err, oauthType := os.GetTypeByOp(op)
 	if err != nil {

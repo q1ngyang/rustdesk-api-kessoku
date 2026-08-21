@@ -2,6 +2,7 @@ package admin
 
 import (
 	"github.com/gin-gonic/gin"
+	appConfig "github.com/q1ngyang/rustdesk-api-kessoku/v2/config"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
@@ -13,25 +14,7 @@ import (
 type Config struct {
 }
 
-// ServerConfig RUSTDESK服务配置
-// @Tags ADMIN
-// @Summary RUSTDESK服务配置
-// @Description 服务配置,给webclient提供api-server
-// @Accept  json
-// @Produce  json
-// @Success 200 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /admin/config/server [get]
-// @Security token
-func (co *Config) ServerConfig(c *gin.Context) {
-	cf := &response.ServerConfigResponse{
-		IdServer:    global.Config.Rustdesk.IdServer,
-		Key:         global.Config.Rustdesk.Key,
-		RelayServer: global.Config.Rustdesk.RelayServer,
-		ApiServer:   global.Config.Rustdesk.ApiServer,
-	}
-	response.Success(c, cf)
-}
+type WebClientProviderManifest = appConfig.WebClientProviderManifest
 
 // AppConfig APP服务配置
 // @Tags ADMIN
@@ -45,8 +28,25 @@ func (co *Config) ServerConfig(c *gin.Context) {
 // @Security token
 func (co *Config) AppConfig(c *gin.Context) {
 	response.Success(c, &gin.H{
-		"web_client": global.Config.App.WebClient,
+		"web_client":          0,
+		"web_client_provider": global.Config.WebClientProvider.EffectiveMode(),
 	})
+}
+
+// WebClientProviderManifest returns only the reviewed public descriptor. The
+// authorization record remains deployment-only and no access token, user, or
+// session data is accepted by this endpoint.
+// @Tags ADMIN
+// @Summary External Web Client Provider manifest
+// @Description Returns exactly eight public governance fields when external mode is enabled
+// @Produce json
+// @Success 200 {object} response.Response{data=WebClientProviderManifest}
+// @Failure 401 {object} response.Response
+// @Router /admin/config/web-client-provider [get]
+// @Security token
+func (co *Config) WebClientProviderManifest(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	response.Success(c, global.Config.WebClientProvider.Manifest)
 }
 
 // AdminConfig ADMIN服务配置
@@ -64,7 +64,7 @@ func (co *Config) AdminConfig(c *gin.Context) {
 	u := &model.User{}
 	token := c.GetHeader("api-token")
 	if token != "" {
-		u, _ = service.AllService.UserService.InfoByAccessToken(token)
+		u, _ = service.AllService.UserService.InfoByAccessTokenContext(c.Request.Context(), token)
 		if !service.AllService.UserService.CheckUserEnable(u) {
 			u.Id = 0
 		}

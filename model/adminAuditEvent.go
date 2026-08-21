@@ -11,7 +11,7 @@ type AdminAuditEvent struct {
 	RequestID   string                `json:"request_id" gorm:"size:64;not null;index"`
 	Result      string                `json:"result" gorm:"size:32;not null;index"`
 	ErrorCode   string                `json:"error_code,omitempty" gorm:"size:96;not null;default:'';index"`
-	Metadata    custom_types.AutoJson `json:"metadata" gorm:"type:text;not null"`
+	Metadata    custom_types.AutoJson `json:"metadata" gorm:"type:text;not null" swaggertype:"object"`
 	TimeModel
 }
 

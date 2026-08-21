@@ -49,6 +49,11 @@ func (g *Group) Users(c *gin.Context) {
 	for _, user := range userList.Users {
 		up := &apiResp.UserPayload{}
 		up.FromUser(user)
+		if user.Id != u.Id {
+			up.Email = ""
+			isAdmin := false
+			up.IsAdmin = &isAdmin
+		}
 		data = append(data, up)
 	}
 	c.JSON(http.StatusOK, response.DataResponse{

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"github.com/spf13/viper"
 	"strings"
@@ -14,7 +15,9 @@ const (
 )
 
 type App struct {
-	WebClient        int           `mapstructure:"web-client"`
+	// LegacyWebClient is parsed only to fail closed on obsolete deployments.
+	// It never enables static Web Client routes.
+	LegacyWebClient  int           `mapstructure:"web-client"`
 	Register         bool          `mapstructure:"register"`
 	RegisterStatus   int           `mapstructure:"register-status"`
 	ShowSwagger      int           `mapstructure:"show-swagger"`
@@ -32,22 +35,39 @@ type Admin struct {
 	RelayServerPort int    `mapstructure:"relay-server-port"`
 }
 type Config struct {
-	Lang          string `mapstructure:"lang"`
-	App           App
-	Admin         Admin
-	Gorm          Gorm
-	Mysql         Mysql
-	Postgresql    Postgresql
-	Gin           Gin
-	Logger        Logger
-	Redis         Redis
-	Cache         Cache
-	Oss           Oss
-	Auth          Auth `mapstructure:"auth"`
-	Rustdesk      Rustdesk
-	Proxy         Proxy
-	Ldap          Ldap
-	ServerControl ServerControl `mapstructure:"server-control"`
+	Lang              string `mapstructure:"lang"`
+	App               App
+	Admin             Admin
+	Gorm              Gorm
+	Mysql             Mysql
+	Postgresql        Postgresql
+	Gin               Gin
+	Logger            Logger
+	Redis             Redis
+	Cache             Cache
+	Oss               Oss
+	Auth              Auth `mapstructure:"auth"`
+	Rustdesk          Rustdesk
+	Proxy             Proxy
+	Ldap              Ldap
+	ServerControl     ServerControl     `mapstructure:"server-control"`
+	WebClientProvider WebClientProvider `mapstructure:"web-client-provider"`
+}
+
+func (c Config) Validate() error {
+	if c.App.LegacyWebClient != 0 {
+		return errors.New("app.web-client is removed; configure web-client-provider.mode instead")
+	}
+	if err := c.Auth.Validate(); err != nil {
+		return err
+	}
+	if err := c.WebClientProvider.Validate(); err != nil {
+		return err
+	}
+	if err := c.Ldap.Validate(); err != nil {
+		return err
+	}
+	return c.ServerControl.Validate()
 }
 
 func (a *Admin) Init() {
@@ -68,6 +88,9 @@ func Init(rowVal *Config, path string) *viper.Viper {
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	v.SetEnvPrefix("RUSTDESK_API")
+	v.SetDefault("server-control.read-only", true)
+	v.SetDefault("server-control.legacy-command-enabled", false)
+	v.SetDefault("web-client-provider.mode", WebClientProviderDisabled)
 	v.SetConfigFile(path)
 	v.SetConfigType("yaml")
 	err := v.ReadInConfig()
@@ -91,6 +114,9 @@ func Init(rowVal *Config, path string) *viper.Viper {
 	*/
 	if err := v.Unmarshal(rowVal); err != nil {
 		panic(fmt.Errorf("Fatal error config: %s \n", err))
+	}
+	if err := rowVal.Validate(); err != nil {
+		panic(fmt.Errorf("Fatal error config validation: %s \n", err))
 	}
 	rowVal.Rustdesk.LoadKeyFile()
 	rowVal.Admin.Init()

@@ -1,92 +1,104 @@
 package lock
 
 import (
-	"fmt"
 	"sync"
 	"testing"
 )
 
-func TestLocal_GetLock(t *testing.T) {
-	l := NewLocal()
-	wg := sync.WaitGroup{}
-	wg.Add(3)
-	var l1 *sync.Mutex
-	var l2 *sync.Mutex
-	var l3 *sync.Mutex
-	i := 0
-	go func() {
-		l1 = l.GetLock("key")
-		fmt.Println("l1", l1, i)
-		l1.Lock()
-		fmt.Println("l1", i)
-		i++
-		l1.Unlock()
-		wg.Done()
-	}()
-	go func() {
-		l2 = l.GetLock("key")
-		fmt.Println("l2", l2, i)
-		l2.Lock()
-		fmt.Println("l2", i)
-		i++
-		l2.Unlock()
-		wg.Done()
-	}()
-	go func() {
-		l3 = l.GetLock("key")
-		fmt.Println("l3", l3, i)
-		l3.Lock()
-		fmt.Println("l3", i)
-		i++
-		l3.Unlock()
-		wg.Done()
-	}()
-	wg.Wait()
+func TestLocalGetLockReturnsOneMutexAndSerializesCallers(t *testing.T) {
+	const workers = 32
+	local := NewLocal()
+	mutexes := make(chan *sync.Mutex, workers)
+	var wait sync.WaitGroup
+	wait.Add(workers)
+	counter := 0
 
-	fmt.Println(l1, l2, l3)
-	fmt.Println(l1 == l2, l2 == l3)
-	fmt.Println(&sync.Mutex{} == &sync.Mutex{})
-}
-
-func TestLocal_Lock(t *testing.T) {
-	l := NewLocal()
-	wg := sync.WaitGroup{}
-	m := 10
-	wg.Add(m)
-	i := 0
-	for j := 0; j < m; j++ {
+	for range workers {
 		go func() {
-			l.Lock("key")
-			//fmt.Println(j, i)
-			i++
-			fmt.Println(j, i)
-			l.UnLock("key")
-			wg.Done()
+			defer wait.Done()
+			mutex := local.GetLock("key")
+			mutexes <- mutex
+			mutex.Lock()
+			counter++
+			mutex.Unlock()
 		}()
 	}
+	wait.Wait()
+	close(mutexes)
 
-	wg.Wait()
-	fmt.Println(i)
-
+	var first *sync.Mutex
+	for mutex := range mutexes {
+		if first == nil {
+			first = mutex
+			continue
+		}
+		if mutex != first {
+			t.Fatal("GetLock returned different mutexes for the same key")
+		}
+	}
+	if counter != workers {
+		t.Fatalf("serialized counter = %d, want %d", counter, workers)
+	}
 }
-func TestSyncMap(t *testing.T) {
-	m := sync.Map{}
-	wg := sync.WaitGroup{}
-	wg.Add(3)
-	go func() {
-		v, ok := m.LoadOrStore("key", 1)
-		fmt.Println(1, v, ok)
-		wg.Done()
-	}()
-	go func() {
-		v, ok := m.LoadOrStore("key", 2)
-		fmt.Println(2, v, ok)
-		wg.Done()
-	}()
-	go func() {
-		v, ok := m.LoadOrStore("key", 3)
-		fmt.Println(3, v, ok)
-		wg.Done()
-	}()
-	wg.Wait()
+
+func TestLocalLockSerializesCallers(t *testing.T) {
+	const workers = 32
+	local := NewLocal()
+	var wait sync.WaitGroup
+	wait.Add(workers)
+	counter := 0
+
+	for range workers {
+		go func() {
+			defer wait.Done()
+			local.Lock("key")
+			counter++
+			local.UnLock("key")
+		}()
+	}
+	wait.Wait()
+
+	if counter != workers {
+		t.Fatalf("serialized counter = %d, want %d", counter, workers)
+	}
+}
+
+func TestSyncMapLoadOrStoreSelectsOneValue(t *testing.T) {
+	const workers = 32
+	var values sync.Map
+	results := make(chan int, workers)
+	created := make(chan bool, workers)
+	var wait sync.WaitGroup
+	wait.Add(workers)
+
+	for value := 1; value <= workers; value++ {
+		go func(candidate int) {
+			defer wait.Done()
+			actual, loaded := values.LoadOrStore("key", candidate)
+			results <- actual.(int)
+			created <- !loaded
+		}(value)
+	}
+	wait.Wait()
+	close(results)
+	close(created)
+
+	expected := 0
+	for result := range results {
+		if expected == 0 {
+			expected = result
+		}
+		if result != expected {
+			t.Fatalf("LoadOrStore returned %d after selecting %d", result, expected)
+		}
+	}
+	creators := 0
+	for wasCreated := range created {
+		if wasCreated {
+			creators++
+		}
+	}
+	if creators != 1 {
+		t.Fatalf("LoadOrStore creators = %d, want 1", creators)
+	}
 }

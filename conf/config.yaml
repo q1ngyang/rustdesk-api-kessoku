@@ -1,6 +1,6 @@
 lang: "zh-CN"
 app:
-  web-client: 0  # 1:启用外部 Web Client Provider；默认安全关闭
+  web-client: 0  # 已移除的兼容键；非 0 会拒绝启动
   register: false #是否开启注册
   register-status: 1 # 注册用户默认状态 1:启用 2:禁用
   captcha-threshold: 3 #   <0:disabled, 0 always, >0:enabled
@@ -9,6 +9,21 @@ app:
   token-expire: 168h
   web-sso: true #web auth sso
   disable-pwd-login: false #禁用密码登录
+
+# Browser clients are independently hosted providers. Kessoku never downloads
+# or proxies their assets and never sends an access token to launch-url.
+web-client-provider:
+  mode: "disabled" # disabled | external
+  authorization-record: "" # external 模式必填：授权依据和审核记录
+  manifest:
+    id: ""
+    name: ""
+    launch-url: ""
+    allowed-origin: ""
+    license: ""
+    source-url: ""
+    version: ""
+    digest: "" # sha256:<64 lowercase hex>
 
 admin:
   title: "Kessoku Admin"
@@ -49,8 +64,6 @@ rustdesk:
   key: ""
   key-file: "/data/id_ed25519.pub"
   personal: 1
-  webclient-magic-queryonline: 0
-  ws-host: ""  #eg: wss://192.168.1.3:4443
 logger:
   path: "./runtime/log.txt"
   level: "info" #trace,debug,info,warn,error,fatal
@@ -66,8 +79,10 @@ auth:
   audiences:
     - "kessoku-api"
     - "rustdesk-connect"
-  access-token-ttl: 15m
-  maximum-token-ttl: 1h
+  # RustDesk clients currently retain a single long-lived login token and do
+  # not implement an access-token refresh flow.
+  access-token-ttl: 168h
+  maximum-token-ttl: 168h
   clock-skew: 30s
   max-token-bytes: 8192
   legacy-token-read-enabled: false
@@ -102,12 +117,12 @@ server-control:
   instances: []
 ldap:
   enable: false
-  url: "ldap://ldap.example.com:389"
-  tls-ca-file: ""
-  tls-verify: false
+  url: "ldaps://ldap.example.com:636"
+  tls-ca-file: "/run/secrets/ldap-ca.pem"
+  tls-verify: true
   base-dn: "dc=example,dc=com"
   bind-dn: "cn=admin,dc=example,dc=com"
-  bind-password: "password"
+  bind-password: ""
 
   user:
     base-dn: "ou=users,dc=example,dc=com"

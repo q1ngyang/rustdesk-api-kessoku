@@ -1,94 +1,61 @@
-# Use build arguments for Go version and architecture
-ARG GO_VERSION=1.22
-ARG BUILDARCH=amd64
+FROM golang:1.26.6-bookworm@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36 AS builder-backend
 
-# Stage 1: Builder Stage
-# FROM golang:${GO_VERSION}-alpine AS builder
-FROM crazymax/xgo:${GO_VERSION} AS builder-backend
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
-# Set up working directory
-WORKDIR /app
-
-# Step 1: Copy the source code
 COPY . .
-
-# use --mount=type=cache,target=/go/pkg/mod to cache the go mod
-# Step 2: Download dependencies
 RUN --mount=type=cache,target=/go/pkg/mod \
-    go mod tidy && go mod download && go install github.com/swaggo/swag/cmd/swag@latest
-
-# Step 3: Run swag build script
-RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod verify && \
+    go install github.com/swaggo/swag/cmd/swag@v1.16.6 && \
     swag init -g cmd/apimain.go --output docs/api --instanceName api --exclude http/controller/admin && \
-    swag init -g cmd/apimain.go --output docs/admin --instanceName admin --exclude http/controller/api 
+    swag init -g cmd/apimain.go --output docs/admin --instanceName admin --exclude http/controller/api
 
-# Step 4: Build the Go application with CGO enabled and specified ldflags
+# This development-only source build intentionally receives no .git directory
+# through .dockerignore. Published images consume the separately verified
+# candidate binary, whose exact revision and clean-tree state are recorded.
 RUN --mount=type=cache,target=/go/pkg/mod \
-    CGO_ENABLED=1 GOOS=linux go build -a \
-    -ldflags "-s -w --extldflags '-static -fpic'" \
-    -installsuffix cgo -o release/apimain cmd/apimain.go
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=1 GOOS=linux go build -trimpath -buildvcs=false \
+    -ldflags "-s -w" -o /out/kessoku-api ./cmd
 
-# Stage 2: Frontend Build Stage (builder2)
-FROM node:18-alpine AS builder-admin-frontend
+FROM node:24.15.0-bookworm@sha256:f22d6a1f082c02f292e86929b5b0442ac2e5eaf438a5dea9b1566601c3e05940 AS builder-admin-frontend
 
-# Set working directory
-WORKDIR /frontend
+WORKDIR /src/admin-web
+COPY admin-web/package.json admin-web/package-lock.json admin-web/.npmrc ./
+RUN --mount=type=cache,target=/root/.npm \
+    test "$(npm --version)" = "11.12.1" && \
+    npm ci
 
-ARG COUNTRY
-# Install required tools without caching index to minimize image size
-RUN if [ "$COUNTRY" = "CN" ] ; then \
-        echo "It is in China, updating the repositories"; \
-        sed -i 's#https\?://dl-cdn.alpinelinux.org/alpine#https://mirrors.tuna.tsinghua.edu.cn/alpine#g' /etc/apk/repositories; \
-    fi && \
-    apk update && apk add --no-cache git
+# The reviewed UI source is part of the same Kessoku commit. No repository,
+# branch, URL, or alternate path can be supplied as a build argument.
+COPY admin-web/ ./
+COPY .github/workflows/build.yml /src/.github/workflows/build.yml
+RUN --mount=type=cache,target=/root/.npm \
+    npm audit --omit=dev --audit-level=high && \
+    npm run lint --if-present && \
+    npm test --if-present && \
+    npm run build
 
-ARG FRONTEND_GIT_REPO=https://github.com/lejianwen/rustdesk-api-web.git
-ARG FRONTEND_GIT_BRANCH=master
-# Clone the frontend repository
+FROM debian:bookworm-slim@sha256:abd67ffcfa541b485a3dff59865ab629aa048a6c613e639d36e7456b0b229241
 
-RUN git clone -b $FRONTEND_GIT_BRANCH $FRONTEND_GIT_REPO .
-
-# Install required tools without caching index to minimize image size
-RUN if [ "$COUNTRY" = "CN" ] ; then \
-        echo "It is in China, updating NPM_CONFIG_REGISTRY"; \
-        export NPM_CONFIG_REGISTRY="https://mirrors.huaweicloud.com/repository/npm/"; \
-    fi && \
-    npm install && npm run build
-
-
-# Stage 2: Final Image
-FROM alpine:latest
-
-# Set up working directory
 WORKDIR /app
+COPY --from=builder-backend /out/kessoku-api /app/kessoku-api
+COPY --from=builder-backend /src/conf /app/conf/
+COPY --from=builder-backend /src/resources/i18n /app/resources/i18n/
+COPY --from=builder-backend /src/resources/public /app/resources/public/
+COPY --from=builder-backend /src/resources/templates /app/resources/templates/
+COPY --from=builder-backend /src/resources/version /app/resources/version
+COPY --from=builder-backend /src/docs /app/docs/
+COPY --from=builder-backend /src/LICENSE /app/LICENSE
+COPY --from=builder-admin-frontend /src/admin-web/dist/ /app/resources/admin/
+COPY --from=builder-admin-frontend /src/admin-web/LICENSE /app/ADMIN-WEB-LICENSE
 
-# Install necessary runtime dependencies
-# Install required tools without caching index to minimize image size
-ARG COUNTRY
-RUN if [ "$COUNTRY" = "CN" ] ; then \
-        echo "It is in China, updating the repositories"; \
-        sed -i 's#https\?://dl-cdn.alpinelinux.org/alpine#https://mirrors.tuna.tsinghua.edu.cn/alpine#g' /etc/apk/repositories; \
-    fi && \
-    apk update && apk add --no-cache tzdata file
+RUN mkdir -p /app/data /app/runtime && \
+    chown -R 65534:65534 /app/data /app/runtime
 
-# Copy the built application and resources from the builder stage
-COPY --from=builder-backend /app/release /app/
-COPY --from=builder-backend /app/conf /app/conf/
-COPY --from=builder-backend /app/resources /app/resources/
-COPY --from=builder-backend /app/docs /app/docs/
-# Copy frontend build from builder2 stage
-COPY --from=builder-admin-frontend /frontend/dist/ /app/resources/admin/
-
-# Ensure the binary is correctly built and linked
-RUN file /app/apimain && \
-    mkdir -p /app/data && \
-    mkdir -p /app/runtime
-
-# Set up a volume for persistent data
+USER 65534:65534
 VOLUME /app/data
-
-# Expose the necessary port
-EXPOSE 21114
-
-# Define the command to run the application
-CMD ["./apimain"]
+EXPOSE 21114 21121
+CMD ["./kessoku-api"]

@@ -71,7 +71,7 @@ func (ct *UserToken) Delete(c *gin.Context) {
 		return
 	}
 	if l.Id > 0 {
-		err := service.AllService.UserService.DeleteToken(l)
+		err := service.AllService.UserService.DeleteTokenContext(c.Request.Context(), u.Id, controlRequestID(c), l)
 		if err == nil {
 			response.Success(c, nil)
 			return
@@ -104,7 +104,8 @@ func (ct *UserToken) BatchDelete(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
 		return
 	}
-	err := service.AllService.UserService.BatchDeleteUserToken(ids)
+	actor := service.AllService.UserService.CurUser(c)
+	err := service.AllService.UserService.BatchDeleteUserTokenContext(c.Request.Context(), actor.Id, controlRequestID(c), ids)
 	if err == nil {
 		response.Success(c, nil)
 		return

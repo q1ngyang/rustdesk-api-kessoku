@@ -1,0 +1,8 @@
+{
+  "active": true,
+  "sub": "42",
+  "jti": "0191f6a0-0000-7000-8000-000000000001",
+  "exp": 1787604800,
+  "auth_version": 3,
+  "reason": "active"
+}

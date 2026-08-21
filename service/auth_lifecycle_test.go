@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/x509"
@@ -31,7 +32,7 @@ func TestTokenLifecycleHashRevocationAndAuthVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := database.AutoMigrate(&model.User{}, &model.UserToken{}, &model.LoginLog{}); err != nil {
+	if err := database.AutoMigrate(&model.User{}, &model.UserToken{}, &model.LoginLog{}, &model.AdminAuditEvent{}); err != nil {
 		t.Fatal(err)
 	}
 	manager := lifecycleAuthManager(t)
@@ -71,6 +72,17 @@ func TestTokenLifecycleHashRevocationAndAuthVersion(t *testing.T) {
 	if result := AllService.AuthIntrospectionService.Introspect(first.Token); !result.Active || result.Subject != "1" {
 		t.Fatalf("fresh token introspection = %+v", result)
 	}
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if result := AllService.AuthIntrospectionService.IntrospectContext(cancelled, first.Token); result.Active {
+		t.Fatalf("cancelled introspection remained active: %+v", result)
+	}
+	if err := AllService.UserService.LogoutContext(cancelled, user, first.Token); err == nil {
+		t.Fatal("cancelled logout silently reported success")
+	}
+	if result := AllService.AuthIntrospectionService.Introspect(first.Token); !result.Active {
+		t.Fatalf("cancelled logout revoked the token: %+v", result)
+	}
 
 	if err := AllService.UserService.Logout(user, first.Token); err != nil {
 		t.Fatal(err)
@@ -107,6 +119,73 @@ func TestTokenLifecycleHashRevocationAndAuthVersion(t *testing.T) {
 	}
 	if result := AllService.AuthIntrospectionService.Introspect(fourth.Token); result.Active {
 		t.Fatalf("disabled user's token remained active: %+v", result)
+	}
+	auditEvents := []model.AdminAuditEvent{}
+	if err := database.Where("action IN ?", []string{"auth.sessions.global_revoked", "auth.user.disabled"}).Order("id").Find(&auditEvents).Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(auditEvents) != 2 || auditEvents[0].Result != "success" || auditEvents[1].Result != "success" {
+		t.Fatalf("authentication audit events = %+v", auditEvents)
+	}
+	encodedAudit, err := json.Marshal(auditEvents)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, token := range []string{first.Token, second.Token, third.Token, fourth.Token} {
+		if strings.Contains(string(encodedAudit), token) {
+			t.Fatal("authentication audit leaked a bearer token")
+		}
+	}
+}
+
+func TestLegacyFallbackCannotResurrectStrictJWTAfterKeyRemoval(t *testing.T) {
+	oldConfig, oldDB, oldLogger, oldAuth, oldLock, oldServices := Config, DB, Logger, Auth, Lock, AllService
+	t.Cleanup(func() {
+		Config, DB, Logger, Auth, Lock, AllService = oldConfig, oldDB, oldLogger, oldAuth, oldLock, oldServices
+	})
+
+	database, err := gorm.Open(sqlite.Open("file:legacy-fallback?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(&model.User{}, &model.UserToken{}, &model.LoginLog{}, &model.AdminAuditEvent{}); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{Auth: config.Auth{Enabled: true, LegacyTokenReadEnabled: true}}
+	New(cfg, database, logrus.New(), lifecycleAuthManager(t), lock.NewLocal())
+
+	isAdmin := false
+	user := &model.User{Username: "legacy-overlap", Status: model.COMMON_STATUS_ENABLE, IsAdmin: &isAdmin, AuthVersion: 1}
+	if err := database.Create(user).Error; err != nil {
+		t.Fatal(err)
+	}
+	strict := AllService.UserService.Login(user, &model.LoginLog{UserId: user.Id})
+	if strict == nil {
+		t.Fatal("strict JWT login failed")
+	}
+
+	// Replace the keyring with a different key using the same kid. Strict
+	// signature verification now fails, while the exact token hash still has an
+	// authoritative database row.
+	Auth = lifecycleAuthManager(t)
+	if authenticated, _ := AllService.UserService.InfoByAccessToken(strict.Token); authenticated.Id != 0 {
+		t.Fatal("legacy compatibility resurrected a strict JWT after key removal")
+	}
+
+	legacyToken := "legacy-opaque-credential-with-database-authority"
+	legacyHash := internalAuth.TokenHashHex(legacyToken)
+	legacyRow := &model.UserToken{
+		UserId:      user.Id,
+		Token:       legacyToken,
+		TokenHash:   &legacyHash,
+		AuthVersion: user.AuthVersion,
+		ExpiredAt:   time.Now().Add(time.Hour).Unix(),
+	}
+	if err := database.Create(legacyRow).Error; err != nil {
+		t.Fatal(err)
+	}
+	if authenticated, _ := AllService.UserService.InfoByAccessToken(legacyToken); authenticated.Id != user.Id {
+		t.Fatal("bounded compatibility rejected a genuine pre-EdDSA credential")
 	}
 }
 

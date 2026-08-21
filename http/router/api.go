@@ -61,10 +61,6 @@ func ApiInit(g *gin.Engine) {
 		frg.POST("/sysinfo_ver", pe.SysInfoVer)
 	}
 
-	if global.Config.App.WebClient == 1 {
-		WebClientRoutes(frg)
-	}
-
 	{
 		au := &api.Audit{}
 		//[method:POST] [uri:/api/audit/conn]
@@ -131,18 +127,6 @@ func PersonalRoutes(frg *gin.RouterGroup) {
 		//[method:DELETE] [uri:/api/ab/tag/1]
 		frg.DELETE("/ab/tag/:guid", ab.TagDel)
 
-	}
-
-}
-
-func WebClientRoutes(frg *gin.RouterGroup) {
-	w := &api.WebClient{}
-	{
-		frg.POST("/shared-peer", w.SharedPeer)
-	}
-	{
-		frg.POST("/server-config", middleware.RustAuth(), w.ServerConfig)
-		frg.POST("/server-config-v2", middleware.RustAuth(), w.ServerConfigV2)
 	}
 
 }

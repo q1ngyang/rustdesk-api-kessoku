@@ -7,8 +7,8 @@ type AuditQuery struct {
 }
 
 type AuditConnLogIds struct {
-	Ids []uint `json:"ids" validate:"required"`
+	Ids []uint `json:"ids" binding:"required,max=1000,dive,gt=0"`
 }
 type AuditFileLogIds struct {
-	Ids []uint `json:"ids" validate:"required"`
+	Ids []uint `json:"ids" binding:"required,max=1000,dive,gt=0"`
 }

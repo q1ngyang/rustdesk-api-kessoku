@@ -7,6 +7,7 @@ import (
 	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
+	"net/http"
 	"time"
 )
 
@@ -24,10 +25,15 @@ type Audit struct {
 // @Failure 500 {object} response.Response
 // @Router /audit/conn [post]
 func (a *Audit) AuditConn(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxClientReportBytes)
 	af := &request.AuditConnForm{}
 	err := c.ShouldBindBodyWith(af, binding.JSON)
 	if err != nil {
 		response.Error(c, response.TranslateMsg(c, "ParamsError")+err.Error())
+		return
+	}
+	if !validAuditConnReport(af) || !peerReportIdentityMatches(af.Id, af.Uuid) {
+		response.Error(c, response.TranslateMsg(c, "ParamsError"))
 		return
 	}
 	/*ttt := &gin.H{}
@@ -35,12 +41,22 @@ func (a *Audit) AuditConn(c *gin.Context) {
 	fmt.Println(ttt)*/
 	ac := af.ToAuditConn()
 	if af.Action == model.AuditActionNew {
-		service.AllService.AuditService.CreateAuditConn(ac)
+		if err := service.AllService.AuditService.CreateAuditConn(ac); err != nil {
+			response.Error(c, response.TranslateMsg(c, "OperationFailed"))
+			return
+		}
 	} else if af.Action == model.AuditActionClose {
 		ex := service.AllService.AuditService.InfoByPeerIdAndConnId(af.Id, af.ConnId)
 		if ex.Id != 0 {
+			if ex.Uuid != af.Uuid {
+				response.Error(c, response.TranslateMsg(c, "ParamsError"))
+				return
+			}
 			ex.CloseTime = time.Now().Unix()
-			service.AllService.AuditService.UpdateAuditConn(ex)
+			if err := service.AllService.AuditService.UpdateAuditConn(ex); err != nil {
+				response.Error(c, response.TranslateMsg(c, "OperationFailed"))
+				return
+			}
 		}
 	} else if af.Action == "" {
 		ex := service.AllService.AuditService.InfoByPeerIdAndConnId(af.Id, af.ConnId)
@@ -52,7 +68,14 @@ func (a *Audit) AuditConn(c *gin.Context) {
 				SessionId: ac.SessionId,
 				Type:      ac.Type,
 			}
-			service.AllService.AuditService.UpdateAuditConn(up)
+			if ex.Uuid != af.Uuid {
+				response.Error(c, response.TranslateMsg(c, "ParamsError"))
+				return
+			}
+			if err := service.AllService.AuditService.UpdateAuditConn(up); err != nil {
+				response.Error(c, response.TranslateMsg(c, "OperationFailed"))
+				return
+			}
 		}
 	}
 	response.Success(c, "")
@@ -69,16 +92,56 @@ func (a *Audit) AuditConn(c *gin.Context) {
 // @Failure 500 {object} response.Response
 // @Router /audit/file [post]
 func (a *Audit) AuditFile(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxClientReportBytes)
 	aff := &request.AuditFileForm{}
 	err := c.ShouldBindBodyWith(aff, binding.JSON)
 	if err != nil {
 		response.Error(c, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
+	if !validAuditFileReport(aff) || !peerReportIdentityMatches(aff.Id, aff.Uuid) {
+		response.Error(c, response.TranslateMsg(c, "ParamsError"))
+		return
+	}
 	//ttt := &gin.H{}
 	//c.ShouldBindBodyWith(ttt, binding.JSON)
 	//fmt.Println(ttt)
 	af := aff.ToAuditFile()
-	service.AllService.AuditService.CreateAuditFile(af)
+	if err := service.AllService.AuditService.CreateAuditFile(af); err != nil {
+		response.Error(c, response.TranslateMsg(c, "OperationFailed"))
+		return
+	}
 	response.Success(c, "")
+}
+
+func peerReportIdentityMatches(peerID, uuid string) bool {
+	if !boundedReportField(peerID, 128) || !boundedReportField(uuid, 256) {
+		return false
+	}
+	peer := service.AllService.PeerService.FindById(peerID)
+	return peer.RowId != 0 && peer.Uuid == uuid
+}
+
+func validAuditConnReport(form *request.AuditConnForm) bool {
+	if form == nil || !boundedReportField(form.Id, 128) || !boundedReportField(form.Uuid, 256) || form.ConnId <= 0 || len(form.Peer) > 2 {
+		return false
+	}
+	if form.Action != model.AuditActionNew && form.Action != model.AuditActionClose && form.Action != "" {
+		return false
+	}
+	if !boundedOptionalReportField(form.Ip, 128) {
+		return false
+	}
+	for _, value := range form.Peer {
+		if !boundedOptionalReportField(value, 512) {
+			return false
+		}
+	}
+	return true
+}
+
+func validAuditFileReport(form *request.AuditFileForm) bool {
+	return form != nil && boundedReportField(form.Id, 128) && boundedReportField(form.Uuid, 256) &&
+		boundedOptionalReportField(form.PeerId, 128) && boundedOptionalReportField(form.Info, 16<<10) &&
+		boundedOptionalReportField(form.Path, 4096)
 }
