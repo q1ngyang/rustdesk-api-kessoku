@@ -7,10 +7,10 @@ Kessoku 是一个非官方的 RustDesk 账户、管理和策略控制面。它�
 [`rustdesk-server-starry`](https://github.com/q1ngyang/rustdesk-server-starry)
 集成。
 
-> **v2.8.0 发布草案。** 功能实现和本地 Linux amd64 检查已经完成，Starry 正式契约也已
-> 固定，已发布 Starry 的原生客户端矩阵与内置浏览器 forced-Relay 夹具均在本机通过；仍需完成
-> 受保护候选 CI 和最终发布负责人批准。不要把未打 tag 的工作树构建当作
-> 生产版本。
+> **v2.8.0 已批准源码候选。** 功能实现和本地 Linux amd64 检查已经完成，Starry 正式
+> 契约也已固定，已发布 Starry 的原生客户端矩阵与内置浏览器 forced-Relay 夹具均在本机
+> 通过；仍需完成不可变 tag、受保护候选 CI 和发布操作。发布负责人已批准最终文案和本地
+> 证据。不要把未打 tag 的工作树构建当作生产版本。
 
 ## 组件边界
 

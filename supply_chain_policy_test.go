@@ -131,8 +131,8 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(status), "status: BLOCKED") || !strings.Contains(string(status), "release_tag: v2.8.0") {
-		t.Fatal("development checkpoint must fail closed")
+	if !strings.Contains(string(status), "status: APPROVED") || !strings.Contains(string(status), "release_tag: v2.8.0") {
+		t.Fatal("release source must name the explicitly approved immutable tag")
 	}
 }
 

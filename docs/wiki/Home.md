@@ -47,7 +47,8 @@ authoritative for signalling, connection authorization, and Relay allocation.
 
 ## Release and legal status
 
-v2.8.0 remains unpublished while `RELEASE_STATUS` is `BLOCKED`. The reviewed
-source is MIT licensed and is not affiliated with RustDesk. The repository-
-owned Web Client is MIT; third-party dependency licences are recorded in the
-release SBOM. Historical WebClient2/V2 assets are not included.
+v2.8.0 remains unpublished even though its source candidate is approved: the
+immutable tag, protected candidate CI, and publication steps are still pending.
+The reviewed source is MIT licensed and is not affiliated with RustDesk. The
+repository-owned Web Client is MIT; third-party dependency licences are
+recorded in the release SBOM. Historical WebClient2/V2 assets are not included.

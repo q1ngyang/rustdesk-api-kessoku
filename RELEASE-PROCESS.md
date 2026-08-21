@@ -2,13 +2,14 @@
 
 This procedure is fail-closed. The candidate workflow never publishes, and the
 publication workflow accepts only a successful candidate from the exact tag
-commit. This development checkpoint keeps `RELEASE_STATUS` as `BLOCKED` with
-the explicit target `release_tag: v2.8.0`; naming the target is not approval.
+commit. The reviewed source candidate sets `RELEASE_STATUS` to `APPROVED` and
+names `release_tag: v2.8.0`; this permits the protected sequence below but does
+not claim that its tag or any public artifact already exists.
 
 ## Approval prerequisites
 
-Before changing the gate, the release owner must verify every item in
-`RELEASE-CHECKLIST.md` and record the supporting local evidence, artifact
+Before changing the gate, the release owner must verify every pre-publication
+item in `RELEASE-CHECKLIST.md` and record the supporting local evidence, artifact
 digests, compatibility results, and approvers in the release review. The
 deployment owner separately records topology-specific recovery objectives and
 the rollout go/no-go decision. In particular:
@@ -35,8 +36,10 @@ status: APPROVED
 release_tag: v2.8.0
 ```
 
-Do not approve a floating branch, unpublished contract, externally substituted
-frontend, unsupported platform artifact, or partially passing candidate.
+Do not approve a floating branch, unpublished Starry contract, externally
+substituted frontend, unsupported platform artifact, or partially passing
+candidate. Tag creation, protected candidate CI, and publication are sequenced
+post-approval checks and are recorded only after they occur.
 
 ## Build the non-publishing candidate
 

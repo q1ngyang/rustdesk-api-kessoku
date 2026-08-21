@@ -43,6 +43,6 @@ Starry HBBS 仍是信令、连接授权与 Relay 分配的权威实现。
 
 ## 发布与法律状态
 
-只要 `RELEASE_STATUS` 仍为 `BLOCKED`，v2.8.0 就尚未发布。已审核源码使用 MIT 许可证，
-与 RustDesk 无隶属关系。仓库自有 Web Client 使用 MIT，第三方依赖许可证记录在 release
-SBOM；不包含历史 WebClient2/V2 资产。
+虽然源码候选已批准，但不可变 tag、受保护候选 CI 和发布操作仍未执行，因此 v2.8.0
+尚未发布。已审核源码使用 MIT 许可证，与 RustDesk 无隶属关系。仓库自有 Web Client
+使用 MIT，第三方依赖许可证记录在 release SBOM；不包含历史 WebClient2/V2 资产。

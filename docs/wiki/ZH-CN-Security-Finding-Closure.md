@@ -15,6 +15,7 @@
   覆盖 40 个 surface、记录 22 项 finding（6 medium、16 low），没有 high/critical。
 - Codex Security 插件安装已获批准，但最终 Kessoku 候选会话中没有出现可调用的扫描器。
   因此，封存快照属于历史证据，不能表述成插件已对最终工作树重新扫描。
+- 2026-08-21，发布负责人接受了这一证据边界，并取消“重新运行插件”这一发布前置条件。
 - 精确修复后源码由静态代码复核，以及常规功能、race、迁移、前端、容器、打包和真实
   客户端兼容性测试覆盖。本证据不包含渗透、利用、fuzz/mutation、压力或公网目标测试。
 
@@ -77,5 +78,5 @@ native-to-native、WSS-to-WSS、WSS-to-native、native-to-WSS 控制端/被控�
 ## 发布决策规则
 
 发布负责人必须能看到上述已接受残余、数据库/OAuth 迁移预检、精确制品身份和所有常规
-候选检查。在负责人批准精确提交并通过受审核流程修改 `RELEASE_STATUS` 前，发布保持
-fail-closed。
+候选检查。负责人已通过受审核流程批准源码候选；发布仍由 `RELEASE-PROCESS.md` 中的
+不可变 tag 与受保护候选工作流保持 fail-closed。

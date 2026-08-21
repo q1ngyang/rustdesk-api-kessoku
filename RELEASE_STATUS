@@ -1,6 +1,5 @@
-# Publication is fail-closed until RELEASE-CHECKLIST.md is complete.
-status: BLOCKED
+# The release owner approved this source candidate for the protected
+# tag/candidate/publication sequence in RELEASE-PROCESS.md. Approval does not
+# mean that a tag, image, package, GitHub Release, or Wiki has been published.
+status: APPROVED
 release_tag: v2.8.0
-
-# v2.8.0 is the reviewed release target, not an approval. Change only status to
-# APPROVED in the final reviewed release change after every gate is satisfied.

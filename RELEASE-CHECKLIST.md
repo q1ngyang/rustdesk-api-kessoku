@@ -1,10 +1,11 @@
 # Release Checklist
 
-This worktree is a local v2.8.0 release candidate. Publication remains blocked:
-an unchecked item below must be completed by the release owner or protected CI
-before images, packages, tags, or releases are published.
+This worktree is the release-owner-approved v2.8.0 source candidate. It is
+still unpublished: the unchecked tag, protected-CI, image, Release, and Wiki
+steps below must be completed in order. Source approval does not imply that
+any public artifact exists.
 
-## Local candidate evidence (not release approval)
+## Local candidate evidence (not publication)
 
 The 2026-08-21 pre-Web-Client candidate passed the following repeatable local
 checks with locked inputs. These results are retained as regression evidence
@@ -59,6 +60,9 @@ surfaces, with no high or critical result, under snapshot
 The plugin scanner was not callable in this final Kessoku session, so no new
 exact-tree plugin result is claimed; closure is based on the sealed snapshot,
 post-remediation static review, ordinary tests, and the local candidate verifier.
+On 2026-08-21 the release owner accepted that evidence boundary and explicitly
+removed a fresh Codex Security plugin run as a release prerequisite. This does
+not change or overstate the recorded scan results.
 The published Starry `1.1.16-patch-v1.2.0` assets, contract, source commit,
 GHCR tag/digest identity, amd64 command smoke, and official-binary Kessoku
 Provider E2E were independently rechecked on 2026-08-21. The exact local
@@ -66,8 +70,8 @@ Kessoku clean-commit verifier now passes after the built-in Web Client
 integration, including both frontend builds, Go/race, scans/SBOMs, reproducible
 archive and amd64 DEB, package install, non-root image, Web Client licence
 payload, and live response-header checks. Protected candidate CI for the final
-approved commit and final owner approval remain outstanding; topology-specific
-recovery acceptance gates deployment instead.
+approved tag remains outstanding; topology-specific recovery acceptance gates
+deployment instead.
 
 The exact published Starry image then passed a RustDesk 1.4.9 forced-Relay
 desktop matrix: `audit` native/native, followed by `enforce` native/native,
@@ -151,11 +155,12 @@ evidence, not penetration or stress testing.
 - [x] Every GitHub Action, tool, base image, service image, frontend source, and
       cross compiler is fixed to an immutable reviewed input with checksum or
       digest verification.
-- [ ] Secret scan, vulnerability scan, three SPDX SBOMs, separate admin/client
+- [x] Secret scan, vulnerability scan, three SPDX SBOMs, separate admin/client
       CycloneDX,
       artifact checksums, and build provenance pass and are attached to the
-      retained local non-publishing candidate evidence bundle. Protected CI
-      regenerates them for publication.
+      retained local non-publishing candidate evidence bundle. Its
+      `BUILD-INPUTS.txt` pins the exact clean source commit; protected CI
+      regenerates the evidence for the final approved tag before publication.
 - [x] Codex Security produced sealed, auditable static results for both frozen
       worktrees without active probing, fuzzing, mutation, stress, or exploit
       traffic; snapshot digests and finding counts are recorded above.
@@ -217,10 +222,11 @@ evidence, not penetration or stress testing.
       Wiki, GHCR image, or GitHub Release is published, including the final TLS,
       OAuth/OIDC, accepted-residual, Starry matrix, `latest`, and Web Client
       wording.
-- [ ] A release owner confirms every checkbox and removes the WIP block only in
-      the reviewed release change.
+- [x] The release owner confirms every pre-publication source, evidence,
+      compatibility, residual-risk, platform, and wording item and approves
+      the reviewed release-status change. Post-approval tag, protected-CI, and
+      publication checks intentionally remain unchecked until performed.
 
-Remaining publication actions are final release-owner wording approval, the
-immutable approved tag, protected candidate workflow, and the unpublished
-image/Release/Wiki operations. Do not substitute moving upstream branches or
-disable audits to make a release workflow pass.
+Remaining actions are the immutable approved tag, protected candidate workflow,
+and the unpublished image/Release/Wiki operations. Do not substitute moving
+upstream branches or disable audits to make a release workflow pass.

@@ -19,6 +19,8 @@ not contain exploit instructions.
   callable in the final Kessoku candidate session. The sealed snapshots are
   therefore historical evidence, not a claim that the exact final tree was
   freshly rescanned by the plugin.
+- On 2026-08-21 the release owner accepted this evidence boundary and removed
+  a fresh plugin run as a release prerequisite.
 - The exact post-remediation tree is covered by source review and ordinary
   functional, race, migration, frontend, container, packaging, and real-client
   compatibility tests. No penetration, exploit, fuzz/mutation, stress, or
@@ -90,5 +92,6 @@ compatibility validation; it does not claim an offensive security assessment.
 
 The accepted residual above, the database/OAuth migration preflight, exact
 artifact identity, and all ordinary candidate checks must be visible to the
-release owner. Publication remains fail-closed until that owner approves the
-exact commit and changes `RELEASE_STATUS` through the reviewed release process.
+release owner. The owner approved the source candidate through the reviewed
+release process; publication remains fail-closed on the immutable tag and
+protected candidate workflow described in `RELEASE-PROCESS.md`.

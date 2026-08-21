@@ -8,13 +8,12 @@ open-source browser remote-desktop MVP, and integrates with
 [`rustdesk-server-starry`](https://github.com/q1ngyang/rustdesk-server-starry)
 through a typed, versioned Control API.
 
-> **v2.8.0 release draft.** The implementation and local Linux amd64 checks are
-> complete, the official Starry contract is pinned, and both the published
-> Starry native-client matrix and built-in browser forced-Relay fixture pass
-> locally.
-> Publication remains blocked until protected candidate CI and final
-> release-owner approval are recorded. Do not deploy an
-> untagged worktree build as a production release.
+> **v2.8.0 approved source candidate.** The implementation and local Linux
+> amd64 checks are complete, the official Starry contract is pinned, and both
+> the published Starry native-client matrix and built-in browser forced-Relay
+> fixture pass locally. The release owner approved the final wording and local
+> evidence; the immutable tag, protected candidate CI, and publication have not
+> yet run. Do not deploy an untagged worktree build as a production release.
 
 ## Component boundary
 
