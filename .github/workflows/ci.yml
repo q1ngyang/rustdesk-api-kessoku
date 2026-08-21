@@ -196,6 +196,7 @@ jobs:
 
       - name: Scan Git history for secrets
         run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           "${RUNNER_TEMP}/kessoku-tools/gitleaks" git . --redact --no-banner --exit-code 1
 
       - name: Generate source SBOM

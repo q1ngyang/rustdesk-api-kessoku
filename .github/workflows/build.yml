@@ -266,6 +266,7 @@ jobs:
           set -euo pipefail
           sh scripts/install-ci-tools.sh "${RUNNER_TEMP}/kessoku-tools"
           "${RUNNER_TEMP}/kessoku-tools/actionlint"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           "${RUNNER_TEMP}/kessoku-tools/gitleaks" git . \
             --redact --no-banner --exit-code 1
           "${RUNNER_TEMP}/kessoku-tools/gitleaks" dir candidate/release \
