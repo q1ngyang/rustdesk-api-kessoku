@@ -160,16 +160,17 @@ commit candidate. A clean-start browser fixture has now passed against the
 exact published Starry image: distinct client/API HTTPS origins, direct login,
 admin ready/grant/accepted handoff, forced-Relay WSS, VP9/WebCodecs at
 1280x800, real remote mouse and basic keyboard input, logout, and zero browser
-persistent storage. The expanded clean-commit archive/DEB verifier and
-protected candidate workflow still must pass. The
+persistent storage. The local clean-commit verifier now passes the expanded
+archive/DEB, install, SBOM/licence, non-root image, and live-header gates;
+protected CI must repeat them for the final approved commit. The
 published Starry `1.1.16-patch-v1.2.0` Control API has been pinned by tag,
 source commit, contract hash, schema hashes, and amd64 image digest. RustDesk
 1.4.9 forced-Relay desktop sessions passed `audit` native-to-native and
 `enforce` native-to-native, WSS-to-WSS, WSS-to-native, and native-to-WSS,
 including Remote Desktop window/screenshot and established HBBR connection
 checks. This matrix does not claim direct-P2P or a separate Secure TCP case.
-Local build/static review does not substitute for the expanded clean-commit
-verifier. Each deployment must still record its own backup/restore,
+Local verification does not substitute for protected candidate CI. Each
+deployment must still record its own backup/restore,
 key recovery,
 failover, rollback, RTO/RPO, and go/no-go ownership before rollout; Kessoku does
 not publish a universal recovery SLA. This deployment gate is separate from

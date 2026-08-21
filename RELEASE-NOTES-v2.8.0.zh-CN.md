@@ -128,12 +128,13 @@ RustDesk 1.4.9 的 audit/sysinfo 上传不携带认证头。Kessoku 保留有界
 `resources/client` 的非 root 开发镜像构建。这是开发证据，不是最终 clean-commit 候选。
 全新启动的浏览器夹具现已对精确 Starry 正式镜像通过：独立 client/API HTTPS origin、直接
 登录、admin ready/grant/accepted 交接、forced-Relay WSS、1280x800 VP9/WebCodecs、远端
-鼠标与基本键盘输入、logout，以及零浏览器持久存储。扩展 clean-commit archive/DEB
-verifier 与受保护候选 workflow 仍须通过。已按 tag、源码提交、契约/schema 哈希与 amd64 镜像 digest 固定正式发布的
+鼠标与基本键盘输入、logout，以及零浏览器持久存储。本地 clean-commit verifier 现已通过
+扩展 archive/DEB、安装、SBOM/许可证、非 root 镜像与实际响应头门禁；受保护 CI 仍须对
+最终批准提交重跑。已按 tag、源码提交、契约/schema 哈希与 amd64 镜像 digest 固定正式发布的
 Starry `1.1.16-patch-v1.2.0` Control API。RustDesk 1.4.9 强制 Relay 桌面会话已通过
 `audit` native-to-native，以及 `enforce` native-to-native、WSS-to-WSS、WSS-to-native、
 native-to-WSS，并检查 Remote Desktop 窗口/截图和已建立 HBBR 连接。本矩阵不表示已经覆盖
-直接 P2P 或独立 Secure TCP case。本地构建/静态复核不能替代扩展 clean-commit verifier。每个部署
+直接 P2P 或独立 Secure TCP case。本地验证不能替代受保护候选 CI。每个部署
 在上线前仍须自行记录备份/恢复、密钥恢复、故障切换、回滚、RTO/RPO 与 go/no-go
 负责人；Kessoku 不承诺统一恢复 SLA。该部署门禁与软件发布门禁相互独立。软件发布仅剩
 以下批准/workflow 操作：

@@ -62,10 +62,12 @@ post-remediation static review, ordinary tests, and the local candidate verifier
 The published Starry `1.1.16-patch-v1.2.0` assets, contract, source commit,
 GHCR tag/digest identity, amd64 command smoke, and official-binary Kessoku
 Provider E2E were independently rechecked on 2026-08-21. The exact local
-Kessoku candidate and its post-remediation static review passed before the
-built-in Web Client integration. The expanded verifier, protected candidate
-run for the final approved tag, and final owner approval remain outstanding;
-topology-specific recovery acceptance gates deployment instead.
+Kessoku clean-commit verifier now passes after the built-in Web Client
+integration, including both frontend builds, Go/race, scans/SBOMs, reproducible
+archive and amd64 DEB, package install, non-root image, Web Client licence
+payload, and live response-header checks. Protected candidate CI for the final
+approved commit and final owner approval remain outstanding; topology-specific
+recovery acceptance gates deployment instead.
 
 The exact published Starry image then passed a RustDesk 1.4.9 forced-Relay
 desktop matrix: `audit` native/native, followed by `enforce` native/native,
@@ -162,7 +164,7 @@ evidence, not penetration or stress testing.
 - [x] The local candidate binary was built as module package `./cmd`; its
       persisted Go build info names the exact reviewed commit and
       `vcs.modified=false`. Protected CI repeats this against the approved tag.
-- [ ] Images, archives, and Debian packages contain reviewed
+- [x] Images, archives, and Debian packages contain reviewed
       `resources/client/index.html`, the complete
       `resources/client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt`,
       separate client checksum/licence evidence,
@@ -175,7 +177,7 @@ evidence, not penetration or stress testing.
 
 ## v2.8.0 platform scope
 
-- [ ] The Docker `linux/amd64` image builds from the candidate context, runs as
+- [x] The Docker `linux/amd64` image builds from the candidate context, runs as
       the unprivileged user, serves both embedded frontends with security
       headers, exposes 21122, and passes configuration/bootstrap smoke tests.
 - [x] The Linux x86_64 binary/tar and amd64 Debian package are reproducible;
