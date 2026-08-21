@@ -1,6 +1,6 @@
 # Replace this name with the exact public Kessoku API origin. This example
 # assumes Caddy runs on the same host as docker-compose.yaml, whose secure
-# default publishes Kessoku only on 127.0.0.1:21114.
+# defaults publish the API and Web Client only on host loopback.
 api.example.com {
 	encode zstd gzip
 
@@ -9,6 +9,20 @@ api.example.com {
 	}
 
 	reverse_proxy 127.0.0.1:21114 {
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 30s
+		}
+	}
+}
+
+# The Web Client must use an origin distinct from API/admin. Replace this name
+# with exactly web-client.public-origin; never merge it into api.example.com as
+# a path. Connection grants remain in memory and CORS is origin-exact.
+client.example.com {
+	encode zstd gzip
+
+	reverse_proxy 127.0.0.1:21122 {
 		transport http {
 			dial_timeout 5s
 			response_header_timeout 30s

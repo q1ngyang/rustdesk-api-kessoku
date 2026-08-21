@@ -158,6 +158,10 @@ func TestCompilerFrontendAndVulnerabilityScannerArePinned(t *testing.T) {
 			"npm sbom --omit=dev --sbom-format cyclonedx",
 			"npm audit signatures",
 			`diff -u "${RUNNER_TEMP}/admin-web-dist-1.sha256"`,
+			"cache-dependency-path: |",
+			"web-client/package-lock.json",
+			`diff -u "${RUNNER_TEMP}/web-client-dist-1.sha256"`,
+			"kessoku-web-client.cdx.json",
 		},
 	}
 	for path, requiredValues := range files {
@@ -205,7 +209,7 @@ func TestAdminWebIsEmbeddedWithReviewedProvenance(t *testing.T) {
 	}
 }
 
-func TestLocalCandidateVerifierCannotPublishOrSubstituteAdminSource(t *testing.T) {
+func TestLocalCandidateVerifierCannotPublishOrSubstituteFrontendSource(t *testing.T) {
 	contents, err := os.ReadFile("scripts/verify-local-admin-candidate.sh")
 	if err != nil {
 		t.Fatal(err)
@@ -213,12 +217,19 @@ func TestLocalCandidateVerifierCannotPublishOrSubstituteAdminSource(t *testing.T
 	script := string(contents)
 	for _, required := range []string{
 		`admin_web_root="$repo_root/admin-web"`,
+		`web_client_root="$repo_root/web-client"`,
 		"admin_import_commit=2a9d037fc271cf96b39fd4add4b97c4ff4477f12",
 		"admin_seed_commit=3998c2a9213fcd047252776d0f0db33e6717026c",
 		"npm ci",
 		"npm audit signatures",
 		"vcs.modified=false",
 		"frame-ancestors 'none'",
+		"WEB-CLIENT-DIST-SHA256SUMS",
+		"kessoku-web-client.cdx.json",
+		`web_client_source/LICENSE`,
+		`web_client_source/NOTICE.md`,
+		`third-party-licenses/@bufbuild-protobuf-2.9.0.txt`,
+		`config.docker-builtin.yaml`,
 	} {
 		if !strings.Contains(script, required) {
 			t.Fatalf("local candidate verifier is missing %q", required)
@@ -227,6 +238,31 @@ func TestLocalCandidateVerifierCannotPublishOrSubstituteAdminSource(t *testing.T
 	for _, forbidden := range []string{"git push", "docker push", "gh release", "npm publish"} {
 		if strings.Contains(script, forbidden) {
 			t.Fatalf("local candidate verifier contains publishing command %q", forbidden)
+		}
+	}
+}
+
+func TestWebClientThirdPartyLicenceTextIsRequiredInEveryArtifact(t *testing.T) {
+	const licencePath = "third-party-licenses/@bufbuild-protobuf-2.9.0.txt"
+	for _, path := range []string{
+		"Dockerfile",
+		"Dockerfile.dev",
+		"build.sh",
+		"build.bat",
+		"scripts/build-deb.sh",
+		"scripts/copy-runtime-resources.sh",
+		"scripts/verify-local-admin-candidate.sh",
+		".github/workflows/ci.yml",
+		".github/workflows/build.yml",
+		".github/workflows/release.yml",
+	} {
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := strings.ReplaceAll(string(contents), `\`, "/")
+		if !strings.Contains(text, licencePath) {
+			t.Fatalf("%s does not require the Web Client runtime licence text", path)
 		}
 	}
 }
@@ -294,7 +330,7 @@ func TestEmbeddedFrontendDerivativesCannotDirtyBackendVCSEvidence(t *testing.T) 
 		t.Fatal(err)
 	}
 	ignore := string(ignoreContents)
-	for _, required := range []string{"resources/admin"} {
+	for _, required := range []string{"resources/admin", "resources/client", "web-client/node_modules", "web-client/dist"} {
 		if !strings.Contains(ignore, required) {
 			t.Fatalf("candidate-generated frontend path is not ignored: %s", required)
 		}
@@ -305,9 +341,13 @@ func TestEmbeddedFrontendDerivativesCannotDirtyBackendVCSEvidence(t *testing.T) 
 		t.Fatal(err)
 	}
 	workflow := string(workflowContents)
+	if strings.Contains(workflow, "--if-present") {
+		t.Fatal("candidate frontend gates must not be optional")
+	}
 	for _, required := range []string{
 		"working-directory: admin-web",
 		"mkdir -p ../resources/admin",
+		"mkdir -p ../resources/client",
 		`test -z "$(git status --porcelain --untracked-files=all)"`,
 	} {
 		if !strings.Contains(workflow, required) {
@@ -323,7 +363,7 @@ func TestEmbeddedFrontendDerivativesCannotDirtyBackendVCSEvidence(t *testing.T) 
 	if !strings.Contains(dockerIgnore, ".git/") {
 		t.Fatal("development Docker context must exclude Git metadata")
 	}
-	for _, required := range []string{"admin-web/node_modules/", "admin-web/dist/"} {
+	for _, required := range []string{"admin-web/node_modules/", "admin-web/dist/", "web-client/node_modules/", "web-client/dist/"} {
 		if !strings.Contains(dockerIgnore, required) {
 			t.Fatalf("development Docker context does not exclude derivative %s", required)
 		}

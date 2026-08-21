@@ -8,10 +8,13 @@ Verification is layered. A lower layer cannot substitute for a higher one.
 
 - Verify the immutable tag, source commit, checksums, SBOM, provenance, and
   resolved image digest.
-- Confirm the embedded admin frontend belongs to the same commit.
+- Confirm both embedded frontend sources belong to the same commit, and verify
+  their separate dist checksums, CycloneDX SBOMs, and licence evidence.
 - Confirm the exact Starry contract is `PINNED` and matches the deployed Agent.
-- Confirm release artifacts contain no `resources/web`, `resources/web2`,
-  WebClient2, private key, or build credential.
+- Confirm release artifacts contain reviewed `resources/client/index.html`
+  and `resources/client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt`, but
+  no `resources/web`, `resources/web2`, WebClient2/V2, private key, or build
+  credential.
 
 ## 2. Static deployment validation
 
@@ -30,7 +33,8 @@ trust, and secret references. Verify backups before starting an upgrade.
   indexes, and the final-admin invariant are correct.
 - Initial administrator password is changed.
 - Logs contain no token, private key, certificate, or full configuration.
-- Registration, Swagger, provider, and control-write defaults match policy.
+- Registration, Swagger, built-in Web Client, and control-write defaults match
+  policy.
 
 ## 4. API and authentication
 
@@ -63,6 +67,23 @@ For every supported RustDesk client version, collect evidence for login and:
 Do not perform penetration, exploit, public-target, fuzz/mutation, or stress
 testing as part of this local workflow. Any separately approved resilience
 testing belongs in an isolated staging/CI environment.
+
+For the built-in browser MVP, separately verify the dedicated HTTPS origin and
+21122 listener, public profile without secrets, exact CORS, ready/grant/ack
+`postMessage` handoff, token expiry/logout, and one forced-Relay WSS VP9
+session with mouse and basic keyboard. This browser evidence does not claim
+P2P, incoming mode, file/clipboard/audio, display switching, or another codec.
+
+The 2026-08-21 local fixture passed this browser matrix from a clean start
+against published Starry image digest
+`sha256:3685543aee6e60c27bed5db1df2fa32af83e61a58e9bc4c0ea3464664863811b`:
+direct login and admin popup grant, 1280x800 VP9/WebCodecs output, remote mouse
+position 320x240, basic `K` and `Ctrl+S` input, logout, and no persistent
+browser storage. It was an ordinary functional test, not an offensive scan.
+The repeatable local orchestration entry point is
+`scripts/verify-official-starry-web-client.sh`; it requires the documented
+local RustDesk 1.4.9 QA target image by its exact content digest and never
+publishes an artifact.
 
 The v2.8.0 local release evidence specifically covers RustDesk 1.4.9
 forced-Relay sessions: `audit` native/native and `enforce` native/native,

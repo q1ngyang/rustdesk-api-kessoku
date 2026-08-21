@@ -14,6 +14,9 @@ func ApiInit() {
 	if err := StartInternalAuthServer(); err != nil {
 		global.Logger.Fatalf("start internal authentication API: %v", err)
 	}
+	if err := StartWebClientServer(); err != nil {
+		global.Logger.Fatalf("start web client listener: %v", err)
+	}
 	gin.SetMode(global.Config.Gin.Mode)
 	g := gin.New()
 

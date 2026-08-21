@@ -60,6 +60,38 @@ test('external identity popups cannot retain an opener', async () => {
   }
 })
 
+test('web client launch uses only a connection grant and exact-origin in-memory delivery', async () => {
+  const api = await read('src/api/web_client.js')
+  const launcher = await read('src/utils/peer.js')
+
+  assert.match(api, /\/api\/web-client\/v1\/grants/)
+  assert.match(api, /\/api\/web-client\/v1\/logout/)
+  assert.match(api, /Authorization: `Bearer \$\{accessToken\}`/)
+  assert.match(api, /Authorization: `Bearer \$\{connectionToken\}`/)
+  assert.match(api, /axios\.post\(logoutEndpoint, null,/)
+  assert.match(api, /\{ platform: 'web' \}/)
+  assert.match(api, /Number\.isSafeInteger\(grant\?\.expires_at\)/)
+  assert.doesNotMatch(api, /peerId|peer_id|localStorage|sessionStorage|withCredentials: true/)
+
+  assert.match(launcher, /web_client_public_origin/)
+  assert.match(launcher, /web_client_mode !== 'builtin'/)
+  assert.match(launcher, /url\.origin !== value/)
+  assert.match(launcher, /popup\.postMessage\(payload, targetOrigin\)/)
+  assert.match(launcher, /kessoku\.web-client\.grant\.v1/)
+  assert.match(launcher, /kessoku\.web-client\.ready\.v1/)
+  assert.match(launcher, /kessoku\.web-client\.grant-accepted\.v1/)
+  assert.match(launcher, /event\.origin !== targetOrigin \|\| event\.source !== popup/)
+  assert.match(launcher, /window\.removeEventListener\('message', receiveMessage\)/)
+  assert.match(launcher, /payload\.token = ''/)
+  assert.match(launcher, /await deliverGrant\(popup, targetOrigin, payload\)/)
+  assert.match(launcher, /await revokeConnectionGrant\(tokenToRevoke\)/)
+  assert.match(launcher, /connectionToken = ''/)
+  assert.doesNotMatch(launcher, /Promise\.all\(/)
+  assert.ok(launcher.indexOf("window.addEventListener('message', receiveMessage)") < launcher.indexOf('popup.location.replace(`${targetOrigin}/`)'), 'message listener must be installed before popup navigation')
+  assert.doesNotMatch(launcher, /postMessage\([^,]+,\s*['"]\*['"]\)/)
+  assert.doesNotMatch(launcher, /[?&#](?:token|grant)=|localStorage|sessionStorage|document\.cookie/)
+})
+
 test('dependency and verification commands are exact', async () => {
   const packageJSON = JSON.parse(await read('package.json'))
   assert.equal(packageJSON.private, true)

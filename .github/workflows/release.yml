@@ -92,12 +92,20 @@ jobs:
             candidate/release-assets/GO-BUILD-INFO.txt
           test -s candidate/release-assets/ADMIN-WEB-DIST-SHA256SUMS
           test -s candidate/release-assets/kessoku-admin-web.cdx.json
+          test -s candidate/release-assets/WEB-CLIENT-DIST-SHA256SUMS
+          test -s candidate/release-assets/kessoku-web-client.cdx.json
+          test -s candidate/release-assets/ADMIN-WEB-LICENSE
+          test -s candidate/release-assets/WEB-CLIENT-LICENSE
+          test -s candidate/release-assets/WEB-CLIENT-NOTICE.md
+          test -s candidate/release-assets/config.docker-builtin.yaml
           cmp RELEASE_STATUS candidate/release-assets/RELEASE_STATUS
           cmp internal/starrycontrol/CONTRACT_VERSION \
             candidate/release-assets/CONTRACT_VERSION
           (cd candidate/release-assets && sha256sum --check SHA256SUMS)
           test -x candidate/docker/release/kessoku-api
           test -d candidate/docker/release/resources/admin
+          test -s candidate/docker/release/resources/client/index.html
+          test -s candidate/docker/release/resources/client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt
           test ! -e candidate/docker/release/resources/web
           test ! -e candidate/docker/release/resources/web2
 
@@ -163,7 +171,7 @@ jobs:
             org.opencontainers.image.version=${{ github.ref_name }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.licenses=MIT
-            org.opencontainers.image.description=Kessoku v2.8.0 RustDesk account and administration API with EdDSA token lifecycle, embedded admin UI, and typed Starry control; Docker Compose is recommended and no browser-client assets are bundled
+            org.opencontainers.image.description=Kessoku v2.8.0 RustDesk account and administration API with EdDSA token lifecycle, typed Starry control, and a repository-owned Relay-only browser client; Docker Compose is recommended
           annotations: |
             index:org.opencontainers.image.title=rustdesk-api-kessoku
             index:org.opencontainers.image.source=https://github.com/${{ github.repository }}
@@ -172,7 +180,7 @@ jobs:
             index:org.opencontainers.image.version=${{ github.ref_name }}
             index:org.opencontainers.image.revision=${{ github.sha }}
             index:org.opencontainers.image.licenses=MIT
-            index:org.opencontainers.image.description=Kessoku v2.8.0 RustDesk account and administration API with EdDSA token lifecycle, embedded admin UI, and typed Starry control; Docker Compose is recommended and no browser-client assets are bundled
+            index:org.opencontainers.image.description=Kessoku v2.8.0 RustDesk account and administration API with EdDSA token lifecycle, typed Starry control, and a repository-owned Relay-only browser client; Docker Compose is recommended
 
       - name: Publish immutable GitHub release assets
         env:
@@ -199,16 +207,19 @@ jobs:
 
           Environment example: https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/compose.env.example
 
+          Builtin Web Client configuration: https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/config.docker-builtin.yaml
+
           中文发布说明：https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/${chinese_notes}
 
           This release was assembled by the non-publishing candidate workflow
           from source commit ${GITHUB_SHA}. Verify all files with SHA256SUMS and
           the attached Sigstore provenance/SBOM bundles before deployment.
 
-          The release excludes resources/web, resources/web2, WebClient2, and
-          all browser-client download/proxy code. The management UI is built
-          from the reviewed admin-web source in this exact Kessoku commit, as
-          recorded in BUILD-INPUTS.txt.
+          The release includes the MIT-licensed web-client source build under
+          resources/client and permanently excludes historical resources/web,
+          resources/web2, WebClient2, and browser-client download/proxy code.
+          Both frontends are built from this exact Kessoku commit, as recorded
+          in BUILD-INPUTS.txt, with separate SBOM and reproducibility evidence.
 
           EOF
           sed \
@@ -217,6 +228,7 @@ jobs:
             -e "s#(docs/wiki/Docker-Deployment.md)#(https://github.com/${GITHUB_REPOSITORY}/wiki/Docker-Deployment)#" \
             -e "s#(docker-compose.yaml)#(https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/docker-compose.yaml)#" \
             -e "s#(examples/compose.env.example)#(https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/compose.env.example)#" \
+            -e "s#(examples/config.docker-builtin.yaml)#(https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/config.docker-builtin.yaml)#" \
             -e "s#(docs/wiki/Starry-Control.md)#(https://github.com/${GITHUB_REPOSITORY}/wiki/Starry-Control)#" \
             -e "s#(docs/wiki/Security-Finding-Closure.md)#(https://github.com/${GITHUB_REPOSITORY}/wiki/Security-Finding-Closure)#" \
             -e "s#(docs/wiki/Upgrade-and-Rollback.md)#(https://github.com/${GITHUB_REPOSITORY}/wiki/Upgrade-and-Rollback)#" \

@@ -328,25 +328,6 @@ definitions:
     required:
     - ids
     type: object
-  admin.WebClientProviderManifest:
-    properties:
-      allowed_origin:
-        type: string
-      digest:
-        type: string
-      id:
-        type: string
-      launch_url:
-        type: string
-      license:
-        type: string
-      name:
-        type: string
-      source_url:
-        type: string
-      version:
-        type: string
-    type: object
   github_com_q1ngyang_rustdesk-api-kessoku_v2_http_request_admin.Login:
     properties:
       captcha:
@@ -2181,31 +2162,6 @@ paths:
       security:
       - token: []
       summary: APP服务配置
-      tags:
-      - ADMIN
-  /admin/config/web-client-provider:
-    get:
-      description: Returns exactly eight public governance fields when external mode
-        is enabled
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/admin.WebClientProviderManifest'
-              type: object
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/response.Response'
-      security:
-      - token: []
-      summary: External Web Client Provider manifest
       tags:
       - ADMIN
   /admin/device_group/create:

@@ -115,6 +115,26 @@ func PublicKeyFingerprint(publicKey ed25519.PublicKey) string {
 }
 
 func (m *Manager) IssueAccessToken(userID uint, authVersion uint64) (IssuedToken, error) {
+	if m == nil {
+		return IssuedToken{}, errors.New("Ed25519 access-token signer is not configured")
+	}
+	return m.issueAccessToken(userID, authVersion, m.audiences, m.ttl)
+}
+
+// IssueConnectionToken preserves the Starry patch-v1.2.0 at+jwt wire profile
+// while narrowing the token to the rustdesk-connect audience and a caller-
+// bounded lifetime. It is deliberately not valid at Kessoku API/admin routes.
+func (m *Manager) IssueConnectionToken(userID uint, authVersion uint64, ttl time.Duration) (IssuedToken, error) {
+	if m == nil {
+		return IssuedToken{}, errors.New("Ed25519 access-token signer is not configured")
+	}
+	if ttl <= 0 || ttl > m.maximumTTL {
+		return IssuedToken{}, errors.New("connection token lifetime must be positive and not exceed maximum token lifetime")
+	}
+	return m.issueAccessToken(userID, authVersion, jwt.ClaimStrings{ConnectionAudience}, ttl)
+}
+
+func (m *Manager) issueAccessToken(userID uint, authVersion uint64, audiences jwt.ClaimStrings, ttl time.Duration) (IssuedToken, error) {
 	if m == nil || len(m.current) != ed25519.PrivateKeySize {
 		return IssuedToken{}, errors.New("Ed25519 access-token signer is not configured")
 	}
@@ -126,7 +146,10 @@ func (m *Manager) IssueAccessToken(userID uint, authVersion uint64) (IssuedToken
 	if err != nil {
 		return IssuedToken{}, fmt.Errorf("generate token id: %w", err)
 	}
-	expires := now.Add(m.ttl)
+	if len(audiences) == 0 || ttl <= 0 || ttl > m.maximumTTL {
+		return IssuedToken{}, errors.New("access token audience and valid lifetime are required")
+	}
+	expires := now.Add(ttl)
 	claims := AccessClaims{
 		UserID:      uint64(userID),
 		TokenUse:    AccessTokenUse,
@@ -135,7 +158,7 @@ func (m *Manager) IssueAccessToken(userID uint, authVersion uint64) (IssuedToken
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    m.issuer,
 			Subject:   strconv.FormatUint(uint64(userID), 10),
-			Audience:  append(jwt.ClaimStrings(nil), m.audiences...),
+			Audience:  append(jwt.ClaimStrings(nil), audiences...),
 			ExpiresAt: jwt.NewNumericDate(expires),
 			NotBefore: jwt.NewNumericDate(now),
 			IssuedAt:  jwt.NewNumericDate(now),

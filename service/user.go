@@ -194,6 +194,35 @@ func (us *UserService) Login(u *model.User, llog *model.LoginLog) *model.UserTok
 		Logger.Errorf("issue access token: %v", err)
 		return nil
 	}
+	return us.persistIssuedToken(u, llog, issued)
+}
+
+// LoginConnection creates a short-lived, rustdesk-connect-only at+jwt and an
+// authoritative hash-only database row. The same persistence and revocation
+// invariants used by normal access tokens therefore apply to browser sessions.
+func (us *UserService) LoginConnection(u *model.User, llog *model.LoginLog, ttl time.Duration) *model.UserToken {
+	if u == nil || u.Id == 0 || Auth == nil {
+		return nil
+	}
+	if u.AuthVersion == 0 {
+		u.AuthVersion = 1
+		if err := DB.Model(u).Update("auth_version", u.AuthVersion).Error; err != nil {
+			Logger.Errorf("initialize auth version for connection token: %v", err)
+			return nil
+		}
+	}
+	issued, err := Auth.IssueConnectionToken(u.Id, u.AuthVersion, ttl)
+	if err != nil {
+		Logger.Errorf("issue connection token: %v", err)
+		return nil
+	}
+	return us.persistIssuedToken(u, llog, issued)
+}
+
+func (us *UserService) persistIssuedToken(u *model.User, llog *model.LoginLog, issued internalAuth.IssuedToken) *model.UserToken {
+	if u == nil || u.Id == 0 || llog == nil || issued.Token == "" || issued.JTI == "" {
+		return nil
+	}
 	hash := internalAuth.TokenHashHex(issued.Token)
 	jti := issued.JTI
 	ut := &model.UserToken{
@@ -214,17 +243,17 @@ func (us *UserService) Login(u *model.User, llog *model.LoginLog) *model.UserTok
 	}
 	if err := tx.Create(ut).Error; err != nil {
 		tx.Rollback()
-		Logger.Errorf("persist access token metadata: %v", err)
+		Logger.Errorf("persist token metadata: %v", err)
 		return nil
 	}
 	llog.UserTokenId = ut.Id
 	if err := tx.Create(llog).Error; err != nil {
 		tx.Rollback()
-		Logger.Errorf("persist login audit: %v", err)
+		Logger.Errorf("persist token login audit: %v", err)
 		return nil
 	}
 	if err := tx.Commit().Error; err != nil {
-		Logger.Errorf("commit access token transaction: %v", err)
+		Logger.Errorf("commit token transaction: %v", err)
 		return nil
 	}
 	// Token is returned exactly once and was not present during persistence.

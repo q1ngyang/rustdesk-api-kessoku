@@ -15,6 +15,8 @@ Starry HBBS ── private TLS 1.3/mTLS ────────────┤ 
                                                 │
 Admin browser ─ HTTPS /_admin/ ─────────────────┘
 
+Browser remote client ── separate HTTPS origin ── Kessoku 21122
+
 Kessoku ── private mTLS + scoped JWT ── Starry Control Agent
 ```
 
@@ -24,6 +26,7 @@ Never route port `21121` or the Control Agent through the public API path.
 
 - [`docker-compose.yaml`](../../docker-compose.yaml)
 - [`examples/compose.env.example`](../../examples/compose.env.example)
+- [`examples/config.docker-builtin.yaml`](../../examples/config.docker-builtin.yaml)
 - [`examples/Caddyfile.example`](../../examples/Caddyfile.example)
 - [`conf/config.yaml`](../../conf/config.yaml)
 - [`CONTAINER.md`](../../CONTAINER.md)
@@ -35,18 +38,25 @@ install -d -m 0700 /opt/kessoku/data/kessoku /opt/kessoku/secrets
 cd /opt/kessoku
 cp /path/to/repository/docker-compose.yaml .
 cp /path/to/repository/examples/compose.env.example .env
+cp /path/to/repository/examples/config.docker-builtin.yaml config.yaml
 cp /path/to/repository/examples/Caddyfile.example .
-vi .env
+vi .env config.yaml
 
 umask 077
 openssl rand -base64 24 > secrets/bootstrap-admin-password
+openssl genpkey -algorithm ED25519 \
+  -out secrets/kessoku-access-ed25519.pem
 chown 65534:65534 secrets/bootstrap-admin-password
-chmod 0600 secrets/bootstrap-admin-password
+chown 65534:65534 secrets/kessoku-access-ed25519.pem
+chmod 0600 secrets/bootstrap-admin-password secrets/kessoku-access-ed25519.pem
 ```
 
-For advanced authentication/control settings, copy `conf/config.yaml`, edit it
-under change control, and add a read-only Compose mount to
-`/app/conf/config.yaml`. Place key and certificate files in `secrets/` with
+Compose mounts `KESSOKU_CONFIG_FILE` read-only at `/app/conf/config.yaml`.
+The supplied builtin example enables the client and keeps
+`relay-wss-urls` as an exact YAML map; edit that map, both origins, all WSS
+endpoints, public key, generation, and authentication key path under change
+control. Do not assume Viper can safely decode the Relay map from an
+environment variable. Place key and certificate files in `secrets/` with
 service-account-only permissions.
 
 ## Validate and start
@@ -64,16 +74,19 @@ docker compose --env-file .env -f docker-compose.yaml exec kessoku-api \
 ```
 
 Confirm the container runs as `65534:65534`, the root filesystem is read-only,
-only `/app/data` persists, and neither `/app/resources/web` nor
-`/app/resources/web2` exists. Move the bootstrap password directly into an
+only `/app/data` persists, `/app/resources/client/index.html` exists, and
+neither `/app/resources/web` nor `/app/resources/web2` exists. Move the
+bootstrap password directly into an
 approved password manager, sign in, rotate it, and delete the host secret.
 Kessoku never prints a reusable bootstrap password.
 
 ## Reverse proxy and ports
 
-The Compose default publishes Kessoku `21114` on host loopback only. Expose
-public HTTPS through a reviewed reverse proxy; the supplied Caddy example is
-for a proxy on the same host.
+The Compose default publishes Kessoku `21114` and Web Client `21122` on host
+loopback only. Expose them as two distinct public HTTPS origins through a
+reviewed reverse proxy; the supplied Caddy example is for a proxy on the same
+host. Enable `web-client.mode: builtin` only after its exact public/API origins,
+WSS map, server public key and positive generation are configured.
 Configure `gin.trust-proxy` only for exact proxy addresses. Preserve the
 security headers produced by Kessoku and set an explicit request-body limit and
 timeout at the proxy.
@@ -104,3 +117,6 @@ database version 301, OAuth identity index/invariant presence, and logs before
 introducing Starry authentication. A complete
 deployment then follows the staged acceptance in
 [Operations and Verification](Operations-and-Verification.md).
+Also verify the browser client public profile contains no secret, grant handoff
+uses the exact origin, and one forced-Relay VP9 mouse/keyboard session completes
+and logs out. See [Built-in Web Client](Web-Client.md).

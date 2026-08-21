@@ -16,12 +16,14 @@ type LoginLog struct {
 
 const (
 	LoginLogClientWebAdmin = "webadmin"
+	LoginLogClientWeb      = "webclient"
 	LoginLogClientApp      = "app"
 )
 
 const (
 	LoginLogTypeAccount = "account"
 	LoginLogTypeOauth   = "oauth"
+	LoginLogTypeGrant   = "grant"
 )
 
 const (

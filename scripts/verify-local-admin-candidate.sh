@@ -10,6 +10,7 @@ fi
 
 repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 admin_web_root="$repo_root/admin-web"
+web_client_root="$repo_root/web-client"
 evidence_dir=${KESSOKU_LOCAL_EVIDENCE_DIR:-}
 admin_import_commit=2a9d037fc271cf96b39fd4add4b97c4ff4477f12
 admin_seed_commit=3998c2a9213fcd047252776d0f0db33e6717026c
@@ -42,6 +43,10 @@ fi
 
 if [[ "$admin_web_root" == / || ! -f "$admin_web_root/package-lock.json" ]]; then
   echo "refusing invalid admin-web source: $admin_web_root" >&2
+  exit 64
+fi
+if [[ "$web_client_root" == / || ! -f "$web_client_root/package-lock.json" ]]; then
+  echo "refusing invalid web-client source: $web_client_root" >&2
   exit 64
 fi
 if ! grep -Fq "$admin_import_commit" "$admin_web_root/PROVENANCE.md" || \
@@ -90,6 +95,7 @@ trap cleanup EXIT HUP INT TERM
 
 backend_source="$candidate_root/backend-source"
 admin_source="$backend_source/admin-web"
+web_client_source="$backend_source/web-client"
 build_output="$candidate_root/build"
 candidate="$candidate_root/candidate"
 mkdir -p "$build_output" \
@@ -125,8 +131,35 @@ docker run --rm \
     chown -R ${current_uid}:${current_gid} /src/admin-web
   "
 
+docker run --rm \
+  -v "$backend_source:/src" -w /src/web-client "$node_image" \
+  bash -euo pipefail -c "
+    cleanup_client() { chown -R ${current_uid}:${current_gid} /src/web-client; }
+    trap cleanup_client EXIT
+    test \"\$(node --version)\" = v24.15.0
+    test \"\$(npm --version)\" = 11.12.1
+    npm ci
+    npm run lint
+    npm test
+    npm audit --omit=dev --audit-level=high
+    npm audit signatures
+    npm run build >/tmp/kessoku-client-build-1.log
+    find dist -type f -print0 | LC_ALL=C sort -z \
+      | xargs -0 sha256sum > dist-1.sha256
+    npm run build >/tmp/kessoku-client-build-2.log
+    test -s dist/third-party-licenses/@bufbuild-protobuf-2.9.0.txt
+    find dist -type f -print0 | LC_ALL=C sort -z \
+      | xargs -0 sha256sum > dist-2.sha256
+    diff -u dist-1.sha256 dist-2.sha256
+    npm sbom --sbom-format cyclonedx > web-client.cdx.json
+    node -e 'const fs=require(\"fs\"); const s=JSON.parse(fs.readFileSync(\"web-client.cdx.json\")); const m=s.components.filter(c=>!(c.licenses||[]).length); if(m.length) throw new Error(\"missing license metadata\"); if(!s.components.some(c=>c.name===\"@bufbuild/protobuf\"&&c.version===\"2.9.0\"&&(c.licenses||[]).length)) throw new Error(\"web client runtime dependency missing from SBOM\"); console.log(\"components=\"+s.components.length+\" missing_licenses=0\")'
+    chown -R ${current_uid}:${current_gid} /src/web-client
+  "
+
 mkdir -p "$backend_source/resources/admin"
 cp -a "$admin_source/dist/." "$backend_source/resources/admin/"
+mkdir -p "$backend_source/resources/client"
+cp -a "$web_client_source/dist/." "$backend_source/resources/client/"
 if [[ -n $(git -C "$backend_source" status --porcelain --untracked-files=all) ]]; then
   echo "local backend snapshot is not clean" >&2
   exit 65
@@ -177,22 +210,28 @@ install -m 0644 "$build_output/GO-BUILD-INFO.txt" \
 install -m 0644 "$build_output/GO-VERIFY.txt" \
   "$candidate/GO-VERIFY.txt"
 sh "$backend_source/scripts/copy-runtime-resources.sh" \
-  "$release/resources" "$backend_source/resources" require-admin
+  "$release/resources" "$backend_source/resources" require-admin require-client
 printf '%s\n' 'v2.8.0-local-candidate' > "$release/resources/version"
 cp -a "$backend_source/conf" "$backend_source/docs" "$release/"
 for document in README.md README.zh-CN.md README_EN.md CONTAINER.md \
   CONTAINER.zh-CN.md RELEASE-NOTES-v2.8.0.md \
   RELEASE-NOTES-v2.8.0.zh-CN.md SECURITY-MODEL.md MIGRATION.md \
-  OPERATOR-RUNBOOK.md ROLLBACK-RUNBOOK.md WEB-CLIENT-PROVIDER.md \
+  OPERATOR-RUNBOOK.md ROLLBACK-RUNBOOK.md WEB-CLIENT.md WEB-CLIENT.zh-CN.md \
   ADMIN-WEB-PROVENANCE.md RELEASE-CHECKLIST.md RELEASE-PROCESS.md \
   RELEASE_STATUS LICENSE; do
   cp -a "$backend_source/$document" "$release/"
 done
 install -m 0644 "$admin_source/LICENSE" "$release/ADMIN-WEB-LICENSE"
+install -m 0644 "$web_client_source/LICENSE" "$release/WEB-CLIENT-LICENSE"
+install -m 0644 "$web_client_source/NOTICE.md" "$release/WEB-CLIENT-NOTICE.md"
 install -m 0644 "$admin_source/dist-2.sha256" \
   "$candidate/ADMIN-WEB-DIST-SHA256SUMS"
 install -m 0644 "$admin_source/admin-web.cdx.json" \
   "$candidate/kessoku-admin-web.cdx.json"
+install -m 0644 "$web_client_source/dist-2.sha256" \
+  "$candidate/WEB-CLIENT-DIST-SHA256SUMS"
+install -m 0644 "$web_client_source/web-client.cdx.json" \
+  "$candidate/kessoku-web-client.cdx.json"
 {
   printf 'repository=%s\n' 'q1ngyang/rustdesk-api-kessoku'
   printf 'source_commit=%s\n' "$source_sha"
@@ -203,6 +242,9 @@ install -m 0644 "$admin_source/admin-web.cdx.json" \
   printf 'admin_web_source_commit=%s\n' "$source_sha"
   printf 'admin_web_import_commit=%s\n' "$admin_import_commit"
   printf 'admin_web_seed_commit=%s\n' "$admin_seed_commit"
+  printf 'web_client_path=%s\n' 'web-client'
+  printf 'web_client_source_commit=%s\n' "$source_sha"
+  printf 'web_client_license=%s\n' 'MIT'
 } > "$candidate/BUILD-INPUTS.txt"
 
 tool_dir="$candidate_root/security-tools"
@@ -249,6 +291,8 @@ git -C "$backend_source" archive "$source_sha" \
 test ! -e "$release/resources/web"
 test ! -e "$release/resources/web2"
 test -s "$release/resources/admin/index.html"
+test -s "$release/resources/client/index.html"
+test -s "$release/resources/client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt"
 find "$release/resources/admin/static/chunk" -type f \
   -name 'server_control-*.js' -print -quit | grep -q .
 test -z "$(find "$release" -type l -print -quit)"
@@ -270,6 +314,10 @@ cmp "$candidate_root/packages-a/"*.deb "$candidate_root/packages-b/"*.deb
 dpkg-deb --contents "$candidate_root/packages-a/"*.deb \
   | grep -F '/resources/admin/index.html'
 dpkg-deb --contents "$candidate_root/packages-a/"*.deb \
+  | grep -F '/resources/client/index.html'
+dpkg-deb --contents "$candidate_root/packages-a/"*.deb \
+  | grep -F '/resources/client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt'
+dpkg-deb --contents "$candidate_root/packages-a/"*.deb \
   | grep -F '/usr/share/doc/kessoku-api/copyright'
 if dpkg-deb --contents "$candidate_root/packages-a/"*.deb \
   | grep -Eq '/resources/(web|web2)/'; then
@@ -289,6 +337,8 @@ docker run --rm --platform linux/amd64 \
     test "$(stat -c %a /var/lib/kessoku-api/data)" = 700
     test "$(stat -c %a /var/lib/kessoku-api/runtime)" = 700
     test -s /var/lib/kessoku-api/resources/admin/index.html
+    test -s /var/lib/kessoku-api/resources/client/index.html
+    test -s /var/lib/kessoku-api/resources/client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt
     test -s /usr/share/doc/kessoku-api/copyright
     grep -F "Copyright (c) 2016-2021 vue-manage-system" \
       /usr/share/doc/kessoku-api/copyright
@@ -307,7 +357,9 @@ test "$(docker image inspect --format '{{.Config.User}}' "$image_tag")" \
   = '65534:65534'
 docker run --rm "$image_tag" ./kessoku-api --help >/dev/null
 docker run --rm "$image_tag" sh -c \
-  'test ! -e resources/web && test ! -e resources/web2 && test -s resources/admin/index.html'
+  'test ! -e resources/web && test ! -e resources/web2 && test -s resources/admin/index.html && test -s resources/client/index.html && test -s resources/client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt'
+docker image inspect --format '{{json .Config.ExposedPorts}}' "$image_tag" \
+  | grep -F '21122/tcp'
 
 docker run --rm -d --name "$container_name" \
   -p 127.0.0.1::21114 "$image_tag" >/dev/null
@@ -351,13 +403,16 @@ mkdir -p "$release_assets"
 install -m 0644 "$candidate_root/candidate-a.tar.gz" \
   "$release_assets/kessoku-v2.8.0-local-linux-amd64.tar.gz"
 install -m 0644 "$candidate_root/packages-a/"*.deb "$release_assets/"
-for artifact in ADMIN-WEB-DIST-SHA256SUMS BUILD-INPUTS.txt \
+for artifact in ADMIN-WEB-DIST-SHA256SUMS WEB-CLIENT-DIST-SHA256SUMS BUILD-INPUTS.txt \
   GO-BUILD-INFO.txt GO-VERIFY.txt GOVULNCHECK.txt LOCAL-IMAGE-IDENTITY.txt \
   SECURITY-SCAN-SUMMARY.txt SECURITY-TOOL-VERSIONS.txt \
-  kessoku-admin-web.cdx.json \
+  kessoku-admin-web.cdx.json kessoku-web-client.cdx.json \
   kessoku-source.spdx.json kessoku-runtime.spdx.json; do
   install -m 0644 "$candidate/$artifact" "$release_assets/$artifact"
 done
+install -m 0644 "$admin_source/LICENSE" "$release_assets/ADMIN-WEB-LICENSE"
+install -m 0644 "$web_client_source/LICENSE" "$release_assets/WEB-CLIENT-LICENSE"
+install -m 0644 "$web_client_source/NOTICE.md" "$release_assets/WEB-CLIENT-NOTICE.md"
 install -m 0644 "$backend_source/RELEASE_STATUS" \
   "$backend_source/RELEASE-CHECKLIST.md" \
   "$backend_source/RELEASE-NOTES-v2.8.0.md" \
@@ -367,6 +422,8 @@ install -m 0644 "$backend_source/RELEASE_STATUS" \
   "$backend_source/examples/compose.env.example" \
   "$backend_source/internal/starrycontrol/CONTRACT_VERSION" \
   "$release_assets/"
+install -m 0644 "$backend_source/examples/config.docker-builtin.yaml" \
+  "$release_assets/config.docker-builtin.yaml"
 
 "$tool_dir/syft" scan dir:"$release_assets" \
   -o spdx-json="$candidate_root/kessoku-candidate.spdx.json"
@@ -395,4 +452,5 @@ sha256sum "$build_output/kessoku-api" \
   "$candidate_root/candidate-a.tar.gz" \
   "$candidate_root/packages-a/"*.deb \
   "$candidate/ADMIN-WEB-DIST-SHA256SUMS"
+sha256sum "$candidate/WEB-CLIENT-DIST-SHA256SUMS"
 printf 'local_candidate_runtime_and_headers=PASS\n'

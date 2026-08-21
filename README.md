@@ -3,13 +3,15 @@
 **English** | [简体中文](README.zh-CN.md)
 
 Kessoku is an unofficial RustDesk account, administration, and policy plane.
-It provides the client API and an embedded management UI, and integrates with
+It provides the client API, an embedded management UI, and a built-in
+open-source browser remote-desktop MVP, and integrates with
 [`rustdesk-server-starry`](https://github.com/q1ngyang/rustdesk-server-starry)
 through a typed, versioned Control API.
 
-> **v2.8.0 release draft.** The implementation and exact local Linux amd64
-> candidate checks are complete, the official Starry contract is pinned, and the
-> published Starry audit-to-enforce real-client matrix passes locally.
+> **v2.8.0 release draft.** The implementation and local Linux amd64 checks are
+> complete, the official Starry contract is pinned, and both the published
+> Starry native-client matrix and built-in browser forced-Relay fixture pass
+> locally.
 > Publication remains blocked until protected candidate CI and final
 > release-owner approval are recorded. Do not deploy an
 > untagged worktree build as a production release.
@@ -20,13 +22,15 @@ through a typed, versioned Control API.
 | --- | --- |
 | Kessoku API | Login, users, address books, devices, token lifecycle, administration, and audit. |
 | Embedded `admin-web/` | Reviewed management UI built from the same Kessoku commit with `npm ci`. |
+| Embedded `web-client/` | MIT browser MVP: forced Relay WSS, VP9 video, mouse, and basic keyboard. |
 | Starry HBBS | Connection authentication, Relay allocation, and signalling. |
 | Starry Control Agent | Optional mTLS/scoped-JWT API for Relay visibility and safe configuration transactions. |
 | Official HBBR | Remote-control data Relay; Kessoku does not replace it. |
 
 Kessoku does not expose a shell, arbitrary command, arbitrary Agent URL,
-Docker socket, or browser-supplied file path. It does not include, download,
-proxy, or bypass licensing for WebClient2 assets.
+Docker socket, or browser-supplied file path. Its browser client is repository-
+owned source; historical WebClient2/V2 and `resources/web*` assets remain
+excluded.
 
 ## v2.8.0 highlights
 
@@ -39,6 +43,10 @@ proxy, or bypass licensing for WebClient2 assets.
 - Administrator-only control routes and durable redacted intent/result audit.
 - Legacy generic ServerCmd execution removed from the runtime surface.
 - Embedded, reproducibly built management frontend; no moving frontend branch.
+- Embedded, reproducibly built Web Client on a separate origin/listener, using
+  short-lived connection-only grants delivered in memory. The MVP supports
+  forced Relay WSS, VP9, mouse, and basic keyboard; it excludes P2P, incoming
+  mode, file transfer, clipboard, audio, display switching, and non-VP9 codecs.
 - SQLite, MySQL, and PostgreSQL migration support; external MySQL/PostgreSQL
   connections require certificate- and hostname-verified TLS.
 - Docker `linux/amd64`, Linux x86_64 archive/binary, and amd64 DEB as the
@@ -53,15 +61,19 @@ the resolved digest in your deployment:
 ```sh
 docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v2.8.0
 cp examples/compose.env.example .env
+cp examples/config.docker-builtin.yaml config.yaml
+# Edit .env/config.yaml and provision the referenced signing key first.
 docker compose --env-file .env -f docker-compose.yaml config --quiet
 docker compose --env-file .env -f docker-compose.yaml up -d
 ```
 
-The Compose default binds the application port to `127.0.0.1`; publish it
-through the reviewed HTTPS reverse-proxy example in
+The Compose default binds API port 21114 and Web Client port 21122 to
+`127.0.0.1`. Publish them through two distinct reviewed HTTPS origins; see
 [`examples/Caddyfile.example`](examples/Caddyfile.example). The release also
 publishes `latest` for users who intentionally track the newest stable build,
 while production rollback should pin the `v2.8.0` digest.
+The exact `relay-wss-urls` map lives in mounted YAML, not an environment
+variable; follow the detailed Docker guide before startup.
 
 Do not enable Starry `enforce` or configuration writes during the first start.
 Migrate authentication in `off`/`audit`, commission the Control Agent
@@ -77,7 +89,7 @@ read-only, and complete a real-client and rollback rehearsal first.
 | Configuration | [Configuration reference](docs/wiki/Configuration-Reference.md) |
 | JWT/JWKS/introspection rollout | [Connection authentication](docs/wiki/Connection-Authentication.md) |
 | Starry integration | [Starry control](docs/wiki/Starry-Control.md) |
-| Browser client boundary | [Web Client](docs/wiki/Web-Client.md) |
+| Browser client deployment and exclusions | [Web Client](docs/wiki/Web-Client.md) |
 | Security review and accepted residual | [Security finding closure](docs/wiki/Security-Finding-Closure.md) |
 | Acceptance evidence | [Operations and verification](docs/wiki/Operations-and-Verification.md) |
 | Upgrade and rollback | [Upgrade and rollback](docs/wiki/Upgrade-and-Rollback.md) |
@@ -103,4 +115,5 @@ separate explicit approval.
 Kessoku is MIT licensed and is not affiliated with RustDesk. It continues the
 work of the upstream `lejianwen/rustdesk-api` contributors. The embedded admin
 frontend retains its own reviewed MIT provenance in
-[`ADMIN-WEB-PROVENANCE.md`](ADMIN-WEB-PROVENANCE.md).
+[`ADMIN-WEB-PROVENANCE.md`](ADMIN-WEB-PROVENANCE.md). The repository-owned Web
+Client is MIT licensed; dependency licences are recorded in its release SBOM.

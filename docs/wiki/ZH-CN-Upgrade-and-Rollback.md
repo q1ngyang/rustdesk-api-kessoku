@@ -31,7 +31,10 @@ SAN，并运行 [`MIGRATION.md`](../../MIGRATION.md)中的 OAuth 身份重复/�
 5. 升级 Starry，连接认证先 `off`，再 `audit`。
 6. Control Agent 先只读上线。
 7. 完成真实客户端 audit 和 staging 回滚测试。
-8. 小范围开启 `enforce`；配置写入只能在单独批准窗口开启。
+8. 在独立 HTTPS origin 上上线 Web Client，验证公共 profile、ready/grant/ack 交接、
+   forced-Relay VP9 会话、grant 到期与 logout；任一失败都保持
+   `web-client.mode: disabled`。
+9. 小范围开启 `enforce`；配置写入只能在单独批准窗口开启。
 
 ## 回滚警告
 
@@ -43,10 +46,12 @@ token，回滚旧应用必须使用匹配且经过验证的升级前数据库备
 
 1. 在变更控制下将 Starry 从 `enforce` 退回 `audit`。
 2. 把 Kessoku 与 Control Agent 设为只读。
-3. 恢复并验证 Starry last-known-good generation。
-4. 保留脱敏证据，并决定向前修复还是匹配恢复程序/数据库。
-5. 把批准的数据库备份恢复到隔离目标，验证后再切换旧应用。
-6. 验证管理/API 登录、token 失效、native/WSS audit、数据库行数以及不存在通用命令路由。
+3. 设置 `web-client.mode: disabled`，撤销活动 connection grant，并确认 21122 公共 origin
+   不再提供客户端；无需恢复任何历史浏览器资产。
+4. 恢复并验证 Starry last-known-good generation。
+5. 保留脱敏证据，并决定向前修复还是匹配恢复程序/数据库。
+6. 把批准的数据库备份恢复到隔离目标，验证后再切换旧应用。
+7. 验证管理/API 登录、token 失效、native/WSS audit、数据库行数以及不存在通用命令路由。
 
 详细流程见 [`MIGRATION.md`](../../MIGRATION.md)和
 [`ROLLBACK-RUNBOOK.md`](../../ROLLBACK-RUNBOOK.md)。

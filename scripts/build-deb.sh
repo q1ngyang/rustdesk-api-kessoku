@@ -29,6 +29,12 @@ if find "$release_dir" -type l -print -quit | grep -q .; then
     echo "symbolic link entered candidate release tree" >&2
     exit 65
 fi
+if [ ! -s "$release_dir/resources/admin/index.html" ] || \
+   [ ! -s "$release_dir/resources/client/index.html" ] || \
+   [ ! -s "$release_dir/resources/client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt" ]; then
+    echo "candidate is missing a reviewed frontend build" >&2
+    exit 66
+fi
 
 case "$version" in
     *[!0-9A-Za-z.+:~_-]*|'')
@@ -74,10 +80,10 @@ Architecture: $architecture
 Maintainer: q1ngyang <q1ngyang@users.noreply.github.com>
 Depends: adduser, ca-certificates, init-system-helpers
 Homepage: https://github.com/q1ngyang/rustdesk-api-kessoku
-Description: Kessoku account and typed Starry control plane for RustDesk
+Description: Kessoku account, control plane, and browser client for RustDesk
  Kessoku provides accounts, EdDSA token lifecycle, and a versioned typed
- Starry Control API. It does not bundle a browser client or expose arbitrary
- server commands.
+ Starry Control API. It includes the repository-owned Relay-only browser
+ client and does not expose arbitrary server commands.
 EOF
 
 for maintainer_script in postinst prerm postrm; do
@@ -87,7 +93,7 @@ done
 
 if find "$package_root" -type d \( -name web -o -name web2 \) -print -quit \
     | grep -q .; then
-    echo "browser-client directory entered Debian package" >&2
+    echo "forbidden historical browser-client directory entered Debian package" >&2
     exit 65
 fi
 if find "$package_root" -type f \

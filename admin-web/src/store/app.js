@@ -31,8 +31,8 @@ export const useAppStore = defineStore({
       lang: defaultLang,
       locale: langs[defaultLang] ? langs[defaultLang] : langs['en'],
       appConfig: {
-        web_client: 0,
-        web_client_provider: 'disabled',
+        web_client_mode: 'disabled',
+        web_client_public_origin: '',
       },
     },
   }),

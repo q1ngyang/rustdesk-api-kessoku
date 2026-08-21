@@ -1,9 +1,22 @@
 @echo off
 setlocal
-if not exist resources\admin\NUL (
-  echo reviewed admin build is required; see ADMIN-WEB-PROVENANCE.md 1>&2
+for /f %%i in ('node --version') do set KESSOKU_NODE_VERSION=%%i
+for /f %%i in ('npm --version') do set KESSOKU_NPM_VERSION=%%i
+if not "%KESSOKU_NODE_VERSION%"=="v24.15.0" (
+  echo Node.js 24.15.0 is required 1>&2
   exit /b 1
 )
+if not "%KESSOKU_NPM_VERSION%"=="11.12.1" (
+  echo npm 11.12.1 is required 1>&2
+  exit /b 1
+)
+set "KESSOKU_FRONTEND_EVIDENCE=%TEMP%\kessoku-frontends-%RANDOM%-%RANDOM%"
+mkdir "%KESSOKU_FRONTEND_EVIDENCE%"
+if errorlevel 1 exit /b 1
+call :build_frontend admin-web admin-web resources\admin admin-web\LICENSE
+if errorlevel 1 exit /b 1
+call :build_frontend web-client web-client resources\client web-client\LICENSE complete
+if errorlevel 1 exit /b 1
 rmdir /s /q release
 if not exist release\NUL mkdir release
 set GO111MODULE=on
@@ -32,21 +45,84 @@ xcopy resources\templates release\resources\templates /E /I /Y
 copy resources\version release\resources\version
 xcopy resources\admin release\resources\admin /E /I /Y
 if errorlevel 1 exit /b 1
+xcopy resources\client release\resources\client /E /I /Y
+if errorlevel 1 exit /b 1
+if not exist "release\resources\client\third-party-licenses\@bufbuild-protobuf-2.9.0.txt" exit /b 1
+if exist release\resources\web\NUL exit /b 1
+if exist release\resources\web2\NUL exit /b 1
 xcopy docs release\docs /E /I /Y
 xcopy conf release\conf /E /I /Y
 copy README.md release\README.md
 copy README_EN.md release\README_EN.md
+copy README.zh-CN.md release\README.zh-CN.md
+copy CONTAINER.md release\CONTAINER.md
+copy CONTAINER.zh-CN.md release\CONTAINER.zh-CN.md
+copy RELEASE-NOTES-v2.8.0.md release\RELEASE-NOTES-v2.8.0.md
+copy RELEASE-NOTES-v2.8.0.zh-CN.md release\RELEASE-NOTES-v2.8.0.zh-CN.md
 copy SECURITY-MODEL.md release\SECURITY-MODEL.md
 copy MIGRATION.md release\MIGRATION.md
 copy OPERATOR-RUNBOOK.md release\OPERATOR-RUNBOOK.md
 copy ROLLBACK-RUNBOOK.md release\ROLLBACK-RUNBOOK.md
-copy WEB-CLIENT-PROVIDER.md release\WEB-CLIENT-PROVIDER.md
+copy WEB-CLIENT.md release\WEB-CLIENT.md
+copy WEB-CLIENT.zh-CN.md release\WEB-CLIENT.zh-CN.md
 copy ADMIN-WEB-PROVENANCE.md release\ADMIN-WEB-PROVENANCE.md
 copy RELEASE-CHECKLIST.md release\RELEASE-CHECKLIST.md
 copy RELEASE-PROCESS.md release\RELEASE-PROCESS.md
 copy RELEASE_STATUS release\RELEASE_STATUS
 copy LICENSE release\LICENSE
 copy admin-web\LICENSE release\ADMIN-WEB-LICENSE
+copy web-client\LICENSE release\WEB-CLIENT-LICENSE
+copy web-client\NOTICE.md release\WEB-CLIENT-NOTICE.md
+xcopy "%KESSOKU_FRONTEND_EVIDENCE%" release\frontend-evidence /E /I /Y
 mkdir release\runtime
 mkdir release\data
+rmdir /s /q "%KESSOKU_FRONTEND_EVIDENCE%"
 endlocal
+exit /b 0
+
+:build_frontend
+set "KESSOKU_FRONTEND_NAME=%~1"
+set "KESSOKU_FRONTEND_SOURCE=%~2"
+set "KESSOKU_FRONTEND_RUNTIME=%~3"
+set "KESSOKU_FRONTEND_LICENSE=%~4"
+set "KESSOKU_FRONTEND_SBOM_SCOPE=%~5"
+if not exist "%KESSOKU_FRONTEND_SOURCE%\package-lock.json" exit /b 1
+if not exist "%KESSOKU_FRONTEND_LICENSE%" exit /b 1
+pushd "%KESSOKU_FRONTEND_SOURCE%"
+call npm ci
+if errorlevel 1 exit /b 1
+call npm run lint
+if errorlevel 1 exit /b 1
+call npm test
+if errorlevel 1 exit /b 1
+call npm audit --omit=dev --audit-level=high
+if errorlevel 1 exit /b 1
+call npm audit signatures
+if errorlevel 1 exit /b 1
+call npm run build
+if errorlevel 1 exit /b 1
+powershell -NoProfile -Command "Get-ChildItem dist -Recurse -File | Sort-Object FullName | Get-FileHash -Algorithm SHA256 | Select-Object Hash,Path | ConvertTo-Json -Compress | Set-Content -Encoding ascii '%KESSOKU_FRONTEND_EVIDENCE%\%KESSOKU_FRONTEND_NAME%-dist-1.sha256'"
+if errorlevel 1 exit /b 1
+call npm run build
+if errorlevel 1 exit /b 1
+powershell -NoProfile -Command "Get-ChildItem dist -Recurse -File | Sort-Object FullName | Get-FileHash -Algorithm SHA256 | Select-Object Hash,Path | ConvertTo-Json -Compress | Set-Content -Encoding ascii '%KESSOKU_FRONTEND_EVIDENCE%\%KESSOKU_FRONTEND_NAME%-dist-2.sha256'"
+if errorlevel 1 exit /b 1
+fc /b "%KESSOKU_FRONTEND_EVIDENCE%\%KESSOKU_FRONTEND_NAME%-dist-1.sha256" "%KESSOKU_FRONTEND_EVIDENCE%\%KESSOKU_FRONTEND_NAME%-dist-2.sha256" >NUL
+if errorlevel 1 exit /b 1
+if "%KESSOKU_FRONTEND_SBOM_SCOPE%"=="complete" (
+  call npm sbom --sbom-format cyclonedx > "%KESSOKU_FRONTEND_EVIDENCE%\kessoku-%KESSOKU_FRONTEND_NAME%.cdx.json"
+) else (
+  call npm sbom --omit=dev --sbom-format cyclonedx > "%KESSOKU_FRONTEND_EVIDENCE%\kessoku-%KESSOKU_FRONTEND_NAME%.cdx.json"
+)
+if errorlevel 1 exit /b 1
+node -e "const fs=require('fs');const s=JSON.parse(fs.readFileSync(process.argv[1]));if(s.components.some(c=^>!(c.licenses^|^|[]).length))throw new Error('missing production licence metadata')" "%KESSOKU_FRONTEND_EVIDENCE%\kessoku-%KESSOKU_FRONTEND_NAME%.cdx.json"
+if errorlevel 1 exit /b 1
+if "%KESSOKU_FRONTEND_NAME%"=="web-client" node -e "const fs=require('fs');const s=JSON.parse(fs.readFileSync(process.argv[1]));if(!s.components.some(c=^>c.name==='@bufbuild/protobuf'^&^&c.version==='2.9.0'^&^&(c.licenses^|^|[]).length))throw new Error('web client runtime dependency missing from SBOM')" "%KESSOKU_FRONTEND_EVIDENCE%\kessoku-%KESSOKU_FRONTEND_NAME%.cdx.json"
+if errorlevel 1 exit /b 1
+popd
+if exist "%KESSOKU_FRONTEND_RUNTIME%\NUL" rmdir /s /q "%KESSOKU_FRONTEND_RUNTIME%"
+xcopy "%KESSOKU_FRONTEND_SOURCE%\dist" "%KESSOKU_FRONTEND_RUNTIME%" /E /I /Y
+if errorlevel 1 exit /b 1
+if "%KESSOKU_FRONTEND_NAME%"=="web-client" if not exist "%KESSOKU_FRONTEND_RUNTIME%\third-party-licenses\@bufbuild-protobuf-2.9.0.txt" exit /b 1
+copy "%KESSOKU_FRONTEND_LICENSE%" "%KESSOKU_FRONTEND_EVIDENCE%\%KESSOKU_FRONTEND_NAME%-LICENSE"
+exit /b 0

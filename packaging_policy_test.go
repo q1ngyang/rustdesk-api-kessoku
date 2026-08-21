@@ -8,20 +8,47 @@ import (
 	"testing"
 )
 
-func TestRuntimePackagingExcludesBundledBrowserClients(t *testing.T) {
+func TestRuntimePackagingIncludesReviewedFrontendsAndExcludesHistoricalClients(t *testing.T) {
+	source := filepath.Join(t.TempDir(), "source")
+	for _, directory := range []string{"i18n", "public", "templates", "admin", "client"} {
+		if err := os.MkdirAll(filepath.Join(source, directory), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, path := range []string{
+		"version",
+		"admin/index.html",
+		"client/index.html",
+		"client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt",
+	} {
+		if err := os.MkdirAll(filepath.Dir(filepath.Join(source, path)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(source, path), []byte("reviewed\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
 	destination := filepath.Join(t.TempDir(), "resources")
-	command := exec.Command("sh", "scripts/copy-runtime-resources.sh", destination, "resources")
+	command := exec.Command("sh", "scripts/copy-runtime-resources.sh", destination, source, "require-admin", "require-client")
 	if output, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("copy runtime resources: %v: %s", err, output)
 	}
-	for _, required := range []string{"i18n", "public", "templates", "version"} {
+	for _, required := range []string{
+		"i18n",
+		"public",
+		"templates",
+		"version",
+		"admin",
+		"client",
+		"client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt",
+	} {
 		if _, err := os.Stat(filepath.Join(destination, required)); err != nil {
 			t.Fatalf("runtime resource %q missing: %v", required, err)
 		}
 	}
 	for _, forbidden := range []string{"web", "web2"} {
 		if _, err := os.Stat(filepath.Join(destination, forbidden)); !os.IsNotExist(err) {
-			t.Fatalf("bundled browser-client directory %q entered runtime package", forbidden)
+			t.Fatalf("historical browser-client directory %q entered runtime package", forbidden)
 		}
 	}
 }
@@ -44,28 +71,61 @@ func TestBuildDefinitionsCannotCopyAllResourceDirectories(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, excluded := range []string{"resources/web/", "resources/web2/"} {
+	for _, excluded := range []string{"resources/web/", "resources/web2/", "web-client/node_modules/", "web-client/dist/"} {
 		if !strings.Contains(string(dockerIgnore), excluded) {
 			t.Fatalf("Docker build context does not exclude %s", excluded)
 		}
 	}
 }
 
-func TestLocalReleaseBuildsRequireReviewedAdminAssets(t *testing.T) {
+func TestLocalReleaseBuildsRequireBothReviewedFrontends(t *testing.T) {
 	linuxBuild, err := os.ReadFile("build.sh")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(linuxBuild), "resources resources require-admin") {
-		t.Fatal("Linux release build does not require reviewed admin assets")
+	if !strings.Contains(string(linuxBuild), "resources resources require-admin require-client") {
+		t.Fatal("Linux release build does not require reviewed frontend assets")
 	}
 	windowsBuild, err := os.ReadFile("build.bat")
 	if err != nil {
 		t.Fatal(err)
 	}
 	windowsText := string(windowsBuild)
-	if !strings.Contains(windowsText, `if not exist resources\admin\NUL`) || strings.Contains(windowsText, `if exist resources\admin xcopy`) {
-		t.Fatal("Windows release build permits missing or optional admin assets")
+	for _, required := range []string{"call :build_frontend admin-web", `call :build_frontend web-client web-client resources\client web-client\LICENSE`, `xcopy resources\admin`, `xcopy resources\client`, `copy web-client\NOTICE.md release\WEB-CLIENT-NOTICE.md`} {
+		if !strings.Contains(windowsText, required) {
+			t.Fatalf("Windows release build is missing %q", required)
+		}
+	}
+}
+
+func TestComposeUsesMountedBuiltinClientYAML(t *testing.T) {
+	compose, err := os.ReadFile("docker-compose.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	example, err := os.ReadFile("examples/config.docker-builtin.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{
+		`${KESSOKU_CONFIG_FILE:-./config.yaml}:/app/conf/config.yaml:ro`,
+		`relay-wss-urls is an exact YAML map`,
+	} {
+		if !strings.Contains(string(compose), required) {
+			t.Fatalf("Compose is missing builtin-client configuration control %q", required)
+		}
+	}
+	for _, required := range []string{
+		`mode: "builtin"`,
+		`listen: "0.0.0.0:21122"`,
+		`relay-wss-urls:`,
+		`audiences:`,
+		`- "kessoku-api"`,
+		`- "rustdesk-connect"`,
+	} {
+		if !strings.Contains(string(example), required) {
+			t.Fatalf("builtin Docker configuration is missing %q", required)
+		}
 	}
 }
 
@@ -113,6 +173,7 @@ func TestCandidateDebianBuilderRejectsBrowserClientsAndNormalizesMetadata(t *tes
 		"-name web -o -name web2",
 		"kessoku-api.service",
 		"usr/share/doc/kessoku-api/copyright",
+		"resources/client/index.html",
 	} {
 		if !strings.Contains(script, required) {
 			t.Fatalf("candidate Debian builder is missing %q", required)

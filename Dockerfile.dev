@@ -34,9 +34,42 @@ COPY admin-web/ ./
 COPY .github/workflows/build.yml /src/.github/workflows/build.yml
 RUN --mount=type=cache,target=/root/.npm \
     npm audit --omit=dev --audit-level=high && \
-    npm run lint --if-present && \
-    npm test --if-present && \
-    npm run build
+    npm audit signatures && \
+    npm run lint && \
+    npm test && \
+    npm run build && \
+    find dist -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum > /tmp/admin-1.sha256 && \
+    npm run build && \
+    find dist -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum > /tmp/admin-2.sha256 && \
+    diff -u /tmp/admin-1.sha256 /tmp/admin-2.sha256 && \
+    mkdir -p /out && \
+    cp /tmp/admin-2.sha256 /out/ADMIN-WEB-DIST-SHA256SUMS && \
+    npm sbom --omit=dev --sbom-format cyclonedx > /out/kessoku-admin-web.cdx.json && \
+    node -e 'const fs=require("fs");const s=JSON.parse(fs.readFileSync("/out/kessoku-admin-web.cdx.json"));if(s.components.some(c=>!(c.licenses||[]).length))throw new Error("missing production licence metadata")'
+
+FROM node:24.15.0-bookworm@sha256:f22d6a1f082c02f292e86929b5b0442ac2e5eaf438a5dea9b1566601c3e05940 AS builder-web-client
+
+WORKDIR /src/web-client
+COPY web-client/package.json web-client/package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm \
+    test "$(node --version)" = "v24.15.0" && \
+    test "$(npm --version)" = "11.12.1" && \
+    npm ci
+COPY web-client/ ./
+RUN --mount=type=cache,target=/root/.npm \
+    npm audit --omit=dev --audit-level=high && \
+    npm audit signatures && \
+    npm run lint && \
+    npm test && \
+    npm run build && \
+    find dist -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum > /tmp/client-1.sha256 && \
+    npm run build && \
+    find dist -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum > /tmp/client-2.sha256 && \
+    diff -u /tmp/client-1.sha256 /tmp/client-2.sha256 && \
+    mkdir -p /out && \
+    cp /tmp/client-2.sha256 /out/WEB-CLIENT-DIST-SHA256SUMS && \
+    npm sbom --sbom-format cyclonedx > /out/kessoku-web-client.cdx.json && \
+    node -e 'const fs=require("fs");const s=JSON.parse(fs.readFileSync("/out/kessoku-web-client.cdx.json"));if(s.components.some(c=>!(c.licenses||[]).length))throw new Error("missing licence metadata");if(!s.components.some(c=>c.name==="@bufbuild/protobuf"&&c.version==="2.9.0"&&(c.licenses||[]).length))throw new Error("web client runtime dependency missing from SBOM")'
 
 FROM debian:bookworm-slim@sha256:abd67ffcfa541b485a3dff59865ab629aa048a6c613e639d36e7456b0b229241
 
@@ -51,11 +84,21 @@ COPY --from=builder-backend /src/docs /app/docs/
 COPY --from=builder-backend /src/LICENSE /app/LICENSE
 COPY --from=builder-admin-frontend /src/admin-web/dist/ /app/resources/admin/
 COPY --from=builder-admin-frontend /src/admin-web/LICENSE /app/ADMIN-WEB-LICENSE
+COPY --from=builder-admin-frontend /out/ /app/sbom/
+COPY --from=builder-web-client /src/web-client/dist/ /app/resources/client/
+COPY --from=builder-web-client /out/ /app/sbom/
+COPY --from=builder-web-client /src/web-client/LICENSE /app/WEB-CLIENT-LICENSE
+COPY --from=builder-web-client /src/web-client/NOTICE.md /app/WEB-CLIENT-NOTICE.md
 
-RUN mkdir -p /app/data /app/runtime && \
+RUN test ! -e /app/resources/web && \
+    test ! -e /app/resources/web2 && \
+    test -s /app/resources/admin/index.html && \
+    test -s /app/resources/client/index.html && \
+    test -s /app/resources/client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt && \
+    mkdir -p /app/data /app/runtime && \
     chown -R 65534:65534 /app/data /app/runtime
 
 USER 65534:65534
 VOLUME /app/data
-EXPOSE 21114 21121
+EXPOSE 21114 21121 21122
 CMD ["./kessoku-api"]

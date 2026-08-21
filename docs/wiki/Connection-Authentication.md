@@ -12,6 +12,14 @@ issuer, API and connection audiences, decimal subject and numeric user ID,
 `connect:initiate` scope, authentication version, UUID JTI, and bounded
 `iat`/`nbf`/`exp` claims. The maximum encoded token is 8 KiB.
 
+RustDesk 1.4.9 retains one standard login token for both API calls and native
+signalling and has no refresh/exchange step. That compatibility token therefore
+has the two configured audiences `kessoku-api` and `rustdesk-connect`; this is
+not the browser privilege model. The built-in Web Client never receives the
+standard bearer: direct client login and admin grant exchange return only a
+short-lived token with audience `rustdesk-connect` and scope
+`connect:initiate`.
+
 New token rows store a hash/JTI rather than a reusable token. Logout revokes one
 JTI; password reset, disable, and global logout advance the user's
 authentication version.

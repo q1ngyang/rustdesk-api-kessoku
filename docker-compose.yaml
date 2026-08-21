@@ -18,8 +18,12 @@ services:
       RUSTDESK_API_GIN_TRUST_PROXY: ${KESSOKU_TRUST_PROXY:-}
     ports:
       - ${KESSOKU_BIND_ADDRESS:-127.0.0.1}:${KESSOKU_API_PORT:-21114}:21114
+      - ${KESSOKU_CLIENT_BIND_ADDRESS:-127.0.0.1}:${KESSOKU_CLIENT_PORT:-21122}:21122
     volumes:
       - ${KESSOKU_DATA_DIR:-./data/kessoku}:/app/data
       - ${KESSOKU_SECRETS_DIR:-./secrets}:/run/secrets:ro
+      # relay-wss-urls is an exact YAML map and is deliberately not decoded
+      # from an environment variable.
+      - ${KESSOKU_CONFIG_FILE:-./config.yaml}:/app/conf/config.yaml:ro
     tmpfs:
       - /app/runtime:uid=65534,gid=65534,mode=0700

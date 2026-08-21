@@ -13,7 +13,8 @@ The main trust boundaries are:
 2. Starry to Kessoku's dedicated internal JWKS/introspection listener.
 3. Kessoku to each fixed Starry Control Agent instance.
 4. Administrators to Kessoku's versioned control API.
-5. Kessoku to an independently hosted external Web Client Provider.
+5. Admin/API origin to the independent built-in Web Client origin, and that
+   browser client to fixed HTTPS/WSS endpoints.
 6. Kessoku to SQLite storage or a certificate-verified external database.
 
 Kessoku never mounts Starry configuration, accesses a Docker socket, executes
@@ -145,12 +146,46 @@ administrator privilege and always returns `410 Gone`; no command or option is
 parsed, stored, forwarded, or executed. The historical `server_cmds` table is
 preserved only so database upgrades do not destroy operator data.
 
-## External Web Client Provider
+## Built-in Web Client
 
-The external provider is disabled by default and hosted on an independent
-origin. Kessoku does not serve provider assets and does not pass a token,
-cookie, user identity, address book, or session. See
-[WEB-CLIENT-PROVIDER.md](WEB-CLIENT-PROVIDER.md).
+The repository-owned Web Client is disabled unless `web-client.mode` is
+`builtin`. Its static files are served only by the independent listener and
+origin; the API/admin origin never serves `resources/client`. Historical
+`resources/web`, `resources/web2`, WebClient2/V2, and downloaded client assets
+are rejected by packaging policy.
+
+The client accepts only fixed HTTPS/WSS endpoints from same-origin public
+configuration. It requires forced Relay, an exact configured Relay-name map,
+signed peer identity, encrypted application messages, VP9 WebCodecs, and
+bounded input/frame/state sizes. It fails closed on identity, authentication,
+codec, counter, decrypt, decode, origin, destination, or resource-limit errors.
+
+Connection credentials are audience/scope-limited and short-lived (15 minutes
+by default, one hour maximum). Admin launch obtains a connection-only grant
+with the existing RustAuth bearer, but passes only that grant—not the API/admin
+credential—to the exact deployment-configured client origin. Strict-origin
+`postMessage` and client memory are the only handoff/storage boundary. Tokens,
+passwords, keys, and session state are forbidden in URLs, cookies, persistent
+browser storage, service workers, analytics, or logs. CORS permits only the
+exact client public origin, three fixed POST/OPTIONS endpoints,
+`Authorization`/`Content-Type`, and no credentials.
+
+The API/admin origin sends COOP `same-origin-allow-popups` for the one-shot
+popup handoff. The independent client listener sends no COOP header
+(`unsafe-none` default), because copying `same-origin` or severing the opener
+would break the exact-source handshake. The client validates the API/admin
+origin and opener source, acknowledges once, removes its listener, then tries
+to clear the opener. Admin timeout or failure closes the popup and revokes the
+issued connection token on a best-effort basis; accepted handoff transfers
+revocation responsibility to the client.
+
+RustDesk 1.4.9's standard login token is the native compatibility exception:
+the client retains one bearer for API access and signalling, so it carries
+both configured `kessoku-api` and `rustdesk-connect` audiences. The Web Client
+never receives that standard bearer. Its login and grant paths return only a
+short-lived `rustdesk-connect`/`connect:initiate` connection token.
+
+See [WEB-CLIENT.md](WEB-CLIENT.md).
 
 ## Assumptions and residual risks
 
@@ -169,9 +204,11 @@ cookie, user identity, address book, or session. See
   digest/hash. RustDesk 1.4.9 forced-Relay sessions passed audit native/native
   and enforce native/native, WSS/WSS, WSS/native, and native/WSS. Direct P2P
   and a separate Secure TCP case were not claimed by that matrix.
-- The reviewed management frontend source lives in `admin-web/`, is built from
-  the same Kessoku commit with `npm ci`, and is not a browser remote-desktop
-  client. No WebClient2 assets are included.
+- Both `admin-web/` and the MIT `web-client/` live in the same Kessoku commit,
+  use fixed lockfiles and independent SBOM/licence evidence, and are built with
+  `npm ci`. The browser MVP deliberately excludes P2P/direct transport,
+  incoming mode, file/clipboard/audio, display switching, and non-VP9 codecs.
+  No historical WebClient2/V2 assets are included.
 
 See [Security finding closure](docs/wiki/Security-Finding-Closure.md) for the
 sealed-snapshot boundary, all 23 Kessoku dispositions, and the accepted

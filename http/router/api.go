@@ -69,6 +69,9 @@ func ApiInit(g *gin.Engine) {
 		//[method:POST] [uri:/api/audit/file]
 		frg.POST("/audit/file", au.AuditFile)
 	}
+	if global.Config.WebClient.Enabled() {
+		WebClientAPIBind(frg)
+	}
 
 	frg.Use(middleware.RustAuth())
 	{
@@ -99,6 +102,17 @@ func ApiInit(g *gin.Engine) {
 	PersonalRoutes(frg)
 	//访问静态文件
 	g.StaticFS("/upload", http.Dir(global.Config.Gin.ResourcesPath+"/public/upload"))
+}
+
+func WebClientAPIBind(rg *gin.RouterGroup) {
+	controller := &api.WebClient{}
+	group := rg.Group("/web-client/v1").Use(middleware.WebClientCORS())
+	group.OPTIONS("/login", func(c *gin.Context) {})
+	group.OPTIONS("/grants", func(c *gin.Context) {})
+	group.OPTIONS("/logout", func(c *gin.Context) {})
+	group.POST("/login", controller.Login)
+	group.POST("/grants", middleware.RustAuth(), controller.Grant)
+	group.POST("/logout", middleware.WebClientConnectionAuth(), controller.Logout)
 }
 
 func PersonalRoutes(frg *gin.RouterGroup) {

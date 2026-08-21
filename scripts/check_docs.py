@@ -26,6 +26,7 @@ def paired_documents() -> list[tuple[Path, Path]]:
             ROOT / ".github" / "PROJECT-METADATA.md",
             ROOT / ".github" / "PROJECT-METADATA.zh-CN.md",
         ),
+        (ROOT / "WEB-CLIENT.md", ROOT / "WEB-CLIENT.zh-CN.md"),
     ]
     for english in sorted(WIKI.glob("*.md")):
         if english.name == "_Sidebar.md" or english.name.startswith("ZH-CN-"):

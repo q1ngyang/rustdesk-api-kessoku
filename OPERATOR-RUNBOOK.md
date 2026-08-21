@@ -9,7 +9,7 @@ procedures.
 Before each deployment, verify:
 
 - the image/artifact digest and backend commit match the approved provenance;
-- the pinned admin frontend and Starry contract gates are satisfied;
+- both pinned frontend and Starry contract gates are satisfied;
 - access-token and Control Agent private keys are distinct, outside the image,
   read-only, and service-account-only;
 - the internal server key, client CA, and exact Starry URI/DNS SAN allow list
@@ -18,8 +18,14 @@ Before each deployment, verify:
   server name, CA, client certificate/key, and separate control signing key;
 - `legacy-command-enabled` is false;
 - `read-only` is true unless a configuration-change window is approved;
-- external Web Client Provider mode is disabled unless all governance fields
-  and artifact evidence were reviewed.
+- built-in Web Client mode is disabled unless its separate HTTPS origin,
+  listener, exact WSS map, public key/generation, short grant TTL, and artifact
+  evidence were reviewed.
+
+When the Web Client is enabled, verify `resources/client/index.html`, host-
+local 21122 exposure, public profile without secrets, exact CORS, and the
+ready/grant/ack origin/source handshake. Alert on grant/login failures without
+logging username, peer ID, token, password, public profile body, or key bytes.
 
 Startup must fail when the EdDSA profile or internal TLS listener is enabled
 but its required key/certificate material is invalid. A Starry instance with

@@ -15,6 +15,7 @@ Deployment links:
 - [Recommended Docker deployment](docs/wiki/Docker-Deployment.md)
 - [Compose example](docker-compose.yaml)
 - [Environment example](examples/compose.env.example)
+- [Builtin Web Client configuration](examples/config.docker-builtin.yaml)
 - [Caddy HTTPS example](examples/Caddyfile.example)
 - [Getting started](docs/wiki/Getting-Started.md)
 - [Starry integration](docs/wiki/Starry-Control.md)
@@ -23,15 +24,17 @@ Deployment links:
 ## Image scope
 
 The v2.8.0 image contains one unprivileged `kessoku-api` process, the reviewed
-management frontend built from the same source commit, API documentation, and
-runtime configuration templates. The image:
+management and Web Client frontends built from the same source commit, API
+documentation, and runtime configuration templates. The image:
 
 - targets `linux/amd64`;
 - runs as UID/GID `65534:65534`;
 - persists application data under `/app/data`;
 - listens on public API port `21114`;
+- exposes the independent built-in Web Client listener on `21122`;
 - can use a separate internal mTLS listener on `21121` when explicitly enabled;
-- contains no WebClient2, `resources/web`, or `resources/web2` assets; and
+- contains reviewed `resources/client`, but no historical WebClient2/V2,
+  `resources/web`, or `resources/web2` assets; and
 - contains no private key or deployment credential.
 
 Kessoku is not HBBS or HBBR. Deploy the matching Starry HBBS and official HBBR
@@ -59,6 +62,7 @@ From a v2.8.0 source checkout or downloaded deployment files:
 
 ```sh
 cp examples/compose.env.example .env
+cp examples/config.docker-builtin.yaml config.yaml
 mkdir -p data/kessoku secrets
 chmod 0700 data/kessoku secrets
 
@@ -66,11 +70,15 @@ chmod 0700 data/kessoku secrets
 # arguments. UID 65534 is the unprivileged user inside the image.
 umask 077
 openssl rand -base64 24 > secrets/bootstrap-admin-password
+openssl genpkey -algorithm ED25519 \
+  -out secrets/kessoku-access-ed25519.pem
 chown 65534:65534 secrets/bootstrap-admin-password
-chmod 0600 secrets/bootstrap-admin-password
+chown 65534:65534 secrets/kessoku-access-ed25519.pem
+chmod 0600 secrets/bootstrap-admin-password secrets/kessoku-access-ed25519.pem
 
-# Edit every placeholder before continuing.
-vi .env
+# Edit every placeholder before continuing. Keep relay-wss-urls as an exact
+# YAML map in config.yaml rather than trying to encode it in .env.
+vi .env config.yaml
 
 docker compose --env-file .env -f docker-compose.yaml config
 docker compose --env-file .env -f docker-compose.yaml config --quiet
@@ -96,13 +104,25 @@ open `https://your-api.example/_admin/` through the reviewed reverse proxy,
 sign in, rotate the password, then delete the host secret file. Do not pass a
 password as a command argument or environment variable.
 
-The Compose default publishes port `21114` on `127.0.0.1` only. A host-local
-Caddy example is provided in [`examples/Caddyfile.example`](examples/Caddyfile.example).
+The Compose default publishes ports `21114` and `21122` on `127.0.0.1` only. A
+host-local Caddy example provides different API/admin and Web Client HTTPS
+origins in [`examples/Caddyfile.example`](examples/Caddyfile.example). Compose
+mounts `KESSOKU_CONFIG_FILE` read-only; the supplied builtin example explicitly
+enables `web-client.mode: builtin`. Edit its exact Relay-name-to-WSS YAML map,
+origins, public key, generation, and authentication key path before startup;
+Viper environment decoding is not used for the Relay map. Never serve the
+client below the API origin as a path.
 Set `gin.trust-proxy` to the exact proxy address; never publish internal port
 `21121` through this proxy.
 
 Do not expose Swagger in production unless it is an intentional, authenticated
 operational decision.
+
+The built-in MVP supports forced Relay WSS, VP9 video, mouse and basic
+keyboard. It excludes P2P/direct transport, incoming mode, file/clipboard/
+audio, display switching, and non-VP9 codecs. Its connection-only token is
+short-lived and delivered in memory to the exact client origin. See
+[Web Client](docs/wiki/Web-Client.md).
 
 ## Secrets and advanced configuration
 
@@ -134,6 +154,8 @@ enabling connection enforcement or Agent writes, verify:
 5. Relay inventory and side-effect-free allocation simulation;
 6. read-only Control Agent behavior, then plan/apply/rollback in staging; and
 7. the final native, Secure TCP, WSS, and Relay desktop-session matrix.
+8. a browser forced-Relay VP9 session with mouse/keyboard, grant expiry/logout,
+   and separate-origin/CSP verification.
 
 See [Operations and verification](docs/wiki/Operations-and-Verification.md).
 

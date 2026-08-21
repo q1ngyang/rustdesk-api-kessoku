@@ -17,6 +17,7 @@ v2.8.0 将原通用 RustDesk API 服务收紧为有明确边界的账户与管�
 - [Docker 部署文档](docs/wiki/ZH-CN-Docker-Deployment.md)
 - [Compose 范例](docker-compose.yaml)
 - [环境变量范例](examples/compose.env.example)
+- [内置 Web Client 配置范例](examples/config.docker-builtin.yaml)
 - [Starry 集成文档](docs/wiki/ZH-CN-Starry-Control.md)
 
 本版本把 `ghcr.io/q1ngyang/rustdesk-api-kessoku:v2.8.0` 与 `:latest` 发布为同一镜像。
@@ -29,6 +30,9 @@ digest。
 
 - Ed25519/EdDSA access token，固定校验 `at+jwt` 类型、kid、issuer、audience、
   subject/user 绑定、JTI、scope、认证版本和有界时间字段。
+- RustDesk 1.4.9 标准登录 token 因原生客户端用同一 bearer 完成 API 与连接信令，具有配置
+  的 API/connection 双 audience。内置 Web Client 永远不会收到该标准 bearer；其
+  login/grant 接口只返回短期 connection token。
 - current/previous JWKS 重叠机制，支持受控密钥轮换。
 - 新签发凭据只存 token hash，不再存可复用明文 token。
 - 单会话注销、密码变更、用户禁用与全局会话失效具有明确撤销语义。
@@ -64,17 +68,23 @@ digest。
 
 ### 浏览器客户端边界
 
-- Kessoku 不包含 WebClient2，也没有下载/代理路径。
-- 可选 External Web Client Provider 默认关闭，必须提供来源、许可证、版本和 digest，
-  并且不会接收 bearer token。
-- Provider 只是独立托管 HTTPS 客户端的启动/治理描述符。v2.8.0 不托管浏览器远控客户端，
-  不共享 cookie/localStorage，也不实现 SSO 或 token exchange。详见
+- Kessoku 从仓库自有 MIT `web-client/` 源码构建，并把可复现产物打包为
+  `resources/client`；历史 `resources/web`、`resources/web2`、WebClient2/V2 与
+  下载/代理路径继续排除。
+- MVP 发起 forced-Relay WSS、验证 peer 身份、用 WebCodecs 解码 VP9，并支持有界鼠标与
+  基本键盘输入。
+- API/admin 与客户端使用不同 HTTPS origin；短期
+  `rustdesk-connect`/`connect:initiate` grant 只通过精确 origin `postMessage` 传递并保存在
+  内存，禁止用 URL、Cookie 或持久存储传 token。
+- 排除 direct/P2P、被控模式、文件传输、剪贴板、音频、终端、端口转发、打印、显示器
+  切换、触摸/IME、非 VP9 codec 与软件解码。详见
   [Web 客户端](docs/wiki/ZH-CN-Web-Client.md)。
 
 ### 制品与自动化
 
 - v2.8.0 正式支持 Linux amd64：GHCR 镜像、Linux x86_64 archive/binary 与 amd64 DEB。
-- 镜像使用非特权用户，并排除浏览器客户端资产。
+- 镜像使用非特权用户、包含 `resources/client`、暴露独立 21122，并拒绝历史浏览器
+  客户端资产。
 - 候选 workflow 运行 Go/race、三数据库迁移、内置前端测试/审计/可复现检查、SBOM、
   secret/依赖扫描、镜像 smoke 和真实 DEB 安装。
 - 发布流程只消费一个精确成功的非发布候选 run，并输出 checksum 与 Sigstore
@@ -112,16 +122,22 @@ RustDesk 1.4.9 的 audit/sysinfo 上传不携带认证头。Kessoku 保留有界
 
 ## 发布前状态
 
-本地 Go、race、前端、可复现性、包安装、非 root 镜像、安全响应头、契约和跨项目真实进程
-测试已经通过。已按 tag、源码提交、契约/schema 哈希与 amd64 镜像 digest 固定正式发布的
+内置 Web Client 集成前的 Go、包、安全响应头、契约与跨项目证据已通过。2026-08-21 又在
+固定本地工具链中通过了完整 Go vet/test、两个前端的 audit/signature/test/两次构建、完整
+客户端 SBOM/许可证检查、Swagger 重生成，以及只含 `resources/admin` 与
+`resources/client` 的非 root 开发镜像构建。这是开发证据，不是最终 clean-commit 候选。
+全新启动的浏览器夹具现已对精确 Starry 正式镜像通过：独立 client/API HTTPS origin、直接
+登录、admin ready/grant/accepted 交接、forced-Relay WSS、1280x800 VP9/WebCodecs、远端
+鼠标与基本键盘输入、logout，以及零浏览器持久存储。扩展 clean-commit archive/DEB
+verifier 与受保护候选 workflow 仍须通过。已按 tag、源码提交、契约/schema 哈希与 amd64 镜像 digest 固定正式发布的
 Starry `1.1.16-patch-v1.2.0` Control API。RustDesk 1.4.9 强制 Relay 桌面会话已通过
 `audit` native-to-native，以及 `enforce` native-to-native、WSS-to-WSS、WSS-to-native、
 native-to-WSS，并检查 Remote Desktop 窗口/截图和已建立 HBBR 连接。本矩阵不表示已经覆盖
-直接 P2P 或独立 Secure TCP case。精确本地候选验证器与修复后静态复核现已通过。每个部署
+直接 P2P 或独立 Secure TCP case。本地构建/静态复核不能替代扩展 clean-commit verifier。每个部署
 在上线前仍须自行记录备份/恢复、密钥恢复、故障切换、回滚、RTO/RPO 与 go/no-go
 负责人；Kessoku 不承诺统一恢复 SLA。该部署门禁与软件发布门禁相互独立。软件发布仅剩
 以下批准/workflow 操作：
 
-- 批准最终文档与新特性文案；
-- 在发布不可变 tag、GHCR `v2.8.0`/`latest`、GitHub Release 与 Wiki 前，对批准提交运行
+- 批准最终文档与新特性文案，包括已记录的 Web Client 验收结果；
+- 在发布不可变 tag、GHCR `v2.8.0`/`latest`、GitHub Release 与 Wiki 前，对该批准提交运行
   受保护的非发布候选 CI。

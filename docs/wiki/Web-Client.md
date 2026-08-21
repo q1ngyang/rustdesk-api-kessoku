@@ -1,66 +1,99 @@
-# Web Client
+# Built-in Web Client
 
 **English** | [简体中文](ZH-CN-Web-Client.md)
 
-Kessoku v2.8.0 does not include a browser remote-desktop client. The embedded
-`admin-web/` application is the management console only; it is not WebClient2
-and cannot establish a RustDesk desktop session.
+Kessoku v2.8.0 builds its MIT-licensed browser client from the repository's
+`web-client/` source and packages it as `resources/client`. The management UI
+in `admin-web/` remains a separate application. Historical `resources/web`,
+`resources/web2`, WebClient2/V2, and remote browser-client downloads are
+permanently rejected by build and packaging policy.
 
-## What is implemented
+## What the MVP does
 
-The default `web-client-provider.mode` is `disabled`. In this mode Kessoku
-registers no browser-client route or provider manifest.
+The client initiates forced-Relay WSS sessions, verifies signed peer identity,
+uses the encrypted RustDesk session, decodes VP9 with WebCodecs, renders with
+Canvas 2D, and sends bounded mouse/basic keyboard input. Compatibility targets
+RustDesk 1.4.9 and Starry patch-v1.2.0.
 
-An operator who independently licenses, reviews, hosts, and maintains a
-browser client may choose `external` mode. This enables one read-only endpoint
-for authenticated Kessoku users:
+It intentionally excludes direct/P2P, host mode, file transfer, clipboard,
+audio, terminal, port forwarding, printing, display switching, touch/IME,
+non-VP9 codecs, and a software decoder. Treat these as unsupported—not hidden
+configuration switches.
+
+## Deploy two HTTPS origins
+
+Use one origin for API/admin and one for the Web Client, for example:
 
 ```text
-GET /api/admin/config/web-client-provider
+https://api.example.com     -> 127.0.0.1:21114
+https://client.example.com  -> 127.0.0.1:21122
 ```
 
-The response is marked `Cache-Control: no-store` and contains only these
-reviewed public manifest fields:
+The native listener default is `127.0.0.1:21122`. The Docker image exposes
+21122; recommended Compose keeps it host-local. A container-side
+`0.0.0.0:21122` bind is acceptable only behind that host-local mapping and the
+dedicated HTTPS proxy. Do not co-host the client below an API path, publish
+21122 directly, enable proxy credentials, or reuse the internal mTLS port.
 
-```text
-id, name, launch_url, allowed_origin,
-license, source_url, version, digest
-```
+The client origin needs a CSP-compatible HTTPS connection to the API origin
+and WSS connections to the exact rendezvous/Relay endpoints. Proxy WSS upgrade
+headers and preserve the fixed `/ws/id` and `/ws/relay` paths. The client
+rejects a Relay name not present in its configured exact map.
 
-Configuration additionally requires an `authorization-record`, but Kessoku
-never returns that deployment record through the API. The launch and source
-URLs must be absolute HTTPS URLs without credentials, query, or fragment; the
-launch origin must exactly match `allowed_origin`; and the artifact digest must
-use lowercase `sha256:<64 hexadecimal characters>`. Invalid external-provider
-configuration stops startup.
+## Enable the profile
 
-## What is not implemented
+Set `web-client.mode: builtin`, exact `public-origin`/`api-origin`, listener,
+WSS URLs, base64 Ed25519 server public key, positive profile generation, and a
+connection-token TTL no longer than one hour or the global auth maximum. The
+full example and field contract are in [`WEB-CLIENT.md`](../../WEB-CLIENT.md)
+and the [configuration reference](Configuration-Reference.md).
 
-The external-provider interface is a launch and governance descriptor, not a
-hosting, authorization, or SSO protocol. Kessoku does not:
+`GET /config/v1.json` on the client origin contains public endpoints, public
+key/fingerprint, schema version, and profile generation only. The fingerprint
+is `sha256:` plus lowercase hexadecimal SHA-256 of the decoded 32-byte Ed25519
+key. It contains no token, password, private key, listener, TTL, or client-
+origin value. On the wire the configured public-key string is used only as
+`PunchHoleRequest.licence_key` and `RequestRelay.licence_key`; forced Relay
+keeps `RequestRelay.socket_addr` empty.
 
-- fetch, bundle, serve, modify, or proxy provider assets;
-- inject an access token into a URL, header, script, or provider session;
-- share Kessoku cookies, local storage, address books, user identity, or server
-  keys with the provider origin;
-- expose a launch callback, token exchange, implicit login, or SSO endpoint;
-- restore the removed `resources/web`, `resources/web2`, WebClient2,
-  `/api/shared-peer`, `/api/server-config`, or `/api/server-config-v2` paths; or
-- implement a licence-check or takedown bypass.
+## Launch and authentication
 
-The obsolete `app.web-client` setting must remain `0`; a non-zero value is a
-startup error. A future SSO design would require a separately reviewed,
-short-lived authorization-code flow with PKCE and exact redirect URI matching.
-No such flow exists in v2.8.0.
+Users may log in directly through the client. An already authenticated admin
+page instead calls `POST /api/web-client/v1/grants` with its RustAuth bearer,
+opens only the deployment-owned `web_client_public_origin`, and sends the
+short-lived connection grant through exact-origin `postMessage`. The peer ID
+and connection token are carried in memory and never in a URL or persistent
+browser storage. The grant is limited to audience `rustdesk-connect` and scope
+`connect:initiate`; it is not an admin/API bearer.
 
-## Operator responsibility
+If launch fails, close the popup, revoke/logout the connection grant when
+possible, and correct origin/configuration. Never fall back to a query-string
+token, wildcard `postMessage`, shared cookie, or relaxed CORS.
 
-Before enabling `external`, verify and retain evidence for the provider's
-licence, source revision, built artifact digest, hosting origin, content
-security policy, update process, and incident owner. Re-verify the digest and
-approval record on every provider version change. Provider availability and
-remote-session compatibility are not part of the Kessoku v2.8.0 support
-promise.
+The API/admin response must use COOP `same-origin-allow-popups`. The separate
+client response intentionally omits COOP (`unsafe-none` default) until the
+ready/grant/accepted exchange has completed; the two origins do not send the
+same COOP value. Client code validates both exact API/admin origin and opener
+source, accepts once, removes the listener, then tries to clear the opener.
+Admin timeout, navigation error, or missing acknowledgement triggers
+best-effort logout/revocation; a successful acknowledgement transfers token
+lifecycle ownership to the client.
 
-The complete configuration example and validation rules are also recorded in
-[`WEB-CLIENT-PROVIDER.md`](../../WEB-CLIENT-PROVIDER.md).
+## Acceptance checks
+
+- both frontend lockfiles pass lint/test/audit/signatures and two-build
+  reproducibility;
+- separate admin/client distribution checksums, CycloneDX SBOMs, and MIT/
+  third-party licence evidence exist;
+- image, archive, and DEB contain `resources/client/index.html` and the full
+  `resources/client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt`, and
+  contain neither historical resource directory;
+- 21122 is host-local and served externally only as the configured HTTPS
+  client origin;
+- profile JSON contains no secret and responses have the expected CSP,
+  no-store/referrer, frame, and content-type protections;
+- a forced-Relay VP9 desktop session completes with mouse and keyboard input,
+  then logout/disconnect clears the token and password from memory.
+
+The detailed protocol/security limits are in
+[`docs/development/WEB-CLIENT-WIRE-SPEC.md`](../development/WEB-CLIENT-WIRE-SPEC.md).

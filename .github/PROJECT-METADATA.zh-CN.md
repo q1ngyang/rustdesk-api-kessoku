@@ -9,7 +9,8 @@
 建议描述：
 
 > Unofficial RustDesk account and administration API with EdDSA token
-> lifecycle, embedded admin UI, and typed rustdesk-server-starry control.
+> lifecycle, typed rustdesk-server-starry control, and a built-in open-source
+> Relay-only Web Client.
 
 建议网站：
 
@@ -36,8 +37,8 @@ ldap
 建议镜像描述：
 
 > Kessoku v2.8.0 RustDesk account and administration API with EdDSA token
-> lifecycle, embedded admin UI, and typed Starry control; Docker Compose is
-> recommended and no browser-client assets are bundled.
+> lifecycle, typed Starry control, and a repository-owned Relay-only Web
+> Client; Docker Compose is recommended.
 
 发布 workflow 会设置 OCI/index title、source、release URL、documentation、version、
 revision、licence 与 description annotation。documentation 指向
@@ -47,6 +48,7 @@ revision、licence 与 description annotation。documentation 指向
 - [Compose 范例](../docker-compose.yaml)；
 - [环境变量范例](../examples/compose.env.example)；
 - [Starry 集成](../docs/wiki/ZH-CN-Starry-Control.md)。
+- [内置 Web Client](../docs/wiki/ZH-CN-Web-Client.md)。
 
 发布流程会把不可变 `v2.8.0` 与移动的 `latest` 发布为同一镜像。`latest` 指向最新成功
 发布的稳定版；生产运维人员解析并固定版本 tag 的 digest。

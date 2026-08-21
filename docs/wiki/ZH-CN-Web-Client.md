@@ -1,54 +1,79 @@
-# Web 客户端
+# 内置 Web 客户端
 
 [English](Web-Client.md) | **简体中文**
 
-Kessoku v2.8.0 不包含浏览器远控客户端。内置 `admin-web/` 只用于管理控制台；它不是
-WebClient2，也不能建立 RustDesk 桌面会话。
+Kessoku v2.8.0 从仓库 `web-client/` 源码构建 MIT 许可浏览器客户端，并把产物打包为
+`resources/client`。`admin-web/` 管理 UI 仍是独立应用。构建与打包策略永久拒绝历史
+`resources/web`、`resources/web2`、WebClient2/V2 和远程下载浏览器客户端。
 
-## 已实现内容
+## MVP 能力
 
-`web-client-provider.mode` 默认是 `disabled`。此时 Kessoku 不注册浏览器客户端路由，
-也不提供 Provider manifest。
+客户端发起 forced-Relay WSS 会话，验证签名 peer 身份，使用 RustDesk 加密会话，通过
+WebCodecs 解码 VP9、Canvas 2D 渲染，并发送有界鼠标/基本键盘输入。兼容目标是
+RustDesk 1.4.9 与 Starry patch-v1.2.0。
 
-如果运维方已独立取得浏览器客户端授权，并自行完成审核、托管和维护，可以选择
-`external` 模式。该模式只会为已登录的 Kessoku 用户启用一个只读端点：
+它明确不支持 direct/P2P、host 模式、文件传输、剪贴板、音频、终端、端口转发、打印、
+显示器切换、触摸/IME、非 VP9 codec 或软件解码。这些是排除项，不是隐藏配置开关。
+
+## 部署两个 HTTPS origin
+
+API/admin 与 Web Client 使用不同 origin，例如：
 
 ```text
-GET /api/admin/config/web-client-provider
+https://api.example.com     -> 127.0.0.1:21114
+https://client.example.com  -> 127.0.0.1:21122
 ```
 
-响应带有 `Cache-Control: no-store`，并且只包含以下已审核的公开 manifest 字段：
+原生 listener 默认 `127.0.0.1:21122`。Docker 镜像暴露 21122，推荐 Compose 只绑定宿主
+loopback。容器内 `0.0.0.0:21122` 只能位于这个宿主 loopback 映射和独立 HTTPS 代理后。
+不能把客户端放到 API 的某个 path、直接公开 21122、启用 proxy credential 或复用内部
+mTLS 端口。
 
-```text
-id, name, launch_url, allowed_origin,
-license, source_url, version, digest
-```
+client origin 需要按 CSP 访问 HTTPS API origin，并通过 WSS 访问精确 Rendezvous/Relay
+端点。反向代理要支持 WSS upgrade，并保留固定 `/ws/id`、`/ws/relay` path。客户端会拒绝
+不在配置精确 map 中的 Relay 名称。
 
-配置还必须提供 `authorization-record`，但 Kessoku 绝不会通过 API 返回这项部署记录。
-launch/source URL 必须是无凭据、query 和 fragment 的绝对 HTTPS URL；launch origin 必须
-与 `allowed_origin` 完全一致；制品 digest 必须使用小写
-`sha256:<64 个十六进制字符>`。外部 Provider 配置无效时，服务会拒绝启动。
+## 启用 profile
 
-## 未实现内容
+设置 `web-client.mode: builtin`，并配置精确 `public-origin`/`api-origin`、listener、WSS
+URL、base64 Ed25519 服务端公钥、正数 profile generation，以及不超过一小时和全局 auth
+上限的 connection-token TTL。完整示例见
+[`WEB-CLIENT.zh-CN.md`](../../WEB-CLIENT.zh-CN.md)与
+[配置参数参考](ZH-CN-Configuration-Reference.md)。
 
-外部 Provider 接口只是启动与治理描述符，不是托管、授权或 SSO 协议。Kessoku 不会：
+client origin 的 `GET /config/v1.json` 只包含公共端点、公钥/fingerprint、schema version 与
+profile generation。Fingerprint 是解码后 32-byte Ed25519 key 的 SHA-256，以
+`sha256:` 加小写十六进制表示；配置公钥字符串只写入
+`PunchHoleRequest.licence_key`/`RequestRelay.licence_key`，强制 Relay 的
+`RequestRelay.socket_addr` 保持空。配置不包含 token、密码、私钥、listener、TTL 或
+client-origin。
 
-- 获取、打包、提供、修改或代理 Provider 资产；
-- 把 access token 注入 URL、header、脚本或 Provider session；
-- 与 Provider origin 共享 Kessoku cookie、localStorage、地址簿、用户身份或 server key；
-- 暴露 launch callback、token exchange、隐式登录或 SSO 端点；
-- 恢复已删除的 `resources/web`、`resources/web2`、WebClient2、`/api/shared-peer`、
-  `/api/server-config` 或 `/api/server-config-v2` 路径；
-- 实现许可证检查或下架规避机制。
+## 启动与认证
 
-旧 `app.web-client` 必须保持为 `0`；非零值会导致启动失败。未来 SSO 方案必须单独审核，
-并采用短期 authorization code、PKCE 和精确 redirect URI 匹配。v2.8.0 没有实现该流程。
+用户可以直接在客户端登录。已有认证的管理页面则用 RustAuth bearer 调用
+`POST /api/web-client/v1/grants`，只打开部署配置的 `web_client_public_origin`，再用精确
+origin `postMessage` 传递短期 connection grant。Peer ID 与 connection token 只在内存
+传输，不进入 URL 或持久浏览器存储。Grant 仅有 audience `rustdesk-connect` 和 scope
+`connect:initiate`，不是 admin/API bearer。
 
-## 运维方责任
+启动失败时应关闭 popup，并尽可能 logout/revoke connection grant 后修复 origin/配置。
+不能回退到 query-string token、通配 `postMessage`、共享 Cookie 或放宽 CORS。
 
-启用 `external` 前，应验证并保留 Provider 的许可证、源码版本、构建制品 digest、托管
-origin、内容安全策略、更新流程和事故负责人证据。Provider 每次升级都必须重新核验 digest
-与批准记录。Provider 可用性和远控会话兼容性不属于 Kessoku v2.8.0 的支持承诺。
+API/admin 响应必须使用 COOP `same-origin-allow-popups`。独立 client 响应会刻意省略 COOP
+（默认 `unsafe-none`），直到 ready/grant/accepted 交换完成；两个 origin 不发送相同 COOP
+值。客户端同时校验精确 API/admin origin 与 opener source，只接收一次，然后移除 listener
+并尝试清除 opener。Admin 超时、导航异常或缺少确认会触发尽力 logout/revoke；收到成功
+确认后，token 生命周期责任才交给客户端。
 
-完整配置范例与校验规则也记录在
-[`WEB-CLIENT-PROVIDER.md`](../../WEB-CLIENT-PROVIDER.md)。
+## 验收检查
+
+- 两个前端 lockfile 都通过 lint/test/audit/signatures 和两次构建可复现检查；
+- 独立 admin/client dist checksum、CycloneDX SBOM 与 MIT/第三方许可证证据存在；
+- 镜像、archive、DEB 包含 `resources/client/index.html` 与完整的
+  `resources/client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt`，且不含两个历史目录；
+- 21122 只在宿主 loopback，并仅通过配置的 HTTPS client origin 对外；
+- profile JSON 无 secret，响应含预期 CSP、no-store/referrer、frame 与 content-type 防护；
+- forced-Relay VP9 桌面会话能完成鼠标键盘操作，logout/disconnect 后 token 与密码从内存清除。
+
+详细协议/安全上限见
+[`docs/development/WEB-CLIENT-WIRE-SPEC.md`](../development/WEB-CLIENT-WIRE-SPEC.md)。

@@ -133,7 +133,7 @@ async function handleAdminAPI (request, response, url) {
     return true
   }
   if (path === '/config/app' && request.method === 'GET') {
-    legacy(response, { web_client: 0, web_client_provider: 'disabled' })
+    legacy(response, { web_client_mode: 'disabled', web_client_public_origin: '' })
     return true
   }
   if (path === '/user/myOauth' && request.method === 'POST') {

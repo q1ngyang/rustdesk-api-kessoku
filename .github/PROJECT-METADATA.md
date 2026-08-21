@@ -10,7 +10,8 @@ review draft and does not authorize publication.
 Proposed description:
 
 > Unofficial RustDesk account and administration API with EdDSA token
-> lifecycle, embedded admin UI, and typed rustdesk-server-starry control.
+> lifecycle, typed rustdesk-server-starry control, and a built-in open-source
+> Relay-only Web Client.
 
 Proposed website:
 
@@ -37,8 +38,8 @@ ldap
 Proposed image description:
 
 > Kessoku v2.8.0 RustDesk account and administration API with EdDSA token
-> lifecycle, embedded admin UI, and typed Starry control; Docker Compose is
-> recommended and no browser-client assets are bundled.
+> lifecycle, typed Starry control, and a repository-owned Relay-only Web
+> Client; Docker Compose is recommended.
 
 The release workflow sets OCI/index title, source, release URL, documentation,
 version, revision, licence, and description annotations. The documentation URL
@@ -48,6 +49,7 @@ points to [`CONTAINER.md`](../CONTAINER.md), which provides visible links to:
 - the [Compose example](../docker-compose.yaml);
 - the [environment example](../examples/compose.env.example); and
 - the [Starry integration guide](../docs/wiki/Starry-Control.md).
+- the [built-in Web Client guide](../docs/wiki/Web-Client.md).
 
 The release publishes immutable `v2.8.0` and moving `latest` tags for the same
 image. `latest` identifies the newest successfully published stable release;

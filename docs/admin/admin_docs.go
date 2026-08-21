@@ -1328,49 +1328,6 @@ const docTemplateadmin = `{
                 }
             }
         },
-        "/admin/config/web-client-provider": {
-            "get": {
-                "security": [
-                    {
-                        "token": []
-                    }
-                ],
-                "description": "Returns exactly eight public governance fields when external mode is enabled",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "ADMIN"
-                ],
-                "summary": "External Web Client Provider manifest",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/response.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/admin.WebClientProviderManifest"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/admin/device_group/create": {
             "post": {
                 "security": [
@@ -7178,35 +7135,6 @@ const docTemplateadmin = `{
                     "items": {
                         "type": "integer"
                     }
-                }
-            }
-        },
-        "admin.WebClientProviderManifest": {
-            "type": "object",
-            "properties": {
-                "allowed_origin": {
-                    "type": "string"
-                },
-                "digest": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "launch_url": {
-                    "type": "string"
-                },
-                "license": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "source_url": {
-                    "type": "string"
-                },
-                "version": {
-                    "type": "string"
                 }
             }
         },

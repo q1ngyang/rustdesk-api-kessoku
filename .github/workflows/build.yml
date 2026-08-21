@@ -108,7 +108,9 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: admin-web/package-lock.json
+          cache-dependency-path: |
+            admin-web/package-lock.json
+            web-client/package-lock.json
 
       - name: Verify embedded admin web
         working-directory: admin-web
@@ -118,8 +120,8 @@ jobs:
           npm ci
           npm audit --omit=dev --audit-level=high
           npm audit signatures
-          npm run lint --if-present
-          npm test --if-present
+          npm run lint
+          npm test
           npm run build
           find dist -type f -print0 | LC_ALL=C sort -z \
             | xargs -0 sha256sum > "${RUNNER_TEMP}/admin-web-dist-1.sha256"
@@ -130,8 +132,35 @@ jobs:
             "${RUNNER_TEMP}/admin-web-dist-2.sha256"
           npm sbom --omit=dev --sbom-format cyclonedx \
             > "${RUNNER_TEMP}/kessoku-admin-web.cdx.json"
+          node -e 'const fs=require("fs");const s=JSON.parse(fs.readFileSync(process.argv[1]));if(s.components.some(c=>!(c.licenses||[]).length))throw new Error("missing production licence metadata")' "${RUNNER_TEMP}/kessoku-admin-web.cdx.json"
           mkdir -p ../resources/admin
           cp -a dist/. ../resources/admin/
+
+      - name: Verify embedded open-source web client
+        working-directory: web-client
+        run: |
+          set -euo pipefail
+          test "$(npm --version)" = "${NPM_VERSION}"
+          npm ci
+          npm audit --omit=dev --audit-level=high
+          npm audit signatures
+          npm run lint
+          npm test
+          npm run build
+          test -s dist/third-party-licenses/@bufbuild-protobuf-2.9.0.txt
+          find dist -type f -print0 | LC_ALL=C sort -z \
+            | xargs -0 sha256sum > "${RUNNER_TEMP}/web-client-dist-1.sha256"
+          npm run build
+          find dist -type f -print0 | LC_ALL=C sort -z \
+            | xargs -0 sha256sum > "${RUNNER_TEMP}/web-client-dist-2.sha256"
+          diff -u "${RUNNER_TEMP}/web-client-dist-1.sha256" \
+            "${RUNNER_TEMP}/web-client-dist-2.sha256"
+          npm sbom --sbom-format cyclonedx \
+            > "${RUNNER_TEMP}/kessoku-web-client.cdx.json"
+          node -e 'const fs=require("fs");const s=JSON.parse(fs.readFileSync(process.argv[1]));if(s.components.some(c=>!(c.licenses||[]).length))throw new Error("missing licence metadata");if(!s.components.some(c=>c.name==="@bufbuild/protobuf"&&c.version==="2.9.0"&&(c.licenses||[]).length))throw new Error("web client runtime dependency missing from SBOM")' "${RUNNER_TEMP}/kessoku-web-client.cdx.json"
+          mkdir -p ../resources/client
+          cp -a dist/. ../resources/client/
+          test -s ../resources/client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt
 
       - name: Verify locks, formatting, tests, races, and generated docs
         run: |
@@ -182,25 +211,37 @@ jobs:
             candidate/ADMIN-WEB-DIST-SHA256SUMS
           install -m 0644 "${RUNNER_TEMP}/kessoku-admin-web.cdx.json" \
             candidate/kessoku-admin-web.cdx.json
+          install -m 0644 "${RUNNER_TEMP}/web-client-dist-2.sha256" \
+            candidate/WEB-CLIENT-DIST-SHA256SUMS
+          install -m 0644 "${RUNNER_TEMP}/kessoku-web-client.cdx.json" \
+            candidate/kessoku-web-client.cdx.json
+          install -m 0644 admin-web/LICENSE candidate/ADMIN-WEB-LICENSE
+          install -m 0644 web-client/LICENSE candidate/WEB-CLIENT-LICENSE
+          install -m 0644 web-client/NOTICE.md candidate/WEB-CLIENT-NOTICE.md
           install -m 0755 "$binary_stage/kessoku-api" \
             candidate/release/kessoku-api
           install -m 0644 "$binary_stage/GO-BUILD-INFO.txt" \
             candidate/GO-BUILD-INFO.txt
           sh scripts/copy-runtime-resources.sh \
-            candidate/release/resources resources require-admin
+            candidate/release/resources resources require-admin require-client
           printf '%s\n' "$ARTIFACT_LABEL" > candidate/release/resources/version
           cp -a conf docs candidate/release/
           cp -a README.md README.zh-CN.md README_EN.md CONTAINER.md \
             CONTAINER.zh-CN.md RELEASE-NOTES-v2.8.0.md \
             RELEASE-NOTES-v2.8.0.zh-CN.md SECURITY-MODEL.md MIGRATION.md \
-            OPERATOR-RUNBOOK.md ROLLBACK-RUNBOOK.md WEB-CLIENT-PROVIDER.md \
+            OPERATOR-RUNBOOK.md ROLLBACK-RUNBOOK.md WEB-CLIENT.md \
+            WEB-CLIENT.zh-CN.md \
             ADMIN-WEB-PROVENANCE.md RELEASE-CHECKLIST.md RELEASE-PROCESS.md \
             RELEASE_STATUS LICENSE \
             candidate/release/
           install -m 0644 admin-web/LICENSE \
             candidate/release/ADMIN-WEB-LICENSE
+          install -m 0644 web-client/LICENSE candidate/release/WEB-CLIENT-LICENSE
+          install -m 0644 web-client/NOTICE.md candidate/release/WEB-CLIENT-NOTICE.md
           test ! -e candidate/release/resources/web
           test ! -e candidate/release/resources/web2
+          test -s candidate/release/resources/client/index.html
+          test -s candidate/release/resources/client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt
           cat > candidate/BUILD-INPUTS.txt <<EOF
           repository=${GITHUB_REPOSITORY}
           source_commit=${GITHUB_SHA}
@@ -211,6 +252,9 @@ jobs:
           admin_web_source_commit=${GITHUB_SHA}
           admin_web_import_commit=2a9d037fc271cf96b39fd4add4b97c4ff4477f12
           admin_web_seed_commit=3998c2a9213fcd047252776d0f0db33e6717026c
+          web_client_path=web-client
+          web_client_source_commit=${GITHUB_SHA}
+          web_client_license=MIT
           EOF
 
       - name: Scan source and runtime dependencies
@@ -308,7 +352,7 @@ jobs:
           test "$(docker image inspect --format '{{.Config.User}}' kessoku-candidate:amd64)" = "65534:65534"
           docker run --rm kessoku-candidate:amd64 ./kessoku-api --help
           docker run --rm kessoku-candidate:amd64 sh -c \
-            'test ! -e resources/web && test ! -e resources/web2 && test -d resources/admin'
+            'test ! -e resources/web && test ! -e resources/web2 && test -s resources/admin/index.html && test -s resources/client/index.html && test -s resources/client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt'
 
   package-test:
     name: Install and run candidate Debian package
@@ -339,6 +383,8 @@ jobs:
               test ! -e /var/lib/kessoku-api/resources/web
               test ! -e /var/lib/kessoku-api/resources/web2
               test -d /var/lib/kessoku-api/resources/admin
+              test -s /var/lib/kessoku-api/resources/client/index.html
+              test -s /var/lib/kessoku-api/resources/client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt
               /usr/bin/kessoku-api --help
             '
 
@@ -381,7 +427,11 @@ jobs:
           cp packages/*.deb candidate/release-assets/
           cp runtime/BUILD-INPUTS.txt runtime/GO-BUILD-INFO.txt \
             runtime/ADMIN-WEB-DIST-SHA256SUMS \
+            runtime/WEB-CLIENT-DIST-SHA256SUMS \
+            runtime/ADMIN-WEB-LICENSE runtime/WEB-CLIENT-LICENSE \
+            runtime/WEB-CLIENT-NOTICE.md \
             runtime/kessoku-admin-web.cdx.json \
+            runtime/kessoku-web-client.cdx.json \
             runtime/kessoku-source.spdx.json \
             runtime/kessoku-runtime.spdx.json candidate/release-assets/
           cp RELEASE_STATUS RELEASE-CHECKLIST.md RELEASE-PROCESS.md \
@@ -391,6 +441,8 @@ jobs:
             candidate/release-assets/
           cp examples/compose.env.example \
             candidate/release-assets/compose.env.example
+          cp examples/config.docker-builtin.yaml \
+            candidate/release-assets/config.docker-builtin.yaml
 
       - name: Generate candidate-filesystem SBOM and checksums
         run: |
@@ -417,6 +469,12 @@ jobs:
           test -s candidate/release-assets/GO-BUILD-INFO.txt
           test -s candidate/release-assets/ADMIN-WEB-DIST-SHA256SUMS
           test -s candidate/release-assets/kessoku-admin-web.cdx.json
+          test -s candidate/release-assets/WEB-CLIENT-DIST-SHA256SUMS
+          test -s candidate/release-assets/kessoku-web-client.cdx.json
+          test -s candidate/release-assets/ADMIN-WEB-LICENSE
+          test -s candidate/release-assets/WEB-CLIENT-LICENSE
+          test -s candidate/release-assets/WEB-CLIENT-NOTICE.md
+          test -s candidate/release-assets/config.docker-builtin.yaml
           test -s candidate/release-assets/kessoku-source.spdx.json
           test -s candidate/release-assets/kessoku-runtime.spdx.json
           test -s candidate/release-assets/kessoku-candidate.spdx.json
@@ -424,6 +482,8 @@ jobs:
           test "$(find candidate/release-assets -maxdepth 1 -name '*.tar.gz' | wc -l)" -eq 1
           test -x candidate/docker/release/kessoku-api
           test -d candidate/docker/release/resources/admin
+          test -s candidate/docker/release/resources/client/index.html
+          test -s candidate/docker/release/resources/client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt
           test ! -e candidate/docker/release/resources/web
           test ! -e candidate/docker/release/resources/web2
           if tar -tzf candidate/release-assets/*.tar.gz \

@@ -3,9 +3,11 @@ package config
 import (
 	"errors"
 	"fmt"
-	"github.com/spf13/viper"
+	"os"
 	"strings"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
 const (
@@ -35,33 +37,39 @@ type Admin struct {
 	RelayServerPort int    `mapstructure:"relay-server-port"`
 }
 type Config struct {
-	Lang              string `mapstructure:"lang"`
-	App               App
-	Admin             Admin
-	Gorm              Gorm
-	Mysql             Mysql
-	Postgresql        Postgresql
-	Gin               Gin
-	Logger            Logger
-	Redis             Redis
-	Cache             Cache
-	Oss               Oss
-	Auth              Auth `mapstructure:"auth"`
-	Rustdesk          Rustdesk
-	Proxy             Proxy
-	Ldap              Ldap
-	ServerControl     ServerControl     `mapstructure:"server-control"`
-	WebClientProvider WebClientProvider `mapstructure:"web-client-provider"`
+	Lang          string `mapstructure:"lang"`
+	App           App
+	Admin         Admin
+	Gorm          Gorm
+	Mysql         Mysql
+	Postgresql    Postgresql
+	Gin           Gin
+	Logger        Logger
+	Redis         Redis
+	Cache         Cache
+	Oss           Oss
+	Auth          Auth `mapstructure:"auth"`
+	Rustdesk      Rustdesk
+	Proxy         Proxy
+	Ldap          Ldap
+	ServerControl ServerControl `mapstructure:"server-control"`
+	WebClient     WebClient     `mapstructure:"web-client"`
+	// DeprecatedWebClientProvider exists only to make every legacy root
+	// web-client-provider block fail closed instead of being silently ignored.
+	DeprecatedWebClientProvider map[string]interface{} `mapstructure:"web-client-provider"`
 }
 
 func (c Config) Validate() error {
 	if c.App.LegacyWebClient != 0 {
-		return errors.New("app.web-client is removed; configure web-client-provider.mode instead")
+		return errors.New("app.web-client is removed; configure web-client.mode instead")
+	}
+	if c.DeprecatedWebClientProvider != nil {
+		return errors.New("web-client-provider is removed; delete it and configure web-client.mode instead")
 	}
 	if err := c.Auth.Validate(); err != nil {
 		return err
 	}
-	if err := c.WebClientProvider.Validate(); err != nil {
+	if err := c.WebClient.Validate(c.Auth); err != nil {
 		return err
 	}
 	if err := c.Ldap.Validate(); err != nil {
@@ -90,15 +98,24 @@ func Init(rowVal *Config, path string) *viper.Viper {
 	if path == "" {
 		path = DefaultConfig
 	}
-	v := viper.GetViper()
+	// A Relay identifier is an exact host:port string and commonly contains
+	// dots. Viper's default "." key delimiter would otherwise reinterpret a
+	// YAML key such as "relay.example.com:21117" as nested maps during
+	// Unmarshal. Use a delimiter that cannot occur in validated configuration
+	// keys while preserving the existing environment-variable contract.
+	v := viper.NewWithOptions(viper.KeyDelimiter("::"))
 	v.AutomaticEnv()
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+	v.SetEnvKeyReplacer(strings.NewReplacer("::", "_", ".", "_", "-", "_"))
 	v.SetEnvPrefix("RUSTDESK_API")
-	v.SetDefault("server-control.read-only", true)
-	v.SetDefault("server-control.legacy-command-enabled", false)
-	v.SetDefault("web-client-provider.mode", WebClientProviderDisabled)
+	v.SetDefault("server-control::read-only", true)
+	v.SetDefault("server-control::legacy-command-enabled", false)
+	v.SetDefault("web-client::mode", WebClientDisabled)
+	v.SetDefault("web-client::connection-token-ttl", defaultConnectionTokenTTL)
 	v.SetConfigFile(path)
 	v.SetConfigType("yaml")
+	if legacyWebClientProviderEnvironmentPresent(os.Environ()) {
+		panic(errors.New("Fatal error config validation: web-client-provider environment variables are removed; delete them and configure web-client instead"))
+	}
 	err := v.ReadInConfig()
 	if err != nil {
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
@@ -127,6 +144,18 @@ func Init(rowVal *Config, path string) *viper.Viper {
 	rowVal.Rustdesk.LoadKeyFile()
 	rowVal.Admin.Init()
 	return v
+}
+
+func legacyWebClientProviderEnvironmentPresent(environment []string) bool {
+	const removedRoot = "RUSTDESK_API_WEB_CLIENT_PROVIDER"
+	for _, entry := range environment {
+		name, _, _ := strings.Cut(entry, "=")
+		name = strings.ToUpper(name)
+		if name == removedRoot || strings.HasPrefix(name, removedRoot+"_") {
+			return true
+		}
+	}
+	return false
 }
 
 // ReadEnv 读取环境变量

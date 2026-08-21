@@ -36,7 +36,10 @@ merge a conflicting external identity.
 5. Upgrade Starry with connection authentication `off`, then `audit`.
 6. Commission the Control Agent read-only.
 7. Complete real-client audit and staging rollback tests.
-8. Canary `enforce`; open configuration writes only in separate approved
+8. Commission the Web Client on its separate HTTPS origin, validate the public
+   profile, ready/grant/ack handoff, forced-Relay VP9 session, grant expiry and
+   logout; keep `web-client.mode: disabled` if any check fails.
+9. Canary `enforce`; open configuration writes only in separate approved
    windows.
 
 ## Rollback warning
@@ -51,12 +54,15 @@ require re-login.
 
 1. Return Starry authentication from `enforce` to `audit` under change control.
 2. Set Kessoku and the Control Agent read-only.
-3. Restore and verify the last-known-good Starry generation.
-4. Preserve redacted evidence and decide between forward remediation and a
+3. Set `web-client.mode: disabled`, revoke active connection grants, and verify
+   the 21122 public origin no longer serves a client. This does not require
+   restoring historical browser assets.
+4. Restore and verify the last-known-good Starry generation.
+5. Preserve redacted evidence and decide between forward remediation and a
    matched application/database restore.
-5. Restore the approved database backup to an isolated target, validate it,
+6. Restore the approved database backup to an isolated target, validate it,
    then switch the older application.
-6. Verify admin/API login, token invalidation, native/WSS audit behavior,
+7. Verify admin/API login, token invalidation, native/WSS audit behavior,
    database row counts, and the absence of generic command routes.
 
 See [`MIGRATION.md`](../../MIGRATION.md) and

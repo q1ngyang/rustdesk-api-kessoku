@@ -27,8 +27,8 @@ Control OpenAPI 与此前本地候选 digest 完全一致。
 | Relay 与模拟 | 类型化 inventory/simulation DTO，不接受任意 cmd/option/URL | 不可变 Relay/health snapshot 与无副作用选择 trace | 实际响应 fixture、真实 HBBS simulation |
 | 配置读取与 Schema | 校验 exact YAML 的 SHA-256/ETag、runtime drift、Schema digest 与 capability digest 一致 | `GET /config` 返回精确 UTF-8 YAML、format、runtime state 和 strong ETag；Schema bundle 显式建模 | 跨仓 contract fixture 与真实 Agent 调用 |
 | 配置事务 | typed validate/plan/apply/operation/history/rollback/reload；16–128 字节幂等键；审计不记录 secret | 乐观并发、plan 绑定、原子替换、fsync、HBBS ack、自动恢复、持久 operation/audit、人工 rollback | 成功 apply/rollback/reload 跨仓 E2E；失败 apply/outage/restart Starry 黑盒测试 |
-| 管理前端 | 审核候选 `2a9d037fc271cf96b39fd4add4b97c4ff4477f12` 已内置为 `admin-web/`；仅类型化 Control DTO；DOMPurify；严格 CSP/禁止嵌入 | 浏览器不直连 Agent，所有权威状态与变更仍由 Agent 返回 | 与后端同 commit；`npm ci`、8 tests、0-vulnerability audit、110 package signatures、双构建一致、62-component CycloneDX/license、Gitleaks、完整浏览器交互 QA |
-| WebClient 边界 | 不包含 WebClient2；外部 Provider 默认关闭，不代理资产、不注入 bearer/cookie | 不涉及浏览器客户端资产 | packaging/policy 测试 |
+| 管理前端 | 审核候选 `2a9d037fc271cf96b39fd4add4b97c4ff4477f12` 已内置为 `admin-web/`；仅类型化 Control DTO；DOMPurify；严格 CSP/禁止嵌入 | 浏览器不直连 Agent，所有权威状态与变更仍由 Agent 返回 | 与后端同 commit；`npm ci`、9 tests、0-vulnerability audit、110 package signatures、双构建一致、62-component CycloneDX/license、Gitleaks、完整浏览器交互 QA |
+| WebClient 边界 | 仓库自有 MIT `web-client/`，强制 Relay WSS/VP9/鼠标/基本键盘；独立 origin 与短期内存 grant；历史 WebClient2/V2 永久排除 | 提供 patch-v1.2.0 WSS Rendezvous/Relay 兼容路径 | 46 tests、双前端 packaging/policy，以及正式 Starry 镜像上的双 origin 浏览器/forced-Relay VP9/真实远端输入验收通过 |
 
 ## 3. 本次联合验证结果
 
@@ -42,7 +42,7 @@ Control OpenAPI 与此前本地候选 digest 完全一致。
 - Kessoku 漏洞与供应链：`govulncheck v1.7.0` 为 0 reachable、0 imported-package；仅有
   未导入的 `golang.org/x/crypto/openpgp` 模块级 `GO-2026-5932`，上游当前无修复版本。
   actionlint、shell 语法、Gitleaks 395-commit 历史扫描与 Syft 源码 SBOM 通过；历史
-  `resources/web` 中八个已审核目录扫描候选未改动，并被全部 runtime/制品路径排除。
+  `resources/web`/`resources/web2` 已删除，并被全部 runtime/制品路径永久拒绝。
 - Kessoku 候选构建不再以单文件 `cmd/apimain.go` 产生 `command-line-arguments` 二进制；正式
   路径统一编译 `./cmd`。候选 workflow 会在创建未跟踪产物前验证干净 Git 树，并保存、复核
   `GO-BUILD-INFO.txt` 中的模块路径、精确 source SHA 与 `vcs.modified=false`；该机制已在临时
@@ -51,12 +51,17 @@ Control OpenAPI 与此前本地候选 digest 完全一致。
   源码构建，发布镜像只消费已验证候选二进制。
 - Kessoku 管理前端本地审核候选提交为
   `2a9d037fc271cf96b39fd4add4b97c4ff4477f12`。旧任意 ServerCmd 与全部嵌入式
-  WebClient/WebClient2 源码已删除；版本化 Control 页面覆盖 JWT 状态、Relay/模拟、
+  旧 WebClient/WebClient2 源码已删除；版本化 Control 页面覆盖 JWT 状态、Relay/模拟、
   YAML/Schema、校验、plan/apply、operation、rollback/reload 与脱敏审计。精确 Node/npm 下
-  `npm ci`、8 tests、生产 audit 0 漏洞、110 package signatures、双构建一致、
+  `npm ci`、9 tests、生产 audit 0 漏洞、110 package signatures、双构建一致、
   62-component CycloneDX/license、Gitleaks 与本地浏览器 QA 均通过；欢迎 Markdown XSS
   payload 已验证被净化。该源码现位于 Kessoku `admin-web/`，候选 CI、开发 Dockerfile 和
   本地候选均只从同一 Kessoku commit 构建，不再依赖独立前端仓库。
+- 仓库自有 Web Client 在固定 Chromium 与 RustDesk 1.4.9 Linux 目标上，从零启动精确正式
+  Starry 镜像完成双 origin 验收：直接登录和 admin ready/grant/accepted popup 均建立
+  forced-Relay WSS 加密会话，VP9/WebCodecs 画布为 1280x800，远端实际接收鼠标 320x240、
+  `K`、`Control_L` 与 `Ctrl+S`，logout 撤销成功；浏览器没有 local/session storage、
+  IndexedDB 或 service worker。该结果是正常功能兼容验证，不是渗透、fuzz 或压力测试。
 - `scripts/verify-local-admin-candidate.sh` 快照当前前后端同一源树。完整本地候选通过 Go
   binary、前端、tar、DEB 双构建比较，非 root
   runtime image smoke，以及实际 CSP/防嵌入/禁止目录枚举和旧配置泄露路由 `404`；脚本不含
@@ -101,18 +106,19 @@ Control OpenAPI 与此前本地候选 digest 完全一致。
   shell 与 overlay `rustfmt --check` 通过；workflow 检查器确认 35 个
   Action 使用均固定完整 SHA，Rust 1.97.1、cross revision、cross images、RustSec 数据库与
   扫描工具均为不可变输入。Gitleaks 历史/WIP 扫描无未解释发现，Syft 源码 SBOM 已生成。
-- Codex Security 已完成两仓库密封静态审计，全程未启动公开服务、未发送探测流量，也未运行
+- 历史 Codex Security 密封快照已完成两仓库静态审计，全程未启动公开服务、未发送探测流量，也未运行
   fuzz/mutation/压力或利用测试。Kessoku 冻结快照覆盖 27 个 surface、记录 23 项 finding；
   Starry 冻结快照覆盖 40 个 surface、记录 22 项 finding（6 medium、16 low，无 high/critical）。
   Starry 已针对主要认证、边界与资源上限问题实施修复；Kessoku 精确本地候选已逐项静态
-  复核并记录唯一获批 residual risk，最终批准提交仍需通过受保护候选 CI。
+  复核并记录唯一获批 residual risk。当前会话再次获准安装插件，但扫描器仍不可调用，
+  因而不声称插件已重扫最终树；最终批准提交仍需通过受保护候选 CI。
 
 ## 4. 后续联合计划与退出条件
 
 | 优先级 | 工作包 | 负责人/依赖 | 退出条件 |
 | --- | --- | --- | --- |
 | 完成 | 发布并固定 Starry contract | Starry + Kessoku | `1.1.16-patch-v1.2.0` 已发布；Kessoku 已把同一 OpenAPI digest 提升为 `release_sha256`、设为 `PINNED`，并以官方源码/二进制复核合同与 Provider E2E |
-| 本地完成 / CI 待完成 | 验证 Kessoku v2.8.0 单仓候选 | Kessoku；前端已内置 | 本地同源快照已重跑 Go/迁移、`admin-web` 8 tests、audit/signatures、双构建、SBOM、Docker linux/amd64 与 amd64 DEB 安装；最终批准提交仍需受保护 CI |
+| 本地完成 / CI 待完成 | 验证 Kessoku v2.8.0 单仓候选 | Kessoku；前端已内置 | 本地同源快照已重跑 Go/迁移、`admin-web` 9 tests、`web-client` 46 tests、audit/signatures、双构建、SBOM、Docker linux/amd64、amd64 DEB 安装与正式 Starry 浏览器互操作；最终批准提交仍需受保护 CI |
 | 完成 | 正式 Starry 真实客户端 Relay 验收 | Kessoku + Starry | RustDesk 1.4.9 已通过 `audit` native/native 与 `enforce` native/native、WSS/WSS、WSS/native、native/WSS；每项验证桌面窗口、截图与 HBBR 连接，不外推为直接 P2P/独立 Secure TCP 证据 |
 | 部署前 P0（非软件发布阻断） | 生产形态恢复演练 | 运维 staging | DB/config/identity/key 备份恢复、Agent read-only→write、ETag conflict、自动 rollback、人工 rollback、token mass invalidation 和重新登录均完成，并由具体部署记录 RTO/RPO |
 | P1 | 正式平台/制品矩阵 | 两项目 CI | Docker linux/amd64、Linux x86_64 tar/二进制和 amd64 DEB 完成最终候选 SBOM/provenance/签名/checksum 与干净 CI；ARM/Windows 仅非阻断兼容，不进入本版本承诺 |
@@ -125,6 +131,8 @@ Control OpenAPI 与此前本地候选 digest 完全一致。
   release；固定的 Starry tag/digest 不得改回移动引用。
 - 不从 `lejianwen/rustdesk-api-web@master` 或任何移动分支构建管理前端。
 - 不加入、复制、打包或通过 plugin 规避 WebClient2 的非授权闭源资产。
+- 只打包仓库自有 `web-client/` 的 `resources/client` 产物；该 MIT MVP 与历史
+  WebClient2/V2 没有源码或资产继承关系。
 - 不把任意 command、option、URL、文件路径或 Docker socket 暴露给管理请求。
 - 已完成的 Codex Security 冻结快照不得冒充最终候选批准；发布前必须在精确候选上完成
   finding 闭环、证据审核与 residual-risk 签字。

@@ -7,9 +7,12 @@
 ## 1. 源码与制品身份
 
 - 验证不可变 tag、source commit、checksum、SBOM、provenance 和解析出的镜像 digest。
-- 确认内置管理前端属于同一提交。
+- 确认两个内置前端源码属于同一提交，并验证各自 dist checksum、CycloneDX SBOM 与
+  许可证证据。
 - 确认精确 Starry contract 为 `PINNED` 且与部署 Agent 一致。
-- 确认 release 不含 `resources/web`、`resources/web2`、WebClient2、私钥或构建凭据。
+- 确认 release 包含已审核 `resources/client/index.html` 与完整的
+  `resources/client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt`，但不含
+  `resources/web`、`resources/web2`、WebClient2/V2、私钥或构建凭据。
 
 ## 2. 部署静态检查
 
@@ -26,7 +29,7 @@ docker compose --env-file .env -f docker-compose.yaml config --quiet
 - 数据库版本为 301；迁移行数、token hash、OAuth 身份索引与最后管理员不变量正确。
 - 已修改管理员初始密码。
 - 日志不包含 token、私钥、证书或完整配置。
-- 注册、Swagger、provider 和控制写入默认值符合策略。
+- 注册、Swagger、内置 Web Client 和控制写入默认值符合策略。
 
 ## 4. API 与认证
 
@@ -55,6 +58,19 @@ docker compose --env-file .env -f docker-compose.yaml config --quiet
 
 本地流程不执行渗透、利用、公网目标、fuzz/mutation 或压力测试。任何单独批准的韧性测试
 只能在隔离 staging/CI 环境运行。
+
+内置浏览器 MVP 需独立验证专用 HTTPS origin/21122 listener、无 secret 公共 profile、精确
+CORS、ready/grant/ack `postMessage` 交接、token 到期/logout，以及一例 forced-Relay WSS
+VP9 鼠标/基本键盘会话。该证据不表示支持 P2P、被控模式、文件/剪贴板/音频、显示器切换
+或其他 codec。
+
+2026-08-21 本机夹具已从零启动，对正式 Starry 镜像 digest
+`sha256:3685543aee6e60c27bed5db1df2fa32af83e61a58e9bc4c0ea3464664863811b`
+通过这一浏览器矩阵：直接登录与 admin popup grant、1280x800 VP9/WebCodecs、远端鼠标
+320x240、基本 `K` 与 `Ctrl+S` 输入、logout，并且没有浏览器持久存储。这是普通功能测试，
+不是进攻性扫描。
+可重复的本机编排入口为 `scripts/verify-official-starry-web-client.sh`；它按精确内容 digest
+要求已记录的本地 RustDesk 1.4.9 QA 目标镜像，不会发布任何制品。
 
 v2.8.0 本机发布证据精确覆盖 RustDesk 1.4.9 强制 Relay 会话：`audit` native/native，
 以及 `enforce` native/native、WSS/WSS、WSS/native、native/WSS；不表示已覆盖直接 P2P

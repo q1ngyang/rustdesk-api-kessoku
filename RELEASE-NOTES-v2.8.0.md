@@ -18,6 +18,7 @@ Docker Compose on Linux amd64 is the recommended deployment.
 - [Docker deployment guide](docs/wiki/Docker-Deployment.md)
 - [Compose example](docker-compose.yaml)
 - [Environment example](examples/compose.env.example)
+- [Builtin Web Client configuration](examples/config.docker-builtin.yaml)
 - [Starry integration guide](docs/wiki/Starry-Control.md)
 
 The release publishes
@@ -32,6 +33,10 @@ release. Resolve and pin the version tag's digest for production rollout.
 - Ed25519/EdDSA access tokens with fixed `at+jwt` type, key ID, issuer,
   audience, subject/user binding, JTI, scope, authentication version, and
   bounded time claims.
+- RustDesk 1.4.9 standard login tokens carry the configured API and connection
+  audiences because native clients retain one bearer for both uses. The
+  built-in Web Client never receives that standard bearer; its login/grant
+  endpoints return only a short-lived connection token.
 - Current/previous JWKS key overlap for controlled rotation.
 - Token hashes replace reusable plaintext-token storage for newly issued
   credentials.
@@ -78,19 +83,26 @@ release. Resolve and pin the version tag's digest for production rollout.
 
 ### Browser-client boundary
 
-- Kessoku contains no WebClient2 assets or download/proxy path.
-- The optional external Web Client Provider is disabled by default, requires
-  provenance/licence/version/digest metadata, and receives no bearer token.
-- The provider is only an independently hosted HTTPS launch/governance
-  descriptor. v2.8.0 does not host a browser remote-desktop client, share
-  cookies or storage, or implement SSO/token exchange. See
+- Kessoku builds the repository-owned MIT `web-client/` source and packages
+  the reproducible result as `resources/client`; historical `resources/web`,
+  `resources/web2`, WebClient2/V2, and download/proxy paths remain excluded.
+- The MVP initiates forced-Relay WSS, verifies peer identity, decodes VP9 with
+  WebCodecs, and supports bounded mouse/basic keyboard input.
+- API/admin and client use different HTTPS origins. A short-lived
+  `rustdesk-connect`/`connect:initiate` grant is delivered through strict-origin
+  `postMessage` and held in memory only. URL, Cookie, and persistent-storage
+  token transport are forbidden.
+- Direct/P2P, incoming mode, file transfer, clipboard, audio, terminal, port
+  forwarding, printing, display switching, touch/IME, non-VP9 codecs, and
+  software decoding are excluded. See
   [Web Client](docs/wiki/Web-Client.md).
 
 ### Packaging and automation
 
 - Linux amd64 is the supported v2.8.0 platform: GHCR image, Linux x86_64
   archive/binary, and amd64 DEB.
-- The image runs as an unprivileged user and excludes browser-client assets.
+- The image runs as an unprivileged user, contains `resources/client`, exposes
+  separate port 21122, and rejects historical browser-client assets.
 - Candidate workflows run Go tests and race checks, three database migration
   fixtures, embedded-frontend tests/audits/reproducibility checks, SBOM and
   secret/dependency scans, image smoke tests, and real DEB installation.
@@ -138,21 +150,33 @@ disposition and evidence boundary are in
 
 ## Pre-release status
 
-Local Go, race, frontend, reproducibility, package-install, non-root image,
-security-header, contract, and cross-project process tests have passed. The
+Existing Go, package, security-header, contract, and cross-project evidence
+passed before the built-in Web Client integration. On 2026-08-21 the fixed
+local toolchains also passed full Go vet/tests, both frontend audit/signature/
+test/two-build gates, the complete client SBOM/licence check, regenerated
+Swagger, and a non-root development image containing only `resources/admin`
+and `resources/client`. This is development evidence, not the final clean-
+commit candidate. A clean-start browser fixture has now passed against the
+exact published Starry image: distinct client/API HTTPS origins, direct login,
+admin ready/grant/accepted handoff, forced-Relay WSS, VP9/WebCodecs at
+1280x800, real remote mouse and basic keyboard input, logout, and zero browser
+persistent storage. The expanded clean-commit archive/DEB verifier and
+protected candidate workflow still must pass. The
 published Starry `1.1.16-patch-v1.2.0` Control API has been pinned by tag,
 source commit, contract hash, schema hashes, and amd64 image digest. RustDesk
 1.4.9 forced-Relay desktop sessions passed `audit` native-to-native and
 `enforce` native-to-native, WSS-to-WSS, WSS-to-native, and native-to-WSS,
 including Remote Desktop window/screenshot and established HBBR connection
 checks. This matrix does not claim direct-P2P or a separate Secure TCP case.
-The exact local candidate verifier and post-remediation static review now pass.
-Each deployment must still record its own backup/restore, key recovery,
+Local build/static review does not substitute for the expanded clean-commit
+verifier. Each deployment must still record its own backup/restore,
+key recovery,
 failover, rollback, RTO/RPO, and go/no-go ownership before rollout; Kessoku does
 not publish a universal recovery SLA. This deployment gate is separate from
 software publication. Publication remains blocked on two approval/workflow
 actions:
 
-- approve the final documentation and new-feature wording; and
-- run protected non-publishing candidate CI for the approved commit before the
+- approve the final documentation and new-feature wording, including this
+  recorded Web Client acceptance; and
+- run protected non-publishing candidate CI for that approved commit before the
   immutable tag, GHCR `v2.8.0`/`latest`, GitHub Release, and Wiki are published.

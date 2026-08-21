@@ -49,14 +49,16 @@ the protected candidate workflow below.
 1. Create the intended immutable tag at the reviewed commit. Do not move it.
 2. Dispatch `.github/workflows/build.yml` on that tag.
 3. Confirm all database migrations, Go tests/race checks, source and runtime
-   scans, embedded admin-web checks, Docker linux/amd64 smoke, Linux x86_64
+   scans, both embedded-frontend checks, Web Client grant/origin/browser
+   acceptance, Docker linux/amd64 smoke, Linux x86_64
    archive, and real amd64 DEB installation passed. ARM and Windows are not
    v2.8.0 publication gates.
 4. Download `kessoku-release-candidate-<commit>` and independently verify
    `SHA256SUMS`, `BUILD-INPUTS.txt`, `RELEASE_STATUS`, and `CONTRACT_VERSION`.
-5. Inspect the archive, DEB, Docker context, and all three SPDX SBOMs. They must
-   contain the reviewed admin UI and must not contain `resources/web`,
-   `resources/web2`, WebClient2 assets, private keys, or build credentials.
+5. Inspect the archive, DEB, Docker context, all three SPDX SBOMs, and separate
+   frontend CycloneDX/licence evidence. They must contain the reviewed admin UI
+   and `resources/client`, and must not contain `resources/web`,
+   `resources/web2`, WebClient2/V2 assets, private keys, or build credentials.
 6. Record the successful candidate workflow run ID. A rerun is a distinct
    candidate and requires a fresh review.
 
@@ -95,4 +97,4 @@ configuration, access-key material, and Control Agent key material available
 for the entire observation window. Trigger `ROLLBACK-RUNBOOK.md` on migration,
 authentication, control-plane, client-compatibility, or audit regressions.
 
-正式发布同样遵循上述顺序：先完成清单与独立审批，再从目标 tag 运行不发布的候选流程，最后让受保护的发布流程按 run ID 消费同一提交的候选。不可变版本 tag 不得移动；`latest` 只能由成功的稳定版发布流程更新，并必须与该版本 tag 指向相同 digest。不得跳过前端审计，或将未授权 WebClient2 资产加入任何产物。
+正式发布同样遵循上述顺序：先完成清单与独立审批，再从目标 tag 运行不发布的候选流程，最后让受保护的发布流程按 run ID 消费同一提交的候选。不可变版本 tag 不得移动；`latest` 只能由成功的稳定版发布流程更新，并必须与该版本 tag 指向相同 digest。不得跳过两个前端的审计、可复现与许可证门禁；只允许仓库自有 `resources/client`，不能加入历史 WebClient2/V2 资产。

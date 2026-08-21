@@ -23,7 +23,8 @@
 `auth_version` 生命周期、JWKS/introspection 独立 mTLS listener 已落地；Starry 管理操作只能
 通过固定实例、固定 route/method/scope 的类型化 Provider，所有管理路由均要求管理员权限并
 写入意图/完成审计；Relay、双 IP 模拟、配置读取/校验/plan/apply/history/rollback DTO 与
-Control API v1 已实现；外部 Web Client Provider 默认关闭且不代理资产或注入 token。Kessoku
+Control API v1 已实现；仓库自有 Web Client MVP 已完成本地集成，使用独立 origin、强制
+Relay WSS 与短期内存 grant，并永久排除历史 WebClient2/V2。Kessoku
 DTO/客户端已与 Starry `control/v1` 本地候选 OpenAPI 对齐，并以 digest、真实响应 fixture 和
 真实 HBBS/Control Agent 进程完成 mTLS、service JWT、Relay/模拟及配置事务联合验证。
 
@@ -32,8 +33,8 @@ PostgreSQL 16.4 真实迁移测试，后端容器构建、可达漏洞扫描、�
 和源代码 SBOM 生成。正式构建已从单文件入口改为 module package `./cmd`；候选 workflow 在
 创建未跟踪产物前验证干净 Git 树，并持久化、复核精确 source revision 与
 `vcs.modified=false`。该行为已在精确 Go 镜像和临时干净 Git 快照中验证。历史
-`resources/web` 候选项只存在于不授权、不修改且被所有运行时构建排除的旧源码目录；它们
-不会进入 Kessoku 制品。
+`resources/web`/`resources/web2` 已删除，并被所有运行时构建永久拒绝；只有从
+`web-client/` 同提交构建的 `resources/client` 可以进入 Kessoku 制品。
 
 Starry 契约阻断已经解除：正式 tag `1.1.16-patch-v1.2.0`（commit
 `5e73b3af1423acf5ee20ca32a2d747eef6df3494`）已发布，Control OpenAPI digest 与本地候选
@@ -46,9 +47,12 @@ Starry 契约阻断已经解除：正式 tag `1.1.16-patch-v1.2.0`（commit
   native/WSS。每项均验证 Remote Desktop 窗口、截图和已建立 HBBR 连接；该证据不声称
   覆盖直接 P2P 或独立 Secure TCP case；
 - 已审核管理前端候选 `2a9d037fc271cf96b39fd4add4b97c4ff4477f12` 已作为 `admin-web/`
-  源码并入本仓库，删除 ServerCmd/WebClient2 并实现版本化 Relay/配置管理。`npm ci`、8 tests、
+  源码并入本仓库，删除 ServerCmd/WebClient2 并实现版本化 Relay/配置管理。`npm ci`、9 tests、
   0-vulnerability audit、签名校验、双构建复现、SBOM/license、Markdown XSS 净化和浏览器 QA
   均通过；正式候选只从同一 Kessoku commit 构建，不再依赖独立前端仓库；
+- 仓库自有 Web Client 的 46 项测试、固定依赖审计/签名、双构建复现与许可制品检查通过；
+  固定 Chromium 对正式 Starry 镜像完成双 origin 登录/grant、forced-Relay WSS、VP9、
+  真实鼠标/基本键盘及 logout 验收，且没有浏览器持久存储；
 - 本地非发布候选脚本快照同一前后端源树；已通过前后端重复构建、可复现 tar/DEB、
   非 root 镜像、实际 CSP/防嵌入/禁止目录枚举响应头以及已删除配置泄露路由的 `404`。这些
   本地结果不会把 `RELEASE_STATUS` 提升为可发布状态；
@@ -86,8 +90,10 @@ Starry 契约阻断已经解除：正式 tag `1.1.16-patch-v1.2.0`（commit
    的长生命周期 access token，同时让注销、封禁和修改密码在短时间内生效。
 8. Kessoku 不直接挂载或修改 Starry YAML，不持有 Docker Socket，也不直接访问远程
    21115/21117。配置写入、备份、原子替换、reload 和回滚全部由 Starry Control Agent 执行。
-9. Web 客户端只提供合法、中立的 Provider 接口。Kessoku 不打包、镜像、下载或代理
-   v2.6.29 的 `resources/web2`，也不提供许可证检查规避功能。
+9. Web 客户端以本仓库 provenance-clean TypeScript 源码独立实现并固定依赖构建；Kessoku
+   不打包、镜像、下载、代理或继承 v2.6.29 的 `resources/web`/`resources/web2`，也不使用
+   external provider 或许可证规避机制。客户端必须使用独立 HTTPS origin/listener、固定
+   WSS allowlist 与短期 connection-only grant。
 10. 旧 `/api/admin/rustdesk/*` 是首要安全修复：当前路由只有登录校验、没有管理员权限门，
     而后端接受任意命令字符串。实施任何新功能前先默认关闭该路由并补 `AdminPrivilege()`。
 11. Kessoku→Agent 的远程控制请求同时使用 mTLS 和最长 5 分钟的 scoped service JWT；
@@ -583,22 +589,27 @@ Provider 配置失败、JWT key 轮换和用户全局撤销必须审计。审计
 - 搜索前后端源码不存在 `sendCmd` 可达路由和 raw command 输入。
 - 升级旧数据库不因遗留 `server_cmds` 表失败。
 
-### K6：合法 Web Client Provider（4～7 人日，不含浏览器客户端开发）
+### K6：仓库自有 Web Client MVP
 
 任务：
 
-- 增加 `disabled|external` Provider 模式；默认 `disabled`。
-- Provider manifest 只包含 id、名称、launch URL、允许 origin、许可证、源码 URL、版本和 digest。
-- Kessoku 不下载或反向代理 Provider 静态文件；使用独立 origin 打开。
-- 第一版不向外部 origin 注入 access token。后续 SSO 只采用短期授权码 + PKCE + 精确 redirect URI，
-  不使用 query string 传 bearer token，也不共享 localStorage。
-- 管理员配置 Provider 时必须填写来源和授权说明；这只是治理记录，不代替真实授权。
+- 在本仓库 `web-client/` 实现 MIT TypeScript MVP，固定 lockfile 并可复现构建到
+  `resources/client`。
+- 独立 listener/origin 提供静态客户端与无 secret 公共 profile；只允许精确 HTTPS/WSS
+  API、Rendezvous 和 Relay map。
+- 只支持强制 Relay WSS、签名身份/加密会话、VP9 WebCodecs、鼠标和基本键盘。
+- 登录或 admin connection-only grant 只签发短期 `rustdesk-connect`/
+  `connect:initiate` token；admin 用 ready/grant/ack 精确-origin `postMessage` 传内存。
+- 不使用 query string、Cookie 或持久浏览器存储传 token；不复制、下载或派生历史
+  WebClient2/V2、Flutter Web 或外部 JS/WASM。
 
 验收：
 
-- Kessoku release、镜像和安装脚本不包含旧 WebClient2 文件、下载 URL 或绕过检查代码。
-- 非允许 origin 无法完成授权码交换。
-- 禁用 Provider 时所有 launch/session 路由均不可用。
+- Release、镜像和安装脚本包含 `resources/client` 及独立 SBOM/license/checksum，但不含
+  `resources/web*`、WebClient2/V2、下载 URL 或绕过代码。
+- 非允许 origin 不能使用 CORS、grant 或 `postMessage`；token/密码不会落盘。
+- `mode: disabled` 时不启动 21122 client listener；启用后 forced-Relay VP9 鼠标/键盘
+  浏览器会话通过。
 
 ### K7：集成、灰度和发布（7～10 人日）
 
@@ -694,7 +705,7 @@ develop                        可选集成分支
 feature/auth-v1
 feature/starry-control-readonly
 feature/starry-config-editor
-feature/webclient-provider
+feature/builtin-web-client
 ```
 
 每个 PR 必须满足：
@@ -720,7 +731,7 @@ K-030  config read/schema/validate/plan
 K-031  config plan/apply/operation/history/rollback
 K-032  schema form/YAML/diff frontend
 K-040  legacy server command deprecation/removal
-K-050  lawful external Web Client Provider
+K-050  repository-owned built-in Web Client MVP
 K-060  cross-repo E2E, migration, rollout and release
 ```
 
@@ -753,7 +764,7 @@ K-060  cross-repo E2E, migration, rollout and release
 | Provider + Relay/模拟 UI | 7～10 人日 | Starry Control read-only API |
 | 配置编辑和安全应用 | 10～15 人日 | Starry schema/apply/rollback |
 | 旧命令迁移 | 3～5 人日 | Provider 功能完成 |
-| Web Client Provider 壳 | 4～7 人日 | 法律/来源门禁；不含客户端 |
+| 内置 Web Client MVP | 单独验收 | 独立 origin、短期 grant、Starry WSS、VP9 WebCodecs |
 | 跨仓库验收和发布 | 7～10 人日 | 两边 release candidate |
 
 单人串行约 10～14 周；Go/前端与 Starry 两条工作流并行时，日历时间可缩短，但认证契约、
@@ -769,5 +780,6 @@ Control contract 和 E2E 门禁不能并行跳过。
 - 旧任意命令入口已删除或在明确的兼容发布中默认不可用。
 - audit→enforce 灰度完成，真实 native/WSS 客户端矩阵通过。
 - 配置错误、并发冲突、Agent 故障和回滚均做过真实演练。
-- Release 不含旧 WebClient2；外部 Web Client Provider 默认关闭且没有 bearer token 注入。
+- Release 只含 MIT `resources/client`，不含旧 WebClient2/V2；独立 origin、短期内存 grant
+  和 forced-Relay VP9 浏览器验收通过。
 - 运维、升级、回滚、安全模型和 contract 版本文档齐全。

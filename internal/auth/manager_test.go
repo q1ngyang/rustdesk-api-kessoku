@@ -140,6 +140,45 @@ func TestAccessTokenWireContractMatchesStarryVerifier(t *testing.T) {
 	}
 }
 
+func TestConnectionTokenKeepsStarryWireProfileButCannotAuthorizeAPI(t *testing.T) {
+	manager, _ := testManager(t, "connection-wire", nil)
+	now := time.Date(2026, 8, 21, 7, 0, 0, 0, time.UTC)
+	manager.now = func() time.Time { return now }
+	issued, err := manager.IssueConnectionToken(42, 7, 10*time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claims, err := manager.VerifyAccessToken(issued.Token, VerifyOptions{Audience: ConnectionAudience, RequiredScope: ConnectScope})
+	if err != nil {
+		t.Fatalf("Starry profile rejected connection token: %v", err)
+	}
+	if len(claims.Audience) != 1 || claims.Audience[0] != ConnectionAudience || claims.TokenUse != AccessTokenUse || !claims.HasScope(ConnectScope) {
+		t.Fatalf("unexpected connection claims: %+v", claims)
+	}
+	if claims.ExpiresAt.Time.Sub(claims.IssuedAt.Time) != 10*time.Minute {
+		t.Fatalf("connection lifetime = %s", claims.ExpiresAt.Time.Sub(claims.IssuedAt.Time))
+	}
+	if _, err := manager.VerifyAccessToken(issued.Token, VerifyOptions{Audience: APIAudience}); err == nil {
+		t.Fatal("connection-only token authorized the Kessoku API")
+	}
+	if _, err := manager.IssueConnectionToken(42, 7, 0); err == nil {
+		t.Fatal("zero connection lifetime accepted")
+	}
+	if _, err := manager.IssueConnectionToken(42, 7, manager.maximumTTL+time.Second); err == nil {
+		t.Fatal("excessive connection lifetime accepted")
+	}
+}
+
+func TestNilManagerCannotIssueAnyToken(t *testing.T) {
+	var manager *Manager
+	if _, err := manager.IssueAccessToken(1, 1); err == nil {
+		t.Fatal("nil manager issued an access token")
+	}
+	if _, err := manager.IssueConnectionToken(1, 1, time.Minute); err == nil {
+		t.Fatal("nil manager issued a connection token")
+	}
+}
+
 func TestAlgorithmSubstitutionIsRejected(t *testing.T) {
 	manager, _ := testManager(t, "current", nil)
 	now := time.Now().UTC()

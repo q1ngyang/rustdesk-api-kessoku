@@ -86,8 +86,8 @@ jobs:
       - name: Test
         run: go test -timeout=3m ./...
 
-  admin-web:
-    name: Verify embedded admin web
+  frontends:
+    name: Verify embedded frontends
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -101,7 +101,9 @@ jobs:
         with:
           node-version: 24.15.0
           cache: npm
-          cache-dependency-path: admin-web/package-lock.json
+          cache-dependency-path: |
+            admin-web/package-lock.json
+            web-client/package-lock.json
 
       - name: Install, audit, test, and reproduce production build
         working-directory: admin-web
@@ -122,6 +124,31 @@ jobs:
             | xargs -0 sha256sum > "${RUNNER_TEMP}/admin-web-dist-2.sha256"
           diff -u "${RUNNER_TEMP}/admin-web-dist-1.sha256" \
             "${RUNNER_TEMP}/admin-web-dist-2.sha256"
+          npm sbom --omit=dev --sbom-format cyclonedx > "${RUNNER_TEMP}/admin-web.cdx.json"
+          node -e 'const fs=require("fs");const s=JSON.parse(fs.readFileSync(process.argv[1]));if(s.components.some(c=>!(c.licenses||[]).length))throw new Error("missing production licence metadata")' "${RUNNER_TEMP}/admin-web.cdx.json"
+
+      - name: Install, audit, test, and reproduce web client build
+        working-directory: web-client
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = v24.15.0
+          test "$(npm --version)" = 11.12.1
+          npm ci
+          npm run lint
+          npm test
+          npm audit --omit=dev --audit-level=high
+          npm audit signatures
+          npm run build
+          test -s dist/third-party-licenses/@bufbuild-protobuf-2.9.0.txt
+          find dist -type f -print0 | LC_ALL=C sort -z \
+            | xargs -0 sha256sum > "${RUNNER_TEMP}/web-client-dist-1.sha256"
+          npm run build
+          find dist -type f -print0 | LC_ALL=C sort -z \
+            | xargs -0 sha256sum > "${RUNNER_TEMP}/web-client-dist-2.sha256"
+          diff -u "${RUNNER_TEMP}/web-client-dist-1.sha256" \
+            "${RUNNER_TEMP}/web-client-dist-2.sha256"
+          npm sbom --sbom-format cyclonedx > "${RUNNER_TEMP}/web-client.cdx.json"
+          node -e 'const fs=require("fs");const s=JSON.parse(fs.readFileSync(process.argv[1]));if(s.components.some(c=>!(c.licenses||[]).length))throw new Error("missing licence metadata");if(!s.components.some(c=>c.name==="@bufbuild/protobuf"&&c.version==="2.9.0"&&(c.licenses||[]).length))throw new Error("web client runtime dependency missing from SBOM")' "${RUNNER_TEMP}/web-client.cdx.json"
 
   race:
     runs-on: ubuntu-24.04

@@ -24,7 +24,7 @@ RUSTDESK_API_AUTH_INTERNAL_REQUEST_TIMEOUT
 | `rustdesk` | ID/Relay/API endpoints and public server key | Exact public endpoints and `id_ed25519.pub`; never the private key. |
 | `auth` | EdDSA token profile and internal mTLS API | Enable only after keys/PKI are mounted and migration is rehearsed. |
 | `server-control` | Fixed Starry Control Agent instances | Read-only, legacy commands off, no instance until credentials are ready. |
-| `web-client-provider` | Independently hosted browser client metadata | `disabled`. |
+| `web-client` | Built-in browser client listener, origins, WSS map, public key, generation, grant TTL | `disabled`; when enabled, separate HTTPS origin and loopback listener. |
 | `ldap`/OAuth | Optional identity providers | TLS verification and least privilege; no example password. |
 
 ## Authentication files
@@ -83,10 +83,24 @@ Each enabled instance fixes:
 The browser cannot override these values. `server-control.read-only: true` is
 the normal profile outside an approved configuration window.
 
+## Built-in Web Client
+
+`web-client.mode` is `disabled` or `builtin`. Built-in mode requires
+`auth.enabled`, an explicit listener, different exact HTTPS `public-origin`
+and `api-origin`, exact `wss://.../ws/id` rendezvous, one or more exact Relay-
+name to `wss://.../ws/relay` mappings, a base64 32-byte Ed25519 public key, and
+a positive `profile-generation`. `connection-token-ttl` defaults to 15 minutes
+and cannot exceed one hour or `auth.maximum-token-ttl`.
+
+The public client profile exposes endpoints, server public key/fingerprint and
+generation only. Change the generation when an approved endpoint or key
+profile changes. See [Built-in Web Client](Web-Client.md).
+
 ## Removed or rejected settings
 
-- `app.web-client` must remain zero; use the external-provider governance
-  model instead.
+- `app.web-client` must remain zero; use `web-client.mode` instead.
+- The removed root `web-client-provider` block is rejected rather than
+  silently ignored.
 - Old HS256 JWT settings are not a supported authentication profile.
 - `proxy.enable` is rejected for OAuth/OIDC because a proxy independently
   resolves provider targets and would bypass Kessoku's destination validation.

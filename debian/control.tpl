@@ -10,6 +10,7 @@ Package: kessoku-api
 Architecture: {{ ARCH }}
 Depends: adduser, systemd, ${misc:Depends}
 Conflicts: rustdesk-api-server
-Description: Kessoku account and control plane for RustDesk
+Description: Kessoku account, control plane, and browser client for RustDesk
  Kessoku provides accounts, EdDSA token lifecycle, and a typed Starry control
- API. It does not bundle a browser client or expose arbitrary server commands.
+ API. It includes the repository-owned Relay-only browser client and does not
+ expose arbitrary server commands.

@@ -40,7 +40,11 @@ func adminWebSecurityHeaders() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("Cache-Control", "no-store")
 		c.Header("Content-Security-Policy", "default-src 'self'; base-uri 'self'; connect-src 'self'; font-src 'self' data:; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'")
-		c.Header("Cross-Origin-Opener-Policy", "same-origin")
+		// Preserve only the explicitly opened Web Client popup so the admin can
+		// deliver a short-lived, connection-only grant with exact-origin
+		// postMessage. The client listener deliberately opts out until that
+		// one-shot handoff has completed.
+		c.Header("Cross-Origin-Opener-Policy", "same-origin-allow-popups")
 		c.Header("Cross-Origin-Resource-Policy", "same-origin")
 		c.Header("Permissions-Policy", "camera=(), geolocation=(), microphone=(), payment=(), usb=()")
 		c.Header("Referrer-Policy", "no-referrer")

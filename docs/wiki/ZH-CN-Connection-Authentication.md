@@ -11,6 +11,12 @@ Kessoku 签发和撤销 access token；Starry 在 RustDesk 信令传输上验证
 audience、十进制 subject 与数值 user ID、`connect:initiate` scope、认证版本、UUID JTI
 及有界 `iat`/`nbf`/`exp`，编码后最大 8 KiB。
 
+RustDesk 1.4.9 会为 API 调用与原生信令保留同一个标准登录 token，且没有 refresh/exchange
+步骤，因此该兼容 token 具有配置的 `kessoku-api` 与 `rustdesk-connect` 双 audience；这不
+是浏览器权限模型。内置 Web Client 永远不会收到标准 bearer：客户端直接登录与 admin
+grant exchange 都只返回短期、audience 为 `rustdesk-connect` 且 scope 为
+`connect:initiate` 的 token。
+
 新 token 行只保存 hash/JTI，不保存可复用 token。注销撤销一个 JTI；密码重置、禁用与
 全局注销会增加用户认证版本。
 

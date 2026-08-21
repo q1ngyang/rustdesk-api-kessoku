@@ -14,6 +14,7 @@ Docker Compose 部署。
 - [推荐 Docker 部署](docs/wiki/ZH-CN-Docker-Deployment.md)
 - [Compose 范例](docker-compose.yaml)
 - [环境变量范例](examples/compose.env.example)
+- [内置 Web Client 配置范例](examples/config.docker-builtin.yaml)
 - [Caddy HTTPS 范例](examples/Caddyfile.example)
 - [快速开始](docs/wiki/ZH-CN-Getting-Started.md)
 - [Starry 集成](docs/wiki/ZH-CN-Starry-Control.md)
@@ -21,15 +22,17 @@ Docker Compose 部署。
 
 ## 镜像范围
 
-v2.8.0 镜像包含一个非特权 `kessoku-api` 进程、从同一源码提交构建的已审核管理前端、
-API 文档和运行配置模板。该镜像：
+v2.8.0 镜像包含一个非特权 `kessoku-api` 进程、从同一源码提交构建的已审核管理前端与
+Web Client、API 文档和运行配置模板。该镜像：
 
 - 目标平台为 `linux/amd64`；
 - 使用 UID/GID `65534:65534` 运行；
 - 在 `/app/data` 持久化应用数据；
 - 公共 API 使用端口 `21114`；
+- 独立内置 Web Client listener 暴露 `21122`；
 - 明确启用时可在 `21121` 使用独立内部 mTLS listener；
-- 不包含 WebClient2、`resources/web` 或 `resources/web2`；
+- 包含已审核 `resources/client`，但不包含历史 WebClient2/V2、`resources/web` 或
+  `resources/web2`；
 - 不包含私钥或部署凭据。
 
 Kessoku 不是 HBBS/HBBR。请独立部署配套 Starry HBBS 和官方 HBBR。
@@ -54,6 +57,7 @@ docker image inspect \
 
 ```sh
 cp examples/compose.env.example .env
+cp examples/config.docker-builtin.yaml config.yaml
 mkdir -p data/kessoku secrets
 chmod 0700 data/kessoku secrets
 
@@ -61,11 +65,15 @@ chmod 0700 data/kessoku secrets
 # 镜像内非特权用户的 UID 是 65534。
 umask 077
 openssl rand -base64 24 > secrets/bootstrap-admin-password
+openssl genpkey -algorithm ED25519 \
+  -out secrets/kessoku-access-ed25519.pem
 chown 65534:65534 secrets/bootstrap-admin-password
-chmod 0600 secrets/bootstrap-admin-password
+chown 65534:65534 secrets/kessoku-access-ed25519.pem
+chmod 0600 secrets/bootstrap-admin-password secrets/kessoku-access-ed25519.pem
 
-# 继续前修改所有占位值。
-vi .env
+# 继续前修改所有占位值。config.yaml 中的 relay-wss-urls 必须保留为精确 YAML map，
+# 不能尝试编码到 .env。
+vi .env config.yaml
 
 docker compose --env-file .env -f docker-compose.yaml config
 docker compose --env-file .env -f docker-compose.yaml config --quiet
@@ -87,11 +95,19 @@ docker compose --env-file .env -f docker-compose.yaml exec kessoku-api \
 `https://your-api.example/_admin/`，登录后再次轮换密码，然后删除宿主机 secret 文件。不得
 把密码放在命令参数或环境变量中。
 
-Compose 默认只把 `21114` 发布到 `127.0.0.1`。仓库提供宿主机 Caddy 范例
-[`examples/Caddyfile.example`](examples/Caddyfile.example)。`gin.trust-proxy` 只应配置精确
-代理地址，内部端口 `21121` 不得通过该代理公开。
+Compose 默认只把 `21114` 与 `21122` 发布到 `127.0.0.1`。仓库 Caddy 范例
+[`examples/Caddyfile.example`](examples/Caddyfile.example)把 API/admin 与 Web Client 配置
+为两个不同 HTTPS origin。Compose 会只读挂载 `KESSOKU_CONFIG_FILE`；随附 builtin 范例会
+明确启用 `web-client.mode: builtin`。启动前必须编辑精确 Relay 名称到 WSS 的 YAML map、两个
+origin、公钥、generation 与认证密钥路径；Relay map 不使用 Viper 环境变量解码。不能把
+客户端作为 API origin 的一个 path。`gin.trust-proxy` 只应配置精确代理地址，内部端口
+`21121` 不得通过该代理公开。
 
 除非这是明确且受保护的运维决定，否则不要在生产环境公开 Swagger。
+
+内置 MVP 支持强制 Relay WSS、VP9、鼠标和基本键盘；不支持 P2P/direct、被控模式、
+文件/剪贴板/音频、显示器切换与非 VP9 codec。短期 connection-only token 只在内存传给
+精确 client origin。详见 [Web 客户端](docs/wiki/ZH-CN-Web-Client.md)。
 
 ## Secret 与高级配置
 
@@ -120,6 +136,7 @@ access-token 与 Control Agent 签名密钥不得复用。不要把 secret 内�
 5. Relay 列表与无副作用分配模拟；
 6. Control Agent 只读行为，以及 staging 中的 plan/apply/rollback；
 7. 最终 native、Secure TCP、WSS 与 Relay 桌面会话矩阵。
+8. 浏览器 forced-Relay VP9 鼠标/键盘会话、grant 到期/logout，以及独立 origin/CSP。
 
 详见[运维与验证](docs/wiki/ZH-CN-Operations-and-Verification.md)。
 

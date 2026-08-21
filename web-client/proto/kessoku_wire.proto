@@ -1,0 +1,327 @@
+syntax = "proto3";
+
+package kessoku_wire;
+
+enum ConnType {
+  DEFAULT_CONN = 0;
+}
+
+enum NatType {
+  UNKNOWN_NAT = 0;
+  ASYMMETRIC = 1;
+  SYMMETRIC = 2;
+}
+
+message PunchHoleRequest {
+  string id = 1;
+  NatType nat_type = 2;
+  string licence_key = 3;
+  ConnType conn_type = 4;
+  string token = 5;
+  string version = 6;
+  int32 udp_port = 7;
+  bool force_relay = 8;
+  int32 upnp_port = 9;
+  bytes socket_addr_v6 = 10;
+}
+
+message PunchHoleResponse {
+  bytes socket_addr = 1;
+  bytes pk = 2;
+  enum Failure {
+    ID_NOT_EXIST = 0;
+    OFFLINE = 2;
+    LICENSE_MISMATCH = 3;
+    LICENSE_OVERUSE = 4;
+  }
+  Failure failure = 3;
+  string relay_server = 4;
+  string other_failure = 7;
+}
+
+message RequestRelay {
+  string id = 1;
+  string uuid = 2;
+  bytes socket_addr = 3;
+  string relay_server = 4;
+  bool secure = 5;
+  string licence_key = 6;
+  ConnType conn_type = 7;
+  string token = 8;
+}
+
+message RelayResponse {
+  bytes socket_addr = 1;
+  string uuid = 2;
+  string relay_server = 3;
+  oneof union {
+    string id = 4;
+    bytes pk = 5;
+  }
+  string refuse_reason = 6;
+  string version = 7;
+}
+
+message RendezvousMessage {
+  oneof union {
+    PunchHoleRequest punch_hole_request = 8;
+    PunchHoleResponse punch_hole_response = 11;
+    RequestRelay request_relay = 18;
+    RelayResponse relay_response = 19;
+  }
+}
+
+message EncodedVideoFrame {
+  bytes data = 1;
+  bool key = 2;
+  int64 pts = 3;
+}
+
+message EncodedVideoFrames {
+  repeated EncodedVideoFrame frames = 1;
+}
+
+message VideoFrame {
+  oneof union {
+    EncodedVideoFrames vp9s = 6;
+  }
+  int32 display = 14;
+}
+
+message IdPk {
+  string id = 1;
+  bytes pk = 2;
+}
+
+message DisplayInfo {
+  sint32 x = 1;
+  sint32 y = 2;
+  int32 width = 3;
+  int32 height = 4;
+  string name = 5;
+  bool online = 6;
+}
+
+message Features {
+  bool privacy_mode = 1;
+  bool terminal = 2;
+}
+
+message PeerInfo {
+  string username = 1;
+  string hostname = 2;
+  string platform = 3;
+  repeated DisplayInfo displays = 4;
+  int32 current_display = 5;
+  bool sas_enabled = 6;
+  string version = 7;
+  Features features = 9;
+}
+
+enum ImageQuality {
+  NotSet = 0;
+  Low = 2;
+  Balanced = 3;
+  Best = 4;
+}
+
+message CodecAbility {
+  bool vp8 = 1;
+  bool vp9 = 2;
+  bool av1 = 3;
+  bool h264 = 4;
+  bool h265 = 5;
+}
+
+message SupportedDecoding {
+  enum PreferCodec {
+    Auto = 0;
+    VP9 = 1;
+    H264 = 2;
+    H265 = 3;
+    VP8 = 4;
+    AV1 = 5;
+  }
+  int32 ability_vp9 = 1;
+  int32 ability_h264 = 2;
+  int32 ability_h265 = 3;
+  PreferCodec prefer = 4;
+  int32 ability_vp8 = 5;
+  int32 ability_av1 = 6;
+  CodecAbility i444 = 7;
+}
+
+message OptionMessage {
+  enum BoolOption {
+    NotSet = 0;
+    No = 1;
+    Yes = 2;
+  }
+  ImageQuality image_quality = 1;
+  BoolOption show_remote_cursor = 3;
+  BoolOption disable_audio = 7;
+  BoolOption disable_clipboard = 8;
+  SupportedDecoding supported_decoding = 10;
+  BoolOption disable_keyboard = 12;
+}
+
+message LoginRequest {
+  string username = 1;
+  bytes password = 2;
+  string my_id = 4;
+  string my_name = 5;
+  OptionMessage option = 6;
+  bool video_ack_required = 9;
+  string version = 11;
+  string my_platform = 13;
+}
+
+message LoginResponse {
+  oneof union {
+    string error = 1;
+    PeerInfo peer_info = 2;
+  }
+}
+
+message Hash {
+  string salt = 1;
+  string challenge = 2;
+}
+
+message PublicKey {
+  bytes asymmetric_value = 1;
+  bytes symmetric_value = 2;
+}
+
+message SignedId {
+  bytes id = 1;
+}
+
+message TestDelay {
+  int64 time = 1;
+  bool from_client = 2;
+  uint32 last_delay = 3;
+  uint32 target_bitrate = 4;
+}
+
+// Cursor messages are decoded so a keyboard-enabled session can safely
+// consume the peer's cursor-service traffic. The MVP does not render a
+// synthetic remote cursor, but it validates these bounded messages before
+// ignoring them.
+message CursorData {
+  uint64 id = 1;
+  sint32 hotx = 2;
+  sint32 hoty = 3;
+  int32 width = 4;
+  int32 height = 5;
+  bytes colors = 6;
+}
+
+message CursorPosition {
+  sint32 x = 1;
+  sint32 y = 2;
+}
+
+message MouseEvent {
+  int32 mask = 1;
+  sint32 x = 2;
+  sint32 y = 3;
+  repeated ControlKey modifiers = 4;
+}
+
+enum KeyboardMode {
+  Legacy = 0;
+  Map = 1;
+  Translate = 2;
+  Auto = 3;
+}
+
+enum ControlKey {
+  Unknown = 0;
+  Alt = 1;
+  Backspace = 2;
+  CapsLock = 3;
+  Control = 4;
+  Delete = 5;
+  DownArrow = 6;
+  End = 7;
+  Escape = 8;
+  F1 = 9;
+  F10 = 10;
+  F11 = 11;
+  F12 = 12;
+  F2 = 13;
+  F3 = 14;
+  F4 = 15;
+  F5 = 16;
+  F6 = 17;
+  F7 = 18;
+  F8 = 19;
+  F9 = 20;
+  Home = 21;
+  LeftArrow = 22;
+  Meta = 23;
+  Option = 24;
+  PageDown = 25;
+  PageUp = 26;
+  Return = 27;
+  RightArrow = 28;
+  Shift = 29;
+  Space = 30;
+  Tab = 31;
+  UpArrow = 32;
+  Insert = 58;
+  CtrlAltDel = 100;
+}
+
+message KeyEvent {
+  bool down = 1;
+  bool press = 2;
+  oneof union {
+    ControlKey control_key = 3;
+    uint32 chr = 4;
+    uint32 unicode = 5;
+    string seq = 6;
+    uint32 win2win_hotkey = 7;
+  }
+  repeated ControlKey modifiers = 8;
+  KeyboardMode mode = 9;
+}
+
+message SwitchDisplay {
+  int32 display = 1;
+  sint32 x = 2;
+  sint32 y = 3;
+  int32 width = 4;
+  int32 height = 5;
+  bool cursor_embedded = 6;
+}
+
+message Misc {
+  oneof union {
+    SwitchDisplay switch_display = 5;
+    OptionMessage option = 7;
+    string close_reason = 9;
+    bool refresh_video = 10;
+    bool video_received = 12;
+  }
+}
+
+message Message {
+  oneof union {
+    SignedId signed_id = 3;
+    PublicKey public_key = 4;
+    TestDelay test_delay = 5;
+    VideoFrame video_frame = 6;
+    LoginRequest login_request = 7;
+    LoginResponse login_response = 8;
+    Hash hash = 9;
+    MouseEvent mouse_event = 10;
+    CursorData cursor_data = 12;
+    CursorPosition cursor_position = 13;
+    uint64 cursor_id = 14;
+    KeyEvent key_event = 15;
+    Misc misc = 19;
+    PeerInfo peer_info = 25;
+  }
+}

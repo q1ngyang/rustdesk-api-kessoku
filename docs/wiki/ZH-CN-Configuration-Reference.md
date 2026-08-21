@@ -22,7 +22,7 @@ RUSTDESK_API_AUTH_INTERNAL_REQUEST_TIMEOUT
 | `rustdesk` | ID/Relay/API 地址与服务端公钥 | 精确公网地址和 `id_ed25519.pub`，不能使用私钥。 |
 | `auth` | EdDSA token profile 与内部 mTLS API | 挂载密钥/PKI 且演练迁移后再开启。 |
 | `server-control` | 固定 Starry Control Agent 实例 | 只读、旧命令关闭；凭据未就绪前不配置实例。 |
-| `web-client-provider` | 独立浏览器客户端元数据 | `disabled`。 |
+| `web-client` | 内置浏览器客户端 listener、origin、WSS map、公钥、generation、grant TTL | `disabled`；启用时使用独立 HTTPS origin 与 loopback listener。 |
 | `ldap`/OAuth | 可选身份源 | 验证 TLS、最小权限、删除示例密码。 |
 
 ## 认证文件
@@ -77,9 +77,21 @@ DNS 名称，不能使用未经审核的 IP 别名。
 浏览器无法覆盖这些值。除经过批准的配置窗口外，应保持
 `server-control.read-only: true`。
 
+## 内置 Web 客户端
+
+`web-client.mode` 只能是 `disabled` 或 `builtin`。Builtin 要求开启 `auth.enabled`、明确
+listener、不同的精确 HTTPS `public-origin`/`api-origin`、精确
+`wss://.../ws/id` rendezvous、至少一个 Relay 名称到 `wss://.../ws/relay` 的精确 map、
+base64 32-byte Ed25519 公钥，以及正数 `profile-generation`。
+`connection-token-ttl` 默认 15 分钟，不能超过一小时或 `auth.maximum-token-ttl`。
+
+公共客户端 profile 只公开端点、服务端公钥/fingerprint 与 generation。已批准端点或密钥
+profile 变化时应递增 generation。详见[内置 Web 客户端](ZH-CN-Web-Client.md)。
+
 ## 已删除或拒绝的设置
 
-- `app.web-client` 必须为零；浏览器客户端只能使用 external provider 治理模型。
+- `app.web-client` 必须为零；改用 `web-client.mode`。
+- 已删除的 root `web-client-provider` block 会被拒绝，不会静默忽略。
 - 旧 HS256 JWT 设置不是受支持认证 profile。
 - OAuth/OIDC 拒绝 `proxy.enable`：代理会独立解析 provider 目标，从而绕过 Kessoku 的
   目标地址校验。

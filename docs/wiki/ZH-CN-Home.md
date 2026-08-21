@@ -13,7 +13,7 @@ Starry HBBS 仍是信令、连接授权与 Relay 分配的权威实现。
 | Starry HBBS | 否 | 信令、严格连接 JWT 强制认证与 Relay 决策。 |
 | Starry Control Agent | 否 | 可选的单 HBBS 最小权限 Relay/配置 API。 |
 | 官方 HBBR | 否 | 承载远控数据的 Relay。 |
-| 浏览器远控客户端 | 否 | Kessoku 不打包或代理 WebClient2。 |
+| 内置浏览器远控 MVP | 是 | 仓库自有强制 Relay WSS、VP9、鼠标和基本键盘客户端，使用独立 origin。 |
 
 ## 选择起点
 
@@ -33,8 +33,8 @@ Starry HBBS 仍是信令、连接授权与 Relay 分配的权威实现。
 ## 安全默认值
 
 - 使用不可变 v2.8.0 镜像 tag，再固定解析出的 digest。
-- 注册、Swagger、External Web Client Provider 和旧 token 兼容默认保持关闭，除非明确需要
-  且经过审核。
+- 注册、Swagger、内置 Web Client 和旧 token 兼容保持关闭，直到对应部署 profile 经过
+  明确审核；客户端只能在独立 HTTPS origin 上启用。
 - Starry 连接认证必须从 `off` 或 `audit` 开始，不能直接进入 `enforce`。
 - Control Agent 先只读上线，并保持在私有网络。
 - access-token、内部 PKI 与 Control Agent 密钥位于镜像外且彼此独立。
@@ -44,4 +44,5 @@ Starry HBBS 仍是信令、连接授权与 Relay 分配的权威实现。
 ## 发布与法律状态
 
 只要 `RELEASE_STATUS` 仍为 `BLOCKED`，v2.8.0 就尚未发布。已审核源码使用 MIT 许可证，
-与 RustDesk 无隶属关系，也不包含需要授权的浏览器客户端资产。
+与 RustDesk 无隶属关系。仓库自有 Web Client 使用 MIT，第三方依赖许可证记录在 release
+SBOM；不包含历史 WebClient2/V2 资产。

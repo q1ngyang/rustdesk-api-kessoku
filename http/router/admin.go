@@ -271,9 +271,6 @@ func ConfigBind(rg *gin.RouterGroup) {
 
 	aR.Use(middleware.BackendUserAuth())
 	aR.GET("/app", rs.AppConfig)
-	if global.Config.WebClientProvider.Enabled() {
-		aR.GET("/web-client-provider", rs.WebClientProviderManifest)
-	}
 
 }
 

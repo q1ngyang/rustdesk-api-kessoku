@@ -14,6 +14,8 @@ Starry HBBS ─ 私有 TLS 1.3/mTLS ─────────────┤ 2
                                              │
 管理浏览器 ─ HTTPS /_admin/ ─────────────────┘
 
+浏览器远控客户端 ── 独立 HTTPS origin ── Kessoku 21122
+
 Kessoku ─ 私有 mTLS + scoped JWT ─ Starry Control Agent
 ```
 
@@ -23,6 +25,7 @@ Kessoku ─ 私有 mTLS + scoped JWT ─ Starry Control Agent
 
 - [`docker-compose.yaml`](../../docker-compose.yaml)
 - [`examples/compose.env.example`](../../examples/compose.env.example)
+- [`examples/config.docker-builtin.yaml`](../../examples/config.docker-builtin.yaml)
 - [`examples/Caddyfile.example`](../../examples/Caddyfile.example)
 - [`conf/config.yaml`](../../conf/config.yaml)
 - [`CONTAINER.zh-CN.md`](../../CONTAINER.zh-CN.md)
@@ -34,17 +37,23 @@ install -d -m 0700 /opt/kessoku/data/kessoku /opt/kessoku/secrets
 cd /opt/kessoku
 cp /path/to/repository/docker-compose.yaml .
 cp /path/to/repository/examples/compose.env.example .env
+cp /path/to/repository/examples/config.docker-builtin.yaml config.yaml
 cp /path/to/repository/examples/Caddyfile.example .
-vi .env
+vi .env config.yaml
 
 umask 077
 openssl rand -base64 24 > secrets/bootstrap-admin-password
+openssl genpkey -algorithm ED25519 \
+  -out secrets/kessoku-access-ed25519.pem
 chown 65534:65534 secrets/bootstrap-admin-password
-chmod 0600 secrets/bootstrap-admin-password
+chown 65534:65534 secrets/kessoku-access-ed25519.pem
+chmod 0600 secrets/bootstrap-admin-password secrets/kessoku-access-ed25519.pem
 ```
 
-需要高级认证/控制设置时，复制 `conf/config.yaml`，在变更控制下编辑，并增加只读 Compose
-挂载到 `/app/conf/config.yaml`。密钥和证书放入 `secrets/`，权限只允许服务账户读取。
+Compose 会把 `KESSOKU_CONFIG_FILE` 只读挂载到 `/app/conf/config.yaml`。随附 builtin 范例
+会启用客户端，并把 `relay-wss-urls` 保持为精确 YAML map；应在变更控制下编辑该 map、两个
+origin、全部 WSS endpoint、公钥、generation 与认证密钥路径。不要假设 Viper 能从环境变量
+安全解码 Relay map。密钥和证书放入 `secrets/`，权限只允许服务账户读取。
 
 ## 检查和启动
 
@@ -60,14 +69,17 @@ docker compose --env-file .env -f docker-compose.yaml exec kessoku-api \
   --password-file /run/secrets/bootstrap-admin-password
 ```
 
-确认容器以 `65534:65534` 运行、根文件系统只读、只持久化 `/app/data`，并且不存在
-`/app/resources/web` 或 `/app/resources/web2`。把 bootstrap 密码直接转存到批准的密码管理器，
+确认容器以 `65534:65534` 运行、根文件系统只读、只持久化 `/app/data`，存在
+`/app/resources/client/index.html`，并且不存在 `/app/resources/web` 或
+`/app/resources/web2`。把 bootstrap 密码直接转存到批准的密码管理器，
 登录并轮换后删除宿主机 secret。Kessoku 不会在日志输出可复用 bootstrap 密码。
 
 ## 反向代理与端口
 
-Compose 默认只把 Kessoku `21114` 发布到宿主机回环地址。通过已审核反向代理提供公共
-HTTPS；仓库中的 Caddy 范例适用于代理与 Compose 位于同一宿主机的部署。
+Compose 默认只把 Kessoku `21114` 与 Web Client `21122` 发布到宿主机回环地址。通过已审核
+反向代理把它们发布为两个不同的公共 HTTPS origin；仓库 Caddy 范例适用于同机部署。
+只有在配置精确 public/API origin、WSS map、服务端公钥和正数 generation 后才启用
+`web-client.mode: builtin`。
 `gin.trust-proxy` 只配置精确代理地址；保留 Kessoku 输出的安全响应头，并在代理设置明确
 请求体上限和超时。
 
@@ -91,3 +103,5 @@ Kessoku 主动退出。详见[配置参数参考](ZH-CN-Configuration-Reference.
 引入 Starry 认证前先验证管理员登录、普通 API 登录/注销、地址簿、数据库版本 301、OAuth
 身份索引/不变量与日志。
 完整部署继续按照[运维与验证](ZH-CN-Operations-and-Verification.md)分阶段验收。
+还要验证浏览器客户端公共 profile 不含 secret、grant 只交给精确 origin，并完成一例
+forced-Relay VP9 鼠标/键盘会话与 logout。详见[内置 Web 客户端](ZH-CN-Web-Client.md)。

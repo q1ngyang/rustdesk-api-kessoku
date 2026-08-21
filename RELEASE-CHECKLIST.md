@@ -6,8 +6,9 @@ before images, packages, tags, or releases are published.
 
 ## Local candidate evidence (not release approval)
 
-The 2026-08-21 candidate passed the following repeatable local checks with
-locked inputs:
+The 2026-08-21 pre-Web-Client candidate passed the following repeatable local
+checks with locked inputs. These results are retained as regression evidence
+but do not approve the expanded candidate:
 
 - Go `1.26.6`: `gofmt`, `go mod verify/tidy`, `go vet ./...`, full
   `go test ./...`, and full `go test -race ./...`;
@@ -25,9 +26,8 @@ locked inputs:
   `GO-BUILD-INFO.txt`. Two independent exact-image builds were byte-identical;
   candidate CI repeats and compares the build, while candidate and publication
   workflows independently enforce the same binary identity;
-- worktree scanning found only eight previously reviewed candidates under the
-  historical `resources/web` tree. That tree is untouched and excluded from
-  every runtime-copy and Docker build path.
+- the historical `resources/web` and `resources/web2` trees are now deleted;
+  every runtime-copy and Docker build path permanently rejects their return.
 
 The local Starry candidate now also passes 75 ordinary library tests, while the
 separate deterministic mutation-corpus unit was intentionally not rerun under
@@ -38,7 +38,7 @@ sessions plus 100 reconnect
 replacements, and reproducible amd64/arm64 Debian-package installation/runtime
 checks. RustSec reports no vulnerability, unsound, or yanked package; the one
 remaining `sodiumoxide 0.2.7` unmaintained warning is disclosed for release risk
-review. The local reviewed admin-web candidate also passes eight tests, a
+review. The local reviewed admin-web candidate also passes nine tests, a
 zero-finding production audit, reproducible build comparison, SBOM/license
 inspection, registry signature verification, secret scanning, and browser QA.
 The exact local v2.8.0 candidate verifier additionally passed reproducible Go,
@@ -62,15 +62,26 @@ post-remediation static review, ordinary tests, and the local candidate verifier
 The published Starry `1.1.16-patch-v1.2.0` assets, contract, source commit,
 GHCR tag/digest identity, amd64 command smoke, and official-binary Kessoku
 Provider E2E were independently rechecked on 2026-08-21. The exact local
-Kessoku candidate and its post-remediation static review now pass. A protected
-candidate run for the final approved tag and final owner approval remain
-outstanding; topology-specific recovery acceptance gates deployment instead.
+Kessoku candidate and its post-remediation static review passed before the
+built-in Web Client integration. The expanded verifier, protected candidate
+run for the final approved tag, and final owner approval remain outstanding;
+topology-specific recovery acceptance gates deployment instead.
 
 The exact published Starry image then passed a RustDesk 1.4.9 forced-Relay
 desktop matrix: `audit` native/native, followed by `enforce` native/native,
 WSS/WSS, WSS/native, and native/WSS. Each case verified the Remote Desktop
 window, screenshot, and established HBBR connection. This evidence does not
 claim direct P2P or a separate Secure TCP case.
+
+The built-in Web Client additionally passed a clean-start, fixed-toolchain
+browser fixture against that exact published Starry image on 2026-08-21. The
+fixture exercised direct password login and the admin popup ready/grant/accept
+handoff on distinct HTTPS origins, forced Relay WSS, signed identity and
+encrypted-session setup, VP9/WebCodecs rendering at 1280x800, actual remote
+mouse position 320x240, `K`, `Control_L`, and `Ctrl+S`, and logout revocation.
+The browser retained no local/session storage, IndexedDB, or service worker;
+the grant never entered a URL. This is ordinary functional compatibility
+evidence, not penetration or stress testing.
 
 ## Source and contracts
 
@@ -85,24 +96,35 @@ claim direct P2P or a separate Secure TCP case.
 - [x] Cross-repository native, Secure TCP, WSS, Relay simulation, apply, failed
       apply, and rollback E2E pass against the exact Starry release candidate.
 
-## Admin frontend
+## Embedded frontends
 
 - Local evidence: reviewed candidate
   `2a9d037fc271cf96b39fd4add4b97c4ff4477f12`; `npm ci`, eight tests,
   zero-finding production audit, registry signature verification, two identical
   builds, CycloneDX/license check, Gitleaks, and full local browser QA passed on
   2026-08-20.
-- The exact-SHA local verifier also passed duplicate frontend/Go/tar/DEB
+- The earlier exact-SHA local verifier passed duplicate admin/Go/tar/DEB
   builds, non-root image smoke, real static security headers, disabled
   directory listing, and the removed server-config route's `404`. It is local
   evidence only and cannot set release approval.
 - [x] `admin-web/` provenance, MIT license, reviewed import lineage, and
       lockfile are present in the exact Kessoku commit.
-- [x] Backend and frontend build provenance use the same Kessoku commit SHA;
+- [x] Backend and both frontend build definitions use the same Kessoku commit
+      SHA;
       no external frontend repository, URL, tag, or branch is an input.
 - [x] Node/npm are fixed; installation uses `npm ci`.
-- [x] Frontend lint, tests, build, and high-severity production dependency audit
-      pass without weakening the gate.
+- [x] `web-client/` lint, 46 unit tests, production/signature audits,
+      two-build comparison, and complete CycloneDX/licence check passed in the
+      fixed Node/npm image on 2026-08-21.
+- [x] `web-client/NOTICE.md` and provenance match the exact runtime dependency
+      licence expression, and required third-party licence texts are included
+      in the final candidate.
+- [x] Browser forced-Relay functional acceptance and exact response-header/
+      popup lifecycle verification pass without weakening the gate.
+- [x] Admin launch obtains only `/api/web-client/v1/grants`, trusts
+      `web_client_public_origin` from backend configuration, uses an exact
+      `postMessage` target origin, never persists or URL-encodes the grant,
+      and best-effort revokes every unacknowledged grant.
 
 ## Security and migrations
 
@@ -127,7 +149,8 @@ claim direct P2P or a separate Secure TCP case.
 - [x] Every GitHub Action, tool, base image, service image, frontend source, and
       cross compiler is fixed to an immutable reviewed input with checksum or
       digest verification.
-- [x] Secret scan, vulnerability scan, three SPDX SBOMs, frontend CycloneDX,
+- [ ] Secret scan, vulnerability scan, three SPDX SBOMs, separate admin/client
+      CycloneDX,
       artifact checksums, and build provenance pass and are attached to the
       retained local non-publishing candidate evidence bundle. Protected CI
       regenerates them for publication.
@@ -139,9 +162,12 @@ claim direct P2P or a separate Secure TCP case.
 - [x] The local candidate binary was built as module package `./cmd`; its
       persisted Go build info names the exact reviewed commit and
       `vcs.modified=false`. Protected CI repeats this against the approved tag.
-- [x] Images, archives, and Debian packages contain no `resources/web`,
-      `resources/web2`, browser-client download code, private keys, or build
-      credentials.
+- [ ] Images, archives, and Debian packages contain reviewed
+      `resources/client/index.html`, the complete
+      `resources/client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt`,
+      separate client checksum/licence evidence,
+      and no `resources/web`, `resources/web2`, WebClient2/V2, browser-client
+      download code, private keys, or build credentials.
 - [x] Artifact names, service units, image names, module paths, titles, and
       documentation consistently use Kessoku branding.
 - [ ] Published GHCR `v2.8.0` and `latest` tags resolve to the same approved
@@ -149,9 +175,9 @@ claim direct P2P or a separate Secure TCP case.
 
 ## v2.8.0 platform scope
 
-- [x] The Docker `linux/amd64` image builds from the candidate context, runs as
-      the unprivileged user, serves the embedded admin UI with security headers,
-      and passes configuration/bootstrap smoke tests.
+- [ ] The Docker `linux/amd64` image builds from the candidate context, runs as
+      the unprivileged user, serves both embedded frontends with security
+      headers, exposes 21122, and passes configuration/bootstrap smoke tests.
 - [x] The Linux x86_64 binary/tar and amd64 Debian package are reproducible;
       the package installs and its service/runtime permissions pass in the
       pinned Debian environment.

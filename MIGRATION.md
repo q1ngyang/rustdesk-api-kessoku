@@ -64,6 +64,12 @@ backup once Kessoku has issued new tokens.
    schema upgrade by enabling `enforce`.
 9. Keep `server-control.read-only: true` until the Agent rollback exercise is
    complete.
+10. Remove every legacy root `web-client-provider` block and keep
+    `app.web-client: 0`. Decide whether the new repository-owned client remains
+    `web-client.mode: disabled` during migration or is commissioned later with
+    its own HTTPS origin, listener, exact WSS map, public key, and positive
+    profile generation. Do not restore old `resources/web`/`resources/web2` or
+    migrate a hosted WebClient2 token/SSO mechanism.
 
 ### Database TLS preflight
 
@@ -125,6 +131,20 @@ provider subjects, and explicitly merge or unbind under an approved identity-
 recovery procedure. Do not delete a row merely to make the index build pass.
 
 ## Recommended rollout
+
+### Browser-client transition
+
+The former external-provider descriptor is removed and now fails startup if
+present. The built-in client is not enabled by copying static files alone:
+release packages already contain `resources/client`, while runtime exposure
+requires a valid `web-client.mode: builtin` profile and enabled EdDSA auth.
+
+Commission API/admin and client as two distinct HTTPS origins. Grant endpoints
+issue short-lived `rustdesk-connect`/`connect:initiate` tokens; they do not
+reuse a query-string token, provider cookie, or admin storage. Validate the
+public profile, strict CORS, exact-origin admin handoff, forced-Relay WSS/VP9
+session, logout, and rollback with `mode: disabled` before declaring the client
+available. See [`WEB-CLIENT.md`](WEB-CLIENT.md).
 
 ### Phase 1: additive database upgrade
 

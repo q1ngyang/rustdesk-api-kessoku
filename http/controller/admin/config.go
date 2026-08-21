@@ -2,7 +2,6 @@ package admin
 
 import (
 	"github.com/gin-gonic/gin"
-	appConfig "github.com/q1ngyang/rustdesk-api-kessoku/v2/config"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
@@ -13,8 +12,6 @@ import (
 
 type Config struct {
 }
-
-type WebClientProviderManifest = appConfig.WebClientProviderManifest
 
 // AppConfig APP服务配置
 // @Tags ADMIN
@@ -27,26 +24,16 @@ type WebClientProviderManifest = appConfig.WebClientProviderManifest
 // @Router /admin/config/app [get]
 // @Security token
 func (co *Config) AppConfig(c *gin.Context) {
-	response.Success(c, &gin.H{
-		"web_client":          0,
-		"web_client_provider": global.Config.WebClientProvider.EffectiveMode(),
-	})
-}
-
-// WebClientProviderManifest returns only the reviewed public descriptor. The
-// authorization record remains deployment-only and no access token, user, or
-// session data is accepted by this endpoint.
-// @Tags ADMIN
-// @Summary External Web Client Provider manifest
-// @Description Returns exactly eight public governance fields when external mode is enabled
-// @Produce json
-// @Success 200 {object} response.Response{data=WebClientProviderManifest}
-// @Failure 401 {object} response.Response
-// @Router /admin/config/web-client-provider [get]
-// @Security token
-func (co *Config) WebClientProviderManifest(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
-	response.Success(c, global.Config.WebClientProvider.Manifest)
+	c.Header("Pragma", "no-cache")
+	publicOrigin := ""
+	if global.Config.WebClient.Enabled() {
+		publicOrigin = global.Config.WebClient.PublicOrigin
+	}
+	response.Success(c, &gin.H{
+		"web_client_mode":          global.Config.WebClient.EffectiveMode(),
+		"web_client_public_origin": publicOrigin,
+	})
 }
 
 // AdminConfig ADMIN服务配置

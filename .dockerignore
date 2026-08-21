@@ -28,8 +28,7 @@ bin/
 *.exe
 *.out
 
-# Browser clients are external providers. Historical local assets must never
-# enter a backend image build context.
+# Historical browser-client assets must never enter an image build context.
 resources/web/
 resources/web2/
 
@@ -38,3 +37,8 @@ resources/web2/
 admin-web/node_modules/
 admin-web/dist/
 admin-web/candidate/
+
+# The repository-owned web client is a reviewed source input; only local
+# derivatives are excluded. Its production dist is rebuilt in the image.
+web-client/node_modules/
+web-client/dist/

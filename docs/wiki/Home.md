@@ -14,7 +14,7 @@ authoritative for signalling, connection authorization, and Relay allocation.
 | Starry HBBS | No | Signalling, strict connection JWT enforcement, and Relay decisions. |
 | Starry Control Agent | No | Optional least-privilege Relay/configuration API for one HBBS. |
 | Official HBBR | No | Remote-control data Relay. |
-| Browser remote-desktop client | No | Kessoku neither bundles nor proxies WebClient2. |
+| Built-in browser remote-desktop MVP | Yes | Repository-owned forced-Relay WSS, VP9, mouse, and basic keyboard client on a separate origin. |
 
 ## Choose a starting point
 
@@ -34,8 +34,9 @@ authoritative for signalling, connection authorization, and Relay allocation.
 ## Safe defaults
 
 - Use the immutable v2.8.0 image tag, then pin its resolved digest.
-- Keep registration, Swagger, external Web Client Provider, and legacy token
-  compatibility disabled unless they are explicitly needed and reviewed.
+- Keep registration, Swagger, built-in Web Client, and legacy token
+  compatibility disabled until their deployment profiles are explicitly
+  reviewed. Enable the client only on a separate HTTPS origin.
 - Begin Starry connection authentication in `off` or `audit`, never directly
   in `enforce`.
 - Commission the Control Agent read-only and keep its endpoint private.
@@ -47,5 +48,6 @@ authoritative for signalling, connection authorization, and Relay allocation.
 ## Release and legal status
 
 v2.8.0 remains unpublished while `RELEASE_STATUS` is `BLOCKED`. The reviewed
-source is MIT licensed, is not affiliated with RustDesk, and does not contain
-licensed browser-client assets.
+source is MIT licensed and is not affiliated with RustDesk. The repository-
+owned Web Client is MIT; third-party dependency licences are recorded in the
+release SBOM. Historical WebClient2/V2 assets are not included.

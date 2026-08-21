@@ -10,20 +10,19 @@ app:
   web-sso: true #web auth sso
   disable-pwd-login: false #禁用密码登录
 
-# Browser clients are independently hosted providers. Kessoku never downloads
-# or proxies their assets and never sends an access token to launch-url.
-web-client-provider:
-  mode: "disabled" # disabled | external
-  authorization-record: "" # external 模式必填：授权依据和审核记录
-  manifest:
-    id: ""
-    name: ""
-    launch-url: ""
-    allowed-origin: ""
-    license: ""
-    source-url: ""
-    version: ""
-    digest: "" # sha256:<64 lowercase hex>
+# Repository-owned browser client. It is built into the same image but must be
+# exposed on an HTTPS origin distinct from the API/admin origin.
+web-client:
+  mode: "disabled" # disabled | builtin
+  listen: "0.0.0.0:21122"
+  public-origin: "https://client.example.com"
+  api-origin: "https://api.example.com"
+  rendezvous-wss-url: "wss://rustdesk.example.com/ws/id"
+  relay-wss-urls:
+    "rustdesk.example.com:21117": "wss://rustdesk.example.com/ws/relay"
+  server-public-key: "" # 32-byte Ed25519 public key encoded with base64
+  profile-generation: 0
+  connection-token-ttl: 15m
 
 admin:
   title: "Kessoku Admin"
