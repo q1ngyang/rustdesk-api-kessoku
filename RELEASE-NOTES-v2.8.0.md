@@ -39,13 +39,20 @@ release. Resolve and pin the version tag's digest for production rollout.
   invalidation have explicit revocation semantics.
 - A dedicated TLS 1.3 mTLS internal listener provides bounded JWKS and token
   introspection to exact approved Starry certificate identities.
+- OIDC requires a non-empty ID-token subject and an exact UserInfo subject
+  match. Callback state is claimed atomically once, provider bodies and codes
+  are bounded, trailing JSON is rejected, and callback origins must be fixed
+  public HTTPS origins. OAuth/OIDC use of the application proxy is rejected
+  because a proxy cannot preserve destination-address validation.
+- Provider/subject and user/provider bindings are unique. Upgrade preflight
+  reports duplicate legacy bindings without silently deleting or merging them.
 
 ### Typed Starry management
 
 - Fixed deployment-owned Starry instance origins and credential file
   references; browser requests cannot choose an Agent URL.
 - Capabilities, status, Relay inventory, and side-effect-free two-address
-  allocation simulation.
+  allocation simulation bound to an explicit non-zero configuration generation.
 - Configuration schema/read/validate/plan/apply/operation/history/rollback and
   synchronous runtime reload through Control API v1.
 - Per-request mTLS and short-lived least-scope service JWTs.
@@ -61,6 +68,13 @@ release. Resolve and pin the version tag's digest for production rollout.
 - Management frontend source lives under `admin-web/`, shares the backend
   commit/tag, and builds from its lockfile with `npm ci`.
 - No moving frontend branch and no externally substituted compiled assets.
+- User create/delete, role/status changes, session revocation, and audit-record
+  deletion produce durable administrator audit events. Role or status changes
+  revoke existing sessions, and a database-wide invariant prevents concurrent
+  operations from removing the final enabled administrator.
+- Address books, collections, tags, and peer metadata are owner-scoped. Client
+  persistence IDs and nested ORM associations are not accepted, and address
+  book/tag synchronization commits atomically with bounded string tags.
 
 ### Browser-client boundary
 
@@ -85,9 +99,14 @@ release. Resolve and pin the version tag's digest for production rollout.
 
 ## Compatibility and migration
 
-- Database version 300 adds token hashes, JTI/key/auth-version fields, and
-  administrator audit events. SQLite, MySQL 8.4, and PostgreSQL 16 fixtures are
+- Database version 301 adds token hashes, JTI/key/auth-version fields,
+  administrator audit events, OAuth identity uniqueness, and the shared final-
+  administrator invariant. SQLite, MySQL 8.4, and PostgreSQL 16 fixtures are
   covered.
+- External MySQL now requires `mysql.tls: "true"`; an optional `mysql.ca-file`
+  adds a private CA to the operating-system trust pool. PostgreSQL requires
+  `postgresql.sslmode: verify-full` and can use `ssl-root-cert`. Insecure or
+  hostname-unverified database transport fails startup.
 - The migration is additive, but older applications cannot use credentials
   issued without a plaintext token. After v2.8.0 issues tokens, application
   rollback requires the matching verified pre-upgrade database backup.
@@ -101,6 +120,16 @@ release. Resolve and pin the version tag's digest for production rollout.
 See [Upgrade and rollback](docs/wiki/Upgrade-and-Rollback.md) and
 [`MIGRATION.md`](MIGRATION.md).
 
+## Known limitation accepted for v2.8.0
+
+RustDesk 1.4.9 audit/sysinfo uploads do not carry an authorization header.
+Kessoku retains a bounded compatibility route requiring an already registered
+peer ID and exact UUID, but UUIDs are not secrets and a known pair can still be
+used to submit spoofed operational telemetry. Export these records to
+append-only or immutable storage when non-repudiation is required. The full
+disposition and evidence boundary are in
+[Security finding closure](docs/wiki/Security-Finding-Closure.md).
+
 ## Platform scope
 
 - Supported: Docker `linux/amd64`, Linux x86_64 archive/binary, amd64 DEB.
@@ -112,11 +141,16 @@ See [Upgrade and rollback](docs/wiki/Upgrade-and-Rollback.md) and
 Local Go, race, frontend, reproducibility, package-install, non-root image,
 security-header, contract, and cross-project process tests have passed. The
 published Starry `1.1.16-patch-v1.2.0` Control API has been pinned by tag,
-source commit, contract hash, schema hashes, and amd64 image digest. The release
-remains blocked until all remaining evidence belongs to the exact reviewed
-Kessoku commit:
+source commit, contract hash, schema hashes, and amd64 image digest. RustDesk
+1.4.9 forced-Relay desktop sessions passed `audit` native-to-native and
+`enforce` native-to-native, WSS-to-WSS, WSS-to-native, and native-to-WSS,
+including Remote Desktop window/screenshot and established HBBR connection
+checks. This matrix does not claim direct-P2P or a separate Secure TCP case.
+The exact local candidate verifier and post-remediation static review now pass.
+Publication remains blocked on release-owner and protected-workflow actions:
 
-- clean candidate CI and post-remediation finding review;
-- supported-client native/Secure TCP/WSS audit-to-enforce acceptance;
-- backup/restore, key recovery, failover, and rollback drills; and
-- final release-owner approval.
+- record the target deployment's backup/restore, key recovery, failover,
+  rollback, RTO/RPO, and go/no-go ownership;
+- approve the final documentation and new-feature wording; and
+- run protected non-publishing candidate CI for the approved commit before the
+  immutable tag, GHCR `v2.8.0`/`latest`, GitHub Release, and Wiki are published.

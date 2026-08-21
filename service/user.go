@@ -306,6 +306,22 @@ func (us *UserService) Create(u *model.User) error {
 	return res
 }
 
+func (us *UserService) CreateContext(ctx context.Context, actorUserID uint, requestID string, u *model.User) (operationErr error) {
+	if u == nil {
+		return errors.New("cannot create empty user")
+	}
+	event, auditErr := beginSecurityAudit(ctx, actorUserID, requestID, "auth.user.created", "user", us.formatUsername(u.Username), map[string]interface{}{
+		"group_id": u.GroupId,
+		"is_admin": us.IsAdmin(u),
+		"status":   u.Status,
+	})
+	if auditErr != nil {
+		return auditErr
+	}
+	defer finalizeSecurityAudit(event, &operationErr, "AUTH_USER_CREATE_FAILED")
+	return us.Create(u)
+}
+
 // GetUuidByToken 根据token和user取uuid
 func (us *UserService) GetUuidByToken(u *model.User, token string) string {
 	return us.getUuidByTokenContext(context.Background(), u, token)
@@ -373,52 +389,56 @@ func (us *UserService) DeleteContext(ctx context.Context, actorUserID uint, requ
 	}
 	defer finalizeSecurityAudit(event, &operationErr, "AUTH_USER_DELETE_FAILED")
 
-	userCount := us.getAdminUserCount()
-	if userCount <= 1 && us.IsAdmin(u) {
-		return errors.New("The last admin user cannot be deleted")
-	}
-	tx := DB.Begin()
+	tx := DB.WithContext(ctx).Begin()
 	if tx.Error != nil {
 		return tx.Error
 	}
-	if err := us.revokeUserTokens(tx, u.Id, "user_deleted", time.Now().Unix()); err != nil {
-		tx.Rollback()
+	defer tx.Rollback()
+	if err := us.acquireEnabledAdminInvariant(tx); err != nil {
+		return err
+	}
+	currentUser := &model.User{}
+	if err := tx.First(currentUser, u.Id).Error; err != nil {
+		return err
+	}
+	userCount, err := us.getAdminUserCountTx(tx)
+	if err != nil {
+		return err
+	}
+	if userCount <= 1 && us.IsAdmin(currentUser) && currentUser.Status == model.COMMON_STATUS_ENABLE {
+		return errors.New("The last enabled admin user cannot be deleted")
+	}
+	if err := us.revokeUserTokens(tx, currentUser.Id, "user_deleted", time.Now().Unix()); err != nil {
 		return err
 	}
 	// 删除用户
-	if err := tx.Delete(u).Error; err != nil {
-		tx.Rollback()
+	if err := tx.Delete(currentUser).Error; err != nil {
 		return err
 	}
 	// 删除关联的 OAuth 信息
-	if err := tx.Where("user_id = ?", u.Id).Delete(&model.UserThird{}).Error; err != nil {
-		tx.Rollback()
+	if err := tx.Where("user_id = ?", currentUser.Id).Delete(&model.UserThird{}).Error; err != nil {
 		return err
 	}
-	if err := tx.Where("user_id = ?", u.Id).Delete(&model.LdapIdentity{}).Error; err != nil {
-		tx.Rollback()
+	if err := tx.Where("user_id = ?", currentUser.Id).Delete(&model.LdapIdentity{}).Error; err != nil {
 		return err
 	}
 	//  删除关联的ab
-	if err := tx.Where("user_id = ?", u.Id).Delete(&model.AddressBook{}).Error; err != nil {
-		tx.Rollback()
+	if err := tx.Where("user_id = ?", currentUser.Id).Delete(&model.AddressBook{}).Error; err != nil {
 		return err
 	}
 	//  删除关联的abc
-	if err := tx.Where("user_id = ?", u.Id).Delete(&model.AddressBookCollection{}).Error; err != nil {
-		tx.Rollback()
+	if err := tx.Where("user_id = ?", currentUser.Id).Delete(&model.AddressBookCollection{}).Error; err != nil {
 		return err
 	}
 	//  删除关联的abcr
-	if err := tx.Where("user_id = ?", u.Id).Delete(&model.AddressBookCollectionRule{}).Error; err != nil {
-		tx.Rollback()
+	if err := tx.Where("user_id = ?", currentUser.Id).Delete(&model.AddressBookCollectionRule{}).Error; err != nil {
 		return err
 	}
 	if err := tx.Commit().Error; err != nil {
 		return err
 	}
 	// 删除关联的peer
-	if err := AllService.PeerService.EraseUserId(u.Id); err != nil {
+	if err := AllService.PeerService.EraseUserId(currentUser.Id); err != nil {
 		Logger.Warn("User deleted successfully, but failed to unlink peer.")
 		return nil
 	}
@@ -437,38 +457,74 @@ func (us *UserService) UpdateContext(ctx context.Context, actorUserID uint, requ
 	if u.Status != model.COMMON_STATUS_ENABLE && u.Status != model.COMMON_STATUS_DISABLED {
 		return errors.New("invalid user status")
 	}
-	currentUser := us.InfoById(u.Id)
-	willDisable := currentUser.Id != 0 && currentUser.Status != model.COMMON_STATUS_DISABLED && u.Status == model.COMMON_STATUS_DISABLED
-	var event *model.AdminAuditEvent
-	if willDisable {
-		var auditErr error
-		event, auditErr = beginSecurityAudit(ctx, actorUserID, requestID, "auth.user.disabled", "user", strconv.FormatUint(uint64(u.Id), 10), map[string]interface{}{
-			"revocation_reason": "user_disabled",
-		})
-		if auditErr != nil {
-			return auditErr
-		}
-		defer finalizeSecurityAudit(event, &operationErr, "AUTH_USER_DISABLE_FAILED")
+	event, auditErr := beginSecurityAudit(ctx, actorUserID, requestID, "auth.user.update_requested", "user", strconv.FormatUint(uint64(u.Id), 10), map[string]interface{}{
+		"requested_is_admin": u.IsAdmin,
+		"requested_status":   u.Status,
+	})
+	if auditErr != nil {
+		return auditErr
 	}
-	// 如果当前用户是管理员并且 IsAdmin 不为空，进行检查
-	if us.IsAdmin(currentUser) {
-		adminCount := us.getAdminUserCount()
-		// 如果这是唯一的管理员，确保不能禁用或取消管理员权限
-		if adminCount <= 1 && (!us.IsAdmin(u) || u.Status == model.COMMON_STATUS_DISABLED) {
-			return errors.New("The last admin user cannot be disabled or demoted")
-		}
-	}
-	tx := DB.Begin()
+	failureCode := "AUTH_USER_UPDATE_FAILED"
+	defer func() { finalizeSecurityAudit(event, &operationErr, failureCode) }()
+	tx := DB.WithContext(ctx).Begin()
 	if tx.Error != nil {
 		return tx.Error
 	}
-	if err := tx.Model(u).Updates(u).Error; err != nil {
-		tx.Rollback()
+	defer tx.Rollback()
+	if err := us.acquireEnabledAdminInvariant(tx); err != nil {
 		return err
 	}
-	if willDisable {
-		if err := us.bumpAuthVersionAndRevoke(tx, u.Id, "user_disabled"); err != nil {
-			tx.Rollback()
+	currentUser := &model.User{}
+	if err := tx.First(currentUser, u.Id).Error; err != nil {
+		return err
+	}
+	currentIsAdmin := us.IsAdmin(currentUser)
+	requestedIsAdmin := currentIsAdmin
+	if u.IsAdmin != nil {
+		requestedIsAdmin = *u.IsAdmin
+	}
+	roleChanged := currentIsAdmin != requestedIsAdmin
+	statusChanged := currentUser.Status != u.Status
+	willDisable := currentUser.Status == model.COMMON_STATUS_ENABLE && u.Status == model.COMMON_STATUS_DISABLED
+	action := "auth.user.updated"
+	if statusChanged {
+		action = "auth.user.status_changed"
+		failureCode = "AUTH_USER_STATUS_CHANGE_FAILED"
+	}
+	if willDisable && !roleChanged {
+		action = "auth.user.disabled"
+		failureCode = "AUTH_USER_DISABLE_FAILED"
+	} else if roleChanged {
+		action = "auth.user.role_changed"
+		failureCode = "AUTH_USER_ROLE_CHANGE_FAILED"
+	}
+	if err := rewriteSecurityAuditIntent(tx, event, action, map[string]interface{}{
+		"from_is_admin": currentIsAdmin,
+		"to_is_admin":   requestedIsAdmin,
+		"from_status":   currentUser.Status,
+		"to_status":     u.Status,
+	}); err != nil {
+		return err
+	}
+	removesEnabledAdmin := currentIsAdmin && currentUser.Status == model.COMMON_STATUS_ENABLE && (!requestedIsAdmin || u.Status == model.COMMON_STATUS_DISABLED)
+	if removesEnabledAdmin {
+		adminCount, err := us.getAdminUserCountTx(tx)
+		if err != nil {
+			return err
+		}
+		if adminCount <= 1 {
+			return errors.New("The last enabled admin user cannot be disabled or demoted")
+		}
+	}
+	if err := tx.Model(&model.User{}).Where("id = ?", u.Id).Updates(u).Error; err != nil {
+		return err
+	}
+	if willDisable || roleChanged {
+		reason := "user_disabled"
+		if roleChanged {
+			reason = "authorization_changed"
+		}
+		if err := us.bumpAuthVersionAndRevoke(tx, u.Id, reason); err != nil {
 			return err
 		}
 	}
@@ -806,9 +862,27 @@ func (us *UserService) getUserCount() int64 {
 
 // helper functions, getAdminUserCount
 func (us *UserService) getAdminUserCount() int64 {
-	var count int64
-	DB.Model(&model.User{}).Where("is_admin = ?", true).Count(&count)
+	count, _ := us.getAdminUserCountTx(DB)
 	return count
+}
+
+func (us *UserService) getAdminUserCountTx(tx *gorm.DB) (int64, error) {
+	var count int64
+	err := tx.Model(&model.User{}).Where("is_admin = ? AND status = ?", true, model.COMMON_STATUS_ENABLE).Count(&count).Error
+	return count, err
+}
+
+func (us *UserService) acquireEnabledAdminInvariant(tx *gorm.DB) error {
+	result := tx.Model(&model.SecurityInvariantLock{}).
+		Where("name = ?", "enabled-admin").
+		UpdateColumn("generation", gorm.Expr("generation + ?", 1))
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return errors.New("enabled-administrator invariant lock is unavailable")
+	}
+	return nil
 }
 
 // UserTokenExpireTimestamp 生成用户token过期时间

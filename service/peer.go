@@ -14,6 +14,12 @@ func (ps *PeerService) FindById(id string) *model.Peer {
 	DB.Where("id = ?", id).First(p)
 	return p
 }
+
+func (ps *PeerService) FindByUserIdAndId(userID uint, id string) *model.Peer {
+	p := &model.Peer{}
+	DB.Where("user_id = ? and id = ?", userID, id).First(p)
+	return p
+}
 func (ps *PeerService) FindByUuid(uuid string) *model.Peer {
 	p := &model.Peer{}
 	DB.Where("uuid = ?", uuid).First(p)

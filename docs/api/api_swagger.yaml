@@ -47,10 +47,13 @@ definitions:
   api.DeviceInfoInLogin:
     properties:
       name:
+        maxLength: 256
         type: string
       os:
+        maxLength: 64
         type: string
       type:
+        maxLength: 64
         type: string
     type: object
   api.LoginForm:
@@ -60,18 +63,21 @@ definitions:
       deviceInfo:
         $ref: '#/definitions/api.DeviceInfoInLogin'
       id:
+        maxLength: 128
         type: string
       password:
-        maxLength: 32
+        maxLength: 128
         minLength: 4
         type: string
       type:
+        maxLength: 64
         type: string
       username:
         maxLength: 32
         minLength: 2
         type: string
       uuid:
+        maxLength: 256
         type: string
     required:
     - username

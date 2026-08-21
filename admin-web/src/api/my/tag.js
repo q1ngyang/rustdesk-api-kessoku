@@ -6,7 +6,6 @@ export function list (params) {
     params,
   })
 }
-
 export function create (data) {
   return request({
     url: '/my/tag/create',
@@ -30,4 +29,3 @@ export function remove (data) {
     data,
   })
 }
-

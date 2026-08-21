@@ -13,10 +13,15 @@ generation、key ID 和客户端矩阵。备份并实际恢复验证：
 - Kessoku/Starry 配置及审计/provenance；
 - 旧镜像/包。
 
+切换镜像前，外部 MySQL 配置 `tls: "true"`（私有 PKI 再配置 `ca-file`），或 PostgreSQL
+配置 `sslmode: "verify-full"`（需要时配置 `ssl-root-cert`）。用精确数据库 DNS 名称检查证书
+SAN，并运行 [`MIGRATION.md`](../../MIGRATION.md)中的 OAuth 身份重复/空值查询。遇到外部
+身份冲突时 Kessoku 会停止，不会猜测合并方式。
+
 ## 升级顺序
 
 1. 部署 Kessoku v2.8.0，认证关闭且控制只读。
-2. 验证数据库版本 300 与旧 token 迁移。
+2. 验证数据库版本 301、OAuth 身份索引、最后管理员不变量与旧 token 迁移。
 3. 开启 EdDSA 签发；需要时使用有界兼容重叠期。
 4. 上线内部 mTLS JWKS/introspection。
 5. 升级 Starry，连接认证先 `off`，再 `audit`。

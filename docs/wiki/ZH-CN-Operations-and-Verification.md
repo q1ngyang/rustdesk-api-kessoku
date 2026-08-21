@@ -23,7 +23,7 @@ docker compose --env-file .env -f docker-compose.yaml config --quiet
 ## 3. 进程与数据库
 
 - 容器以非特权用户运行，并能干净重启。
-- 数据库版本为 300；迁移行数和 token hash 正确。
+- 数据库版本为 301；迁移行数、token hash、OAuth 身份索引与最后管理员不变量正确。
 - 已修改管理员初始密码。
 - 日志不包含 token、私钥、证书或完整配置。
 - 注册、Swagger、provider 和控制写入默认值符合策略。
@@ -55,6 +55,10 @@ docker compose --env-file .env -f docker-compose.yaml config --quiet
 
 本地流程不执行渗透、利用、公网目标、fuzz/mutation 或压力测试。任何单独批准的韧性测试
 只能在隔离 staging/CI 环境运行。
+
+v2.8.0 本机发布证据精确覆盖 RustDesk 1.4.9 强制 Relay 会话：`audit` native/native，
+以及 `enforce` native/native、WSS/WSS、WSS/native、native/WSS；不表示已覆盖直接 P2P
+或独立 Secure TCP case。详见[安全发现闭环](ZH-CN-Security-Finding-Closure.md)。
 
 ## 7. 恢复与 go/no-go
 

@@ -65,7 +65,8 @@ func (ct *User) Create(c *gin.Context) {
 		return
 	}
 	u := f.ToUser()
-	err := service.AllService.UserService.Create(u)
+	actor := service.AllService.UserService.CurUser(c)
+	err := service.AllService.UserService.CreateContext(c.Request.Context(), actor.Id, controlRequestID(c), u)
 	if err != nil {
 		response.Fail(c, 101, response.TranslateMsg(c, "OperationFailed")+err.Error())
 		return
@@ -339,9 +340,17 @@ func (ct *User) MyOauth(c *gin.Context) {
 func (ct *User) GroupUsers(c *gin.Context) {
 	aG := service.AllService.GroupService.List(1, 999, nil)
 	aU := service.AllService.UserService.List(1, 9999, nil)
+	groups := make([]adResp.GroupDirectoryGroup, 0, len(aG.Groups))
+	for _, group := range aG.Groups {
+		groups = append(groups, adResp.GroupDirectoryGroup{Id: group.Id, Name: group.Name})
+	}
+	users := make([]adResp.GroupDirectoryUser, 0, len(aU.Users))
+	for _, user := range aU.Users {
+		users = append(users, adResp.GroupDirectoryUser{Id: user.Id, Username: user.Username, GroupId: user.GroupId})
+	}
 	response.Success(c, gin.H{
-		"groups": aG.Groups,
-		"users":  aU.Users,
+		"groups": groups,
+		"users":  users,
 	})
 }
 

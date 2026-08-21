@@ -1,14 +1,19 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"io"
+	"net"
+	"net/url"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	mysqlDriver "github.com/go-sql-driver/mysql"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v2/config"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
@@ -23,9 +28,12 @@ import (
 	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v2/utils"
 	"github.com/spf13/cobra"
+	"gorm.io/gorm"
 )
 
-const DatabaseVersion = 300
+const DatabaseVersion = 301
+
+const mysqlTLSProfile = "kessoku-verified-ca"
 
 // @title 管理系统API
 // @version 1.0
@@ -162,6 +170,74 @@ func main() {
 	}
 }
 
+func mysqlDSN(databaseName string) string {
+	settings := mysqlDriver.NewConfig()
+	settings.User = global.Config.Mysql.Username
+	settings.Passwd = global.Config.Mysql.Password
+	settings.Net = "tcp"
+	settings.Addr = global.Config.Mysql.Addr
+	settings.DBName = databaseName
+	settings.ParseTime = true
+	settings.Loc = time.Local
+	settings.TLSConfig = "true"
+	if global.Config.Mysql.CaFile != "" {
+		settings.TLSConfig = mysqlTLSProfile
+	}
+	settings.Params = map[string]string{"charset": "utf8mb4"}
+	return settings.FormatDSN()
+}
+
+func configureMySQLTLS() error {
+	if global.Config.Mysql.CaFile == "" {
+		return nil
+	}
+	caPEM, err := os.ReadFile(global.Config.Mysql.CaFile)
+	if err != nil {
+		return fmt.Errorf("read MySQL CA file: %w", err)
+	}
+	roots, err := x509.SystemCertPool()
+	if err != nil || roots == nil {
+		roots = x509.NewCertPool()
+	}
+	if !roots.AppendCertsFromPEM(caPEM) {
+		return errors.New("MySQL CA file contains no valid certificate")
+	}
+	mysqlDriver.DeregisterTLSConfig(mysqlTLSProfile)
+	if err := mysqlDriver.RegisterTLSConfig(mysqlTLSProfile, &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		RootCAs:    roots,
+	}); err != nil {
+		return fmt.Errorf("register MySQL TLS profile: %w", err)
+	}
+	return nil
+}
+
+func postgresqlDSN() string {
+	settings := global.Config.Postgresql
+	host := settings.Host
+	if settings.Port != "" {
+		host = net.JoinHostPort(settings.Host, settings.Port)
+	}
+	dsn := &url.URL{Scheme: "postgresql", Host: host, Path: "/" + settings.Dbname}
+	if settings.User != "" {
+		if settings.Password == "" {
+			dsn.User = url.User(settings.User)
+		} else {
+			dsn.User = url.UserPassword(settings.User, settings.Password)
+		}
+	}
+	query := dsn.Query()
+	query.Set("sslmode", "verify-full")
+	if settings.Sslrootcert != "" {
+		query.Set("sslrootcert", settings.Sslrootcert)
+	}
+	if settings.TimeZone != "" {
+		query.Set("TimeZone", settings.TimeZone)
+	}
+	dsn.RawQuery = query.Encode()
+	return dsn.String()
+}
+
 func InitGlobal() {
 	//配置解析
 	global.Viper = config.Init(&global.Config, global.ConfigPath)
@@ -196,14 +272,11 @@ func InitGlobal() {
 	}
 	//gorm
 	if global.Config.Gorm.Type == config.TypeMysql {
+		if err := configureMySQLTLS(); err != nil {
+			global.Logger.Fatalf("configure MySQL TLS: %v", err)
+		}
 
-		dsn := fmt.Sprintf("%s:%s@(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local&tls=%s",
-			global.Config.Mysql.Username,
-			global.Config.Mysql.Password,
-			global.Config.Mysql.Addr,
-			global.Config.Mysql.Dbname,
-			global.Config.Mysql.Tls,
-		)
+		dsn := mysqlDSN(global.Config.Mysql.Dbname)
 
 		global.DB = orm.NewMysql(&orm.MysqlConfig{
 			Dsn:          dsn,
@@ -211,15 +284,7 @@ func InitGlobal() {
 			MaxOpenConns: global.Config.Gorm.MaxOpenConns,
 		}, global.Logger)
 	} else if global.Config.Gorm.Type == config.TypePostgresql {
-		dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s TimeZone=%s",
-			global.Config.Postgresql.Host,
-			global.Config.Postgresql.Port,
-			global.Config.Postgresql.User,
-			global.Config.Postgresql.Password,
-			global.Config.Postgresql.Dbname,
-			global.Config.Postgresql.Sslmode,
-			global.Config.Postgresql.TimeZone,
-		)
+		dsn := postgresqlDSN()
 		global.DB = orm.NewPostgresql(&orm.PostgresqlConfig{
 			Dsn:          dsn,
 			MaxIdleConns: global.Config.Gorm.MaxIdleConns,
@@ -283,13 +348,7 @@ func DatabaseAutoUpdate() {
 		if dbName == "" {
 			dbName = global.Config.Mysql.Dbname
 			// 移除 DSN 中的数据库名称，以便初始连接时不指定数据库
-			dsnWithoutDB := fmt.Sprintf("%s:%s@(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local&tls=%s",
-				global.Config.Mysql.Username,
-				global.Config.Mysql.Password,
-				global.Config.Mysql.Addr,
-				"",
-				global.Config.Mysql.Tls,
-			)
+			dsnWithoutDB := mysqlDSN("")
 
 			//新链接
 			dbWithoutDB := orm.NewMysql(&orm.MysqlConfig{
@@ -323,6 +382,11 @@ func DatabaseAutoUpdate() {
 		//查找最后一个version
 		var v model.Version
 		db.Last(&v)
+		if v.Version < 245 {
+			if err := prepareLegacyOauthIdentityMigration(); err != nil {
+				global.Logger.Fatalf("prepare legacy OAuth identity migration: %v", err)
+			}
+		}
 		if v.Version < uint(version) {
 			if err := Migrate(uint(version)); err != nil {
 				global.Logger.Fatalf("database migration failed: %v", err)
@@ -331,10 +395,6 @@ func DatabaseAutoUpdate() {
 
 		// 245迁移
 		if v.Version < 245 {
-			//oauths 表的 oauth_type 字段设置为 op同样的值
-			db.Exec("update oauths set oauth_type = op")
-			db.Exec("update oauths set issuer = 'https://accounts.google.com' where op = 'google'")
-			db.Exec("update user_thirds set oauth_type = third_type, op = third_type")
 			//通过email迁移旧的google授权
 			uts := make([]model.UserThird, 0)
 			db.Where("oauth_type = ?", "google").Find(&uts)
@@ -352,6 +412,9 @@ func DatabaseAutoUpdate() {
 }
 func Migrate(version uint) error {
 	global.Logger.Info("Migrating....", version)
+	if err := validateOauthIdentityUniqueness(); err != nil {
+		return err
+	}
 	err := global.DB.AutoMigrate(
 		&model.Version{},
 		&model.User{},
@@ -373,9 +436,13 @@ func Migrate(version uint) error {
 		&model.AdminAuditEvent{},
 		&model.LdapIdentity{},
 		&model.ControlOperationExpectation{},
+		&model.SecurityInvariantLock{},
 	)
 	if err != nil {
 		return fmt.Errorf("schema migration: %w", err)
+	}
+	if err := global.DB.FirstOrCreate(&model.SecurityInvariantLock{Name: "enabled-admin"}).Error; err != nil {
+		return fmt.Errorf("create enabled-administrator invariant lock: %w", err)
 	}
 	if err := global.DB.Exec("UPDATE users SET auth_version = 1 WHERE auth_version IS NULL OR auth_version = 0").Error; err != nil {
 		return fmt.Errorf("backfill user auth version: %w", err)
@@ -447,6 +514,80 @@ func Migrate(version uint) error {
 			return fmt.Errorf("create bootstrap administrator: %w", err)
 		}
 		global.Logger.Info("bootstrap administrator created; set its password with reset-admin-pwd --password-file")
+	}
+	return nil
+}
+
+func prepareLegacyOauthIdentityMigration() error {
+	migrator := global.DB.Migrator()
+	if migrator.HasTable(&model.Oauth{}) {
+		for _, field := range []string{"OauthType", "Issuer"} {
+			if !migrator.HasColumn(&model.Oauth{}, field) {
+				if err := migrator.AddColumn(&model.Oauth{}, field); err != nil {
+					return fmt.Errorf("add oauths.%s: %w", field, err)
+				}
+			}
+		}
+		if err := global.DB.Exec("UPDATE oauths SET oauth_type = op WHERE oauth_type IS NULL OR oauth_type = ''").Error; err != nil {
+			return fmt.Errorf("backfill oauth provider type: %w", err)
+		}
+		if err := global.DB.Exec("UPDATE oauths SET issuer = 'https://accounts.google.com' WHERE op = 'google' AND (issuer IS NULL OR issuer = '')").Error; err != nil {
+			return fmt.Errorf("backfill Google OAuth issuer: %w", err)
+		}
+	}
+	if migrator.HasTable(&model.UserThird{}) {
+		for _, field := range []string{"OauthType", "Op"} {
+			if !migrator.HasColumn(&model.UserThird{}, field) {
+				if err := migrator.AddColumn(&model.UserThird{}, field); err != nil {
+					return fmt.Errorf("add user_thirds.%s: %w", field, err)
+				}
+			}
+		}
+		if migrator.HasColumn(&model.UserThird{}, "third_type") {
+			if err := global.DB.Exec("UPDATE user_thirds SET oauth_type = third_type WHERE oauth_type IS NULL OR oauth_type = ''").Error; err != nil {
+				return fmt.Errorf("backfill OAuth identity type: %w", err)
+			}
+			if err := global.DB.Exec("UPDATE user_thirds SET op = third_type WHERE op IS NULL OR op = ''").Error; err != nil {
+				return fmt.Errorf("backfill OAuth identity provider: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+func validateOauthIdentityUniqueness() error {
+	migrator := global.DB.Migrator()
+	if !migrator.HasTable(&model.UserThird{}) ||
+		!migrator.HasColumn(&model.UserThird{}, "user_id") ||
+		!migrator.HasColumn(&model.UserThird{}, "op") ||
+		!migrator.HasColumn(&model.UserThird{}, "open_id") {
+		return nil
+	}
+
+	type duplicateBinding struct {
+		Count int64 `gorm:"column:duplicate_count"`
+	}
+	checks := []struct {
+		columns string
+		name    string
+	}{
+		{columns: "user_id, op", name: "user/provider"},
+		{columns: "op, open_id", name: "provider/subject"},
+	}
+	for _, check := range checks {
+		var duplicate duplicateBinding
+		err := global.DB.Table("user_thirds").
+			Select("COUNT(*) AS duplicate_count").
+			Group(check.columns).
+			Having("COUNT(*) > ?", 1).
+			Limit(1).
+			Take(&duplicate).Error
+		if err == nil {
+			return fmt.Errorf("OAuth identity migration preflight: duplicate %s binding with %d rows; back up the database, review and merge the duplicate identity rows, then retry", check.name, duplicate.Count)
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("OAuth identity migration preflight for %s binding: %w", check.name, err)
+		}
 	}
 	return nil
 }

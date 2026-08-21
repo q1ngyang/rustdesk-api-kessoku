@@ -89,9 +89,18 @@ the entire data directory consistently. MySQL/PostgreSQL deployments require
 vendor-consistent database backups in addition to Kessoku keys, PKI,
 configuration, image digest, and release provenance.
 
+External databases must be configured before the first v2.8.0 start. MySQL
+requires `tls: "true"`; PostgreSQL requires `sslmode: "verify-full"`. For
+private PKI, place the CA in `secrets/`, mount it read-only under
+`/run/secrets`, and set `mysql.ca-file` or `postgresql.ssl-root-cert` to that
+container path. The database address/host must match a certificate SAN.
+Kessoku intentionally exits on an insecure mode, unreadable CA, unknown CA, or
+hostname mismatch. See [Configuration reference](Configuration-Reference.md).
+
 ## Verify
 
 Verify administrator login, ordinary API login/logout, address-book access,
-database version, and logs before introducing Starry authentication. A complete
+database version 301, OAuth identity index/invariant presence, and logs before
+introducing Starry authentication. A complete
 deployment then follows the staged acceptance in
 [Operations and Verification](Operations-and-Verification.md).

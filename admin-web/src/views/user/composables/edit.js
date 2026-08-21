@@ -85,5 +85,3 @@ export function useSubmit (form, id) {
     cancel,
   }
 }
-
-

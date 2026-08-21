@@ -18,7 +18,7 @@ RUSTDESK_API_AUTH_INTERNAL_REQUEST_TIMEOUT
 | --- | --- | --- |
 | `app` | 注册、登录 UI、Swagger、token 兼容 | 注册/Swagger 关闭；迁移后关闭旧 token 读取。 |
 | `gin` | 公共 API 监听、模式、资源、可信代理 | release 模式；只设精确代理地址或不设。 |
-| `gorm`/数据库 | SQLite、MySQL、PostgreSQL 与连接池 | 简单单机可用 SQLite；生产外部 DB 按需验证 TLS。 |
+| `gorm`/数据库 | SQLite、MySQL、PostgreSQL 与连接池 | 简单单机可用 SQLite；外部 MySQL/PostgreSQL 必须验证证书与主机名。 |
 | `rustdesk` | ID/Relay/API 地址与服务端公钥 | 精确公网地址和 `id_ed25519.pub`，不能使用私钥。 |
 | `auth` | EdDSA token profile 与内部 mTLS API | 挂载密钥/PKI 且演练迁移后再开启。 |
 | `server-control` | 固定 Starry Control Agent 实例 | 只读、旧命令关闭；凭据未就绪前不配置实例。 |
@@ -32,6 +32,36 @@ RUSTDESK_API_AUTH_INTERNAL_REQUEST_TIMEOUT
 或 DNS SAN。
 
 profile 启用后，所需材料缺失或无效会使启动失败。
+
+## 数据库传输
+
+SQLite 使用本地数据文件。MySQL/PostgreSQL 不允许降级为明文，或只验证证书而不验证主机名。
+
+```yaml
+gorm:
+  type: mysql
+mysql:
+  addr: "mysql.example.internal:3306"
+  tls: "true"
+  ca-file: "/run/secrets/mysql-ca.pem" # 可选的附加 CA bundle
+```
+
+MySQL 始终用 `addr` 中的主机名验证服务端证书。默认使用操作系统信任池；配置 `ca-file` 后
+会把其中证书加入信任池。
+
+```yaml
+gorm:
+  type: postgresql
+postgresql:
+  host: "postgres.example.internal"
+  port: "5432"
+  sslmode: "verify-full"
+  ssl-root-cert: "/run/secrets/postgres-ca.pem" # 使用公共 CA 时可省略
+```
+
+MySQL 不是字面值 `true`、或 PostgreSQL 不是 `verify-full` 时，配置校验会失败。CA
+读取/解析失败以及证书/SAN 不匹配同样会使启动失败。CA 文件应只读挂载，并使用证书中的
+DNS 名称，不能使用未经审核的 IP 别名。
 
 ## Starry 实例
 
@@ -51,5 +81,7 @@ profile 启用后，所需材料缺失或无效会使启动失败。
 
 - `app.web-client` 必须为零；浏览器客户端只能使用 external provider 治理模型。
 - 旧 HS256 JWT 设置不是受支持认证 profile。
+- OAuth/OIDC 拒绝 `proxy.enable`：代理会独立解析 provider 目标，从而绕过 Kessoku 的
+  目标地址校验。
 - `legacy-command-enabled` 不会恢复命令执行，兼容路由只会报告功能已删除。
 - 不要把私钥、bearer token、完整 YAML secret 或证书内容写入环境变量、日志或管理审计。

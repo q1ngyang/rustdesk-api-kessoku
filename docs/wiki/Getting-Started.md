@@ -55,7 +55,7 @@ access, logout, and login again.
 
 ## Continue in controlled phases
 
-1. Verify and back up database version 300.
+1. Verify and back up database version 301.
 2. Configure Ed25519 access-token keys and enable Kessoku authentication.
 3. Commission the internal JWKS/introspection listener on private mTLS.
 4. Deploy the matching Starry release with authentication `off`, then `audit`.

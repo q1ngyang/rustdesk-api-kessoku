@@ -519,7 +519,7 @@ async function simulate () {
       client_b: { ip: simulationInput.clientB },
       transport: simulationInput.transport,
       explain: true,
-      expected_config_generation: relays.value.config_generation || undefined,
+      expected_config_generation: relays.value.config_generation,
     })).data
   })
 }

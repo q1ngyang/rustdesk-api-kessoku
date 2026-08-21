@@ -32,7 +32,10 @@ func TestTokenLifecycleHashRevocationAndAuthVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := database.AutoMigrate(&model.User{}, &model.UserToken{}, &model.LoginLog{}, &model.AdminAuditEvent{}); err != nil {
+	if err := database.AutoMigrate(&model.User{}, &model.UserToken{}, &model.LoginLog{}, &model.AdminAuditEvent{}, &model.SecurityInvariantLock{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Create(&model.SecurityInvariantLock{Name: "enabled-admin"}).Error; err != nil {
 		t.Fatal(err)
 	}
 	manager := lifecycleAuthManager(t)
@@ -148,7 +151,10 @@ func TestLegacyFallbackCannotResurrectStrictJWTAfterKeyRemoval(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := database.AutoMigrate(&model.User{}, &model.UserToken{}, &model.LoginLog{}, &model.AdminAuditEvent{}); err != nil {
+	if err := database.AutoMigrate(&model.User{}, &model.UserToken{}, &model.LoginLog{}, &model.AdminAuditEvent{}, &model.SecurityInvariantLock{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Create(&model.SecurityInvariantLock{Name: "enabled-admin"}).Error; err != nil {
 		t.Fatal(err)
 	}
 	cfg := &config.Config{Auth: config.Auth{Enabled: true, LegacyTokenReadEnabled: true}}

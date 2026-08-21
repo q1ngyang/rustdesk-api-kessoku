@@ -161,6 +161,9 @@ func (p *Provider) Relays(ctx context.Context) (starrycontrol.RelayInventory, er
 
 func (p *Provider) SimulateAllocation(ctx context.Context, input starrycontrol.SimulationInput) (starrycontrol.SimulationResult, error) {
 	result := starrycontrol.SimulationResult{}
+	if input.ExpectedConfigGeneration == nil || *input.ExpectedConfigGeneration == 0 {
+		return result, fmt.Errorf("%w: expected_config_generation", starrycontrol.ErrRequestInvalid)
+	}
 	if !input.Transport.Valid() {
 		return result, fmt.Errorf("%w: transport", starrycontrol.ErrRequestInvalid)
 	}
@@ -182,6 +185,9 @@ func (p *Provider) SimulateAllocation(ctx context.Context, input starrycontrol.S
 	}
 	if err := validateSimulationResponse(result); err != nil {
 		return starrycontrol.SimulationResult{}, err
+	}
+	if result.ConfigGeneration != *input.ExpectedConfigGeneration {
+		return starrycontrol.SimulationResult{}, contractResponseError()
 	}
 	return result, nil
 }

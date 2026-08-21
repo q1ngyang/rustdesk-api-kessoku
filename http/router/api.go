@@ -22,6 +22,7 @@ func ApiInit(g *gin.Engine) {
 	g.LoadHTMLGlob("resources/templates/*")
 
 	frg := g.Group("/api")
+	frg.Use(middleware.RequestBodyLimit(2 << 20))
 
 	{
 		i := &api.Index{}

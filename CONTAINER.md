@@ -141,9 +141,13 @@ See [Operations and verification](docs/wiki/Operations-and-Verification.md).
 
 Back up the database, authentication keys, internal PKI, configuration,
 current image digest, and Starry generation before upgrading. Kessoku database
-version 300 is additive, but older binaries cannot authenticate newly issued
+version 301 is additive, but older binaries cannot authenticate newly issued
 hash-only tokens. After v2.8.0 issues tokens, restore the matching pre-upgrade
 database backup when rolling back to an older application.
+
+External MySQL/PostgreSQL connections must use certificate- and hostname-
+verified TLS. Mount a private CA read-only when required; see the
+[configuration reference](docs/wiki/Configuration-Reference.md).
 
 Never overwrite or move an exposed version tag. See
 [Upgrade and rollback](docs/wiki/Upgrade-and-Rollback.md).

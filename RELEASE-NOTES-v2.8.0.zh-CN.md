@@ -34,11 +34,16 @@ digest。
 - 单会话注销、密码变更、用户禁用与全局会话失效具有明确撤销语义。
 - 独立 TLS 1.3 mTLS 内部 listener 只向精确批准的 Starry 证书身份提供有界 JWKS
   和 token introspection。
+- OIDC 要求非空 ID-token subject，并与 UserInfo subject 完全一致。Callback state 只能
+  原子 claim 一次；provider body/code 有上限；拒绝尾随 JSON；callback origin 必须是固定
+  的公网 HTTPS origin。应用代理无法保留目标地址校验，因此 OAuth/OIDC 拒绝代理模式。
+- provider/subject 与 user/provider 绑定唯一；升级预检会报告旧重复绑定，不会静默删除或
+  合并。
 
 ### 类型化 Starry 管理
 
 - Starry 实例 origin 和凭据文件引用由部署固定，浏览器不能选择 Agent URL。
-- 能力、状态、Relay 列表与无副作用的双地址分配模拟。
+- 能力、状态、Relay 列表，以及绑定明确非零配置 generation 的无副作用双地址分配模拟。
 - 通过 Control API v1 提供配置 schema/read/validate/plan/apply/operation/history/
   rollback 与同步 runtime reload。
 - 每个请求同时使用 mTLS 和短期最小 scope service JWT。
@@ -52,6 +57,10 @@ digest。
 - 管理前端源码位于 `admin-web/`，与后端共享 commit/tag，并从 lockfile 使用 `npm ci`
   构建。
 - 不使用移动前端分支，不允许外部替换编译产物。
+- 用户创建/删除、角色/状态变更、会话撤销和审计记录删除都会留下管理员审计事件。角色或
+  状态变更会撤销现有会话，数据库级共享不变量可防止并发操作删除最后一个启用管理员。
+- 地址簿、collection、tag 与 peer 元数据按 owner 隔离；不接受客户端持久化 ID 或嵌套
+  ORM association；地址簿/tag 同步在同一事务中提交，tag 只能是有界字符串数组。
 
 ### 浏览器客户端边界
 
@@ -73,8 +82,11 @@ digest。
 
 ## 兼容性与迁移
 
-- 数据库版本 300 增加 token hash、JTI/key/auth-version 字段与管理员审计事件；覆盖
-  SQLite、MySQL 8.4 和 PostgreSQL 16 fixture。
+- 数据库版本 301 增加 token hash、JTI/key/auth-version 字段、管理员审计事件、OAuth
+  身份唯一约束和最后管理员共享不变量；覆盖 SQLite、MySQL 8.4 和 PostgreSQL 16 fixture。
+- 外部 MySQL 现在要求 `mysql.tls: "true"`；可用 `mysql.ca-file` 把私有 CA 加入系统信任
+  池。PostgreSQL 要求 `postgresql.sslmode: verify-full`，可配置 `ssl-root-cert`。不安全或
+  不验证主机名的数据库传输会导致启动失败。
 - 迁移是增量的，但旧应用不能使用不含明文 token 的新凭据。v2.8.0 一旦签发令牌，回滚
   旧应用必须恢复匹配且已验证的升级前数据库备份。
 - 旧 opaque 凭据只允许有界兼容期；已删除的 HS256 设置不属于受支持连接认证 profile。
@@ -84,6 +96,13 @@ digest。
 
 详见[升级与回滚](docs/wiki/ZH-CN-Upgrade-and-Rollback.md)和
 [`MIGRATION.md`](MIGRATION.md)。
+
+## v2.8.0 接受的已知限制
+
+RustDesk 1.4.9 的 audit/sysinfo 上传不携带认证头。Kessoku 保留有界兼容路由，并要求已经
+登记的 peer ID 与精确 UUID；但 UUID 不是秘密，已知这一组合仍可提交伪造运维 telemetry。
+需要不可抵赖性时，应把记录导出到 append-only 或不可变存储。完整处置与证据边界见
+[安全发现闭环](docs/wiki/ZH-CN-Security-Finding-Closure.md)。
 
 ## 平台范围
 
@@ -95,10 +114,13 @@ digest。
 
 本地 Go、race、前端、可复现性、包安装、非 root 镜像、安全响应头、契约和跨项目真实进程
 测试已经通过。已按 tag、源码提交、契约/schema 哈希与 amd64 镜像 digest 固定正式发布的
-Starry `1.1.16-patch-v1.2.0` Control API。以下剩余证据仍必须属于精确受审核的 Kessoku
-提交，发布门禁才可解除：
+Starry `1.1.16-patch-v1.2.0` Control API。RustDesk 1.4.9 强制 Relay 桌面会话已通过
+`audit` native-to-native，以及 `enforce` native-to-native、WSS-to-WSS、WSS-to-native、
+native-to-WSS，并检查 Remote Desktop 窗口/截图和已建立 HBBR 连接。本矩阵不表示已经覆盖
+直接 P2P 或独立 Secure TCP case。精确本地候选验证器与修复后静态复核现已通过；发布仍
+阻塞于以下发布负责人和受保护 workflow 操作：
 
-- 干净候选 CI 和修复后 finding 复核；
-- 支持客户端 native/Secure TCP/WSS 的 audit→enforce 验收；
-- 备份/恢复、密钥恢复、故障切换与回滚演练；
-- 最终发布负责人批准。
+- 记录目标部署的备份/恢复、密钥恢复、故障切换、回滚、RTO/RPO 与 go/no-go 负责人；
+- 批准最终文档与新特性文案；
+- 在发布不可变 tag、GHCR `v2.8.0`/`latest`、GitHub Release 与 Wiki 前，对批准提交运行
+  受保护的非发布候选 CI。

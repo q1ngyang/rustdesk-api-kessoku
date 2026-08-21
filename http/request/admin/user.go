@@ -12,7 +12,7 @@ type UserForm struct {
 	Nickname string           `json:"nickname"`
 	Avatar   string           `json:"avatar"`
 	GroupId  uint             `json:"group_id" validate:"required"`
-	IsAdmin  *bool            `json:"is_admin" `
+	IsAdmin  *bool            `json:"is_admin" validate:"required"`
 	Status   model.StatusCode `json:"status" validate:"required,oneof=1 2"`
 	Remark   string           `json:"remark"`
 }

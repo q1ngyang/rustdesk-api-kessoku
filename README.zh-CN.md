@@ -7,9 +7,10 @@ Kessoku 是一个非官方的 RustDesk 账户、管理和策略控制面。它�
 [`rustdesk-server-starry`](https://github.com/q1ngyang/rustdesk-server-starry)
 集成。
 
-> **v2.8.0 发布草案。** 功能实现和本地 Linux amd64 候选检查已经完成，Starry 正式
-> 契约也已固定；仍需取得精确候选 clean CI、支持客户端 staging 验收、恢复演练和发布
-> 负责人批准，才能发布。不要把未打 tag 的工作树构建当作生产版本。
+> **v2.8.0 发布草案。** 功能实现和精确本地 Linux amd64 候选检查已经完成，Starry 正式
+> 契约也已固定，已发布 Starry 的 audit→enforce 真实客户端矩阵在本机通过；仍需完成目标
+> 部署恢复验收、受保护候选 CI 和最终发布负责人批准。不要把未打 tag 的工作树构建当作
+> 生产版本。
 
 ## 组件边界
 
@@ -34,7 +35,7 @@ Kessoku 不暴露 shell、任意命令、任意 Agent URL、Docker Socket 或浏
 - 控制路由仅管理员可达，并持久记录脱敏的意图/结果审计。
 - 从运行时攻击面删除通用 legacy ServerCmd 执行。
 - 管理前端源码内置并可复现构建，不再使用移动的前端分支。
-- SQLite、MySQL、PostgreSQL 的 token hash 与认证版本迁移。
+- SQLite、MySQL、PostgreSQL 迁移；外部 MySQL/PostgreSQL 强制验证 TLS 证书与主机名。
 - v2.8.0 正式制品范围为 Docker `linux/amd64`、Linux x86_64 archive/binary 和
   amd64 DEB；ARM 仅尽力兼容且不阻断发布。
 
@@ -68,6 +69,7 @@ Control Agent 应先以只读模式上线，并先完成真实客户端和回滚
 | JWT/JWKS/introspection 灰度 | [连接认证](docs/wiki/ZH-CN-Connection-Authentication.md) |
 | Starry 集成 | [Starry 控制](docs/wiki/ZH-CN-Starry-Control.md) |
 | 浏览器客户端边界 | [Web 客户端](docs/wiki/ZH-CN-Web-Client.md) |
+| 安全审查与已接受残余 | [安全发现闭环](docs/wiki/ZH-CN-Security-Finding-Closure.md) |
 | 验收证据 | [运维与验证](docs/wiki/ZH-CN-Operations-and-Verification.md) |
 | 升级与回滚 | [升级与回滚](docs/wiki/ZH-CN-Upgrade-and-Rollback.md) |
 | 故障诊断 | [常见问题排查](docs/wiki/ZH-CN-Troubleshooting.md) |

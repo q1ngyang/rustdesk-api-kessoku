@@ -1,11 +1,55 @@
 package api
 
-import "github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
+import (
+	"encoding/json"
+
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
+)
 
 type AddressBookFormData struct {
-	Tags      []string             `json:"tags"`
-	Peers     []*model.AddressBook `json:"peers"`
-	TagColors string               `json:"tag_colors"`
+	Tags      []string               `json:"tags"`
+	Peers     []*AddressBookPeerForm `json:"peers"`
+	TagColors string                 `json:"tag_colors"`
+}
+
+// AddressBookPeerForm is the client-sync allow list. Persistence identifiers,
+// owners, collections, timestamps, and GORM associations are intentionally
+// absent and therefore cannot be supplied by a client.
+type AddressBookPeerForm struct {
+	Id               string   `json:"id"`
+	Username         string   `json:"username"`
+	Password         string   `json:"password"`
+	Hostname         string   `json:"hostname"`
+	Alias            string   `json:"alias"`
+	Platform         string   `json:"platform"`
+	Tags             []string `json:"tags"`
+	Hash             string   `json:"hash"`
+	ForceAlwaysRelay bool     `json:"forceAlwaysRelay"`
+	RdpPort          string   `json:"rdpPort"`
+	RdpUsername      string   `json:"rdpUsername"`
+	Online           bool     `json:"online"`
+	LoginName        string   `json:"loginName"`
+	SameServer       bool     `json:"sameServer"`
+}
+
+func (f *AddressBookPeerForm) ToAddressBook() *model.AddressBook {
+	tags, _ := json.Marshal(f.Tags)
+	return &model.AddressBook{
+		Id:               f.Id,
+		Username:         f.Username,
+		Password:         f.Password,
+		Hostname:         f.Hostname,
+		Alias:            f.Alias,
+		Platform:         f.Platform,
+		Tags:             tags,
+		Hash:             f.Hash,
+		ForceAlwaysRelay: f.ForceAlwaysRelay,
+		RdpPort:          f.RdpPort,
+		RdpUsername:      f.RdpUsername,
+		Online:           f.Online,
+		LoginName:        f.LoginName,
+		SameServer:       f.SameServer,
+	}
 }
 
 type AddressBookForm struct {
@@ -38,22 +82,33 @@ func (pf *PeerForm) ToPeer() *model.Peer {
 
 // PersonalAddressBookForm 个人地址簿表单
 type PersonalAddressBookForm struct {
-	model.AddressBook
-	ForceAlwaysRelay string `json:"forceAlwaysRelay"`
+	Id               string   `json:"id"`
+	Username         string   `json:"username"`
+	Password         string   `json:"password"`
+	Hostname         string   `json:"hostname"`
+	Alias            string   `json:"alias"`
+	Platform         string   `json:"platform"`
+	Tags             []string `json:"tags"`
+	Hash             string   `json:"hash"`
+	RdpPort          string   `json:"rdpPort"`
+	RdpUsername      string   `json:"rdpUsername"`
+	Online           bool     `json:"online"`
+	LoginName        string   `json:"loginName"`
+	SameServer       bool     `json:"sameServer"`
+	ForceAlwaysRelay string   `json:"forceAlwaysRelay"`
 }
 
 func (pabf *PersonalAddressBookForm) ToAddressBook() *model.AddressBook {
+	tags, _ := json.Marshal(pabf.Tags)
 	return &model.AddressBook{
-		RowId:            pabf.RowId,
 		Id:               pabf.Id,
 		Username:         pabf.Username,
 		Password:         pabf.Password,
 		Hostname:         pabf.Hostname,
 		Alias:            pabf.Alias,
 		Platform:         pabf.Platform,
-		Tags:             pabf.Tags,
+		Tags:             tags,
 		Hash:             pabf.Hash,
-		UserId:           pabf.UserId,
 		ForceAlwaysRelay: pabf.ForceAlwaysRelay == "true",
 		RdpPort:          pabf.RdpPort,
 		RdpUsername:      pabf.RdpUsername,
@@ -70,6 +125,14 @@ type TagRenameForm struct {
 type TagColorForm struct {
 	Name  string `json:"name"`
 	Color uint   `json:"color"`
+}
+
+type PersonalAddressBookUpdate struct {
+	Id       string    `json:"id" binding:"required,max=128"`
+	Password *string   `json:"password"`
+	Hash     *string   `json:"hash"`
+	Tags     *[]string `json:"tags"`
+	Alias    *string   `json:"alias"`
 }
 
 type PeerInfoInHeartbeat struct {

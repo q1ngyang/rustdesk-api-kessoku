@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +14,24 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
+
+type legacyOauthBinding struct {
+	ID     uint   `gorm:"column:id;primaryKey"`
+	UserID uint   `gorm:"column:user_id"`
+	Op     string `gorm:"column:op"`
+	OpenID string `gorm:"column:open_id"`
+}
+
+func (legacyOauthBinding) TableName() string { return "user_thirds" }
+
+type pre245OauthBinding struct {
+	ID        uint   `gorm:"column:id;primaryKey"`
+	UserID    uint   `gorm:"column:user_id"`
+	OpenID    string `gorm:"column:open_id"`
+	ThirdType string `gorm:"column:third_type"`
+}
+
+func (pre245OauthBinding) TableName() string { return "user_thirds" }
 
 type legacyMigrationUser struct {
 	ID       uint   `gorm:"column:id;primaryKey"`
@@ -66,6 +85,78 @@ func TestMigrateBackfillsAuthMetadataAndPreservesLegacyCommands(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertRestoredMigrationFixture(t, restored)
+}
+
+func TestMigrateRejectsDuplicateOauthIdentityBindingsBeforeAddingIndexes(t *testing.T) {
+	database, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "duplicate-oauth.db")), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(&legacyOauthBinding{}); err != nil {
+		t.Fatal(err)
+	}
+	bindings := []legacyOauthBinding{
+		{UserID: 1, Op: "oidc", OpenID: "subject-1"},
+		{UserID: 1, Op: "oidc", OpenID: "subject-2"},
+	}
+	if err := database.Create(&bindings).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	oldDB, oldLogger := global.DB, global.Logger
+	t.Cleanup(func() { global.DB, global.Logger = oldDB, oldLogger })
+	global.DB = database
+	global.Logger = logrus.New()
+	err = Migrate(DatabaseVersion)
+	if err == nil || !strings.Contains(err.Error(), "duplicate user/provider binding") {
+		t.Fatalf("migration error = %v, want actionable duplicate binding failure", err)
+	}
+	if database.Migrator().HasIndex(&model.UserThird{}, "idx_user_thirds_user_op") {
+		t.Fatal("unique OAuth index was created before duplicate preflight completed")
+	}
+}
+
+func TestPre245OauthIdentityMigrationBackfillsBeforeUniqueIndexes(t *testing.T) {
+	database, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "pre245-oauth.db")), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(&pre245OauthBinding{}); err != nil {
+		t.Fatal(err)
+	}
+	bindings := []pre245OauthBinding{
+		{UserID: 1, ThirdType: "github", OpenID: "github-subject"},
+		{UserID: 1, ThirdType: "google", OpenID: "google-subject"},
+	}
+	if err := database.Create(&bindings).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	oldDB, oldLogger := global.DB, global.Logger
+	t.Cleanup(func() { global.DB, global.Logger = oldDB, oldLogger })
+	global.DB = database
+	global.Logger = logrus.New()
+	if err := prepareLegacyOauthIdentityMigration(); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateOauthIdentityUniqueness(); err != nil {
+		t.Fatalf("normalized multi-provider bindings were treated as duplicates: %v", err)
+	}
+	if err := database.AutoMigrate(&model.UserThird{}); err != nil {
+		t.Fatal(err)
+	}
+	var migrated []model.UserThird
+	if err := database.Order("id").Find(&migrated).Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(migrated) != 2 || migrated[0].Op != "github" || migrated[1].Op != "google" {
+		t.Fatalf("legacy providers were not normalized: %+v", migrated)
+	}
+	for _, index := range []string{"idx_user_thirds_user_op", "idx_user_thirds_op_open_id"} {
+		if !database.Migrator().HasIndex(&model.UserThird{}, index) {
+			t.Fatalf("OAuth identity index %s is missing", index)
+		}
+	}
 }
 
 func assertRestoredMigrationFixture(t *testing.T, database *gorm.DB) {

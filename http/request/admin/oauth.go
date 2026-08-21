@@ -5,14 +5,14 @@ import (
 )
 
 type BindOauthForm struct {
-	Op string `json:"op" binding:"required"`
+	Op string `json:"op" binding:"required,max=64"`
 }
 
 type OauthConfirmForm struct {
-	Code string `json:"code" binding:"required"`
+	Code string `json:"code" binding:"required,len=32"`
 }
 type UnBindOauthForm struct {
-	Op string `json:"op" binding:"required"`
+	Op string `json:"op" binding:"required,max=64"`
 }
 type OauthForm struct {
 	Id           uint   `json:"id"`

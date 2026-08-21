@@ -6,7 +6,7 @@ enabling connection enforcement or configuration writes.
 
 ## Critical compatibility warning
 
-Version 300 is additive, but newly issued Kessoku token rows deliberately leave
+Version 301 is additive, but newly issued Kessoku token rows deliberately leave
 the legacy plaintext `token` column empty. An older rustdesk-api binary that
 reads only that column cannot authenticate those sessions. Therefore:
 

@@ -18,7 +18,7 @@ type Oauth struct {
 // Info
 func (o *Oauth) Info(c *gin.Context) {
 	code := c.Query("code")
-	if code == "" {
+	if len(code) != 32 {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
 		return
 	}

@@ -6748,6 +6748,7 @@ const docTemplateadmin = `{
                 },
                 "user_ids": {
                     "type": "array",
+                    "maxItems": 1000,
                     "items": {
                         "type": "integer"
                     }
@@ -6765,6 +6766,7 @@ const docTemplateadmin = `{
             "properties": {
                 "ids": {
                     "type": "array",
+                    "maxItems": 1000,
                     "items": {
                         "type": "integer"
                     }
@@ -6779,6 +6781,7 @@ const docTemplateadmin = `{
             "properties": {
                 "ids": {
                     "type": "array",
+                    "maxItems": 1000,
                     "items": {
                         "type": "integer"
                     }
@@ -6794,8 +6797,8 @@ const docTemplateadmin = `{
             "properties": {
                 "new_password": {
                     "type": "string",
-                    "maxLength": 32,
-                    "minLength": 4
+                    "maxLength": 128,
+                    "minLength": 12
                 },
                 "old_password": {
                     "type": "string",
@@ -6898,6 +6901,7 @@ const docTemplateadmin = `{
             "properties": {
                 "ids": {
                     "type": "array",
+                    "maxItems": 1000,
                     "items": {
                         "type": "integer"
                     }
@@ -6978,6 +6982,7 @@ const docTemplateadmin = `{
             "properties": {
                 "row_ids": {
                     "type": "array",
+                    "maxItems": 1000,
                     "items": {
                         "type": "integer"
                     }
@@ -7030,6 +7035,7 @@ const docTemplateadmin = `{
             "properties": {
                 "ids": {
                     "type": "array",
+                    "maxItems": 1000,
                     "items": {
                         "type": "integer"
                     }
@@ -7075,6 +7081,7 @@ const docTemplateadmin = `{
             "type": "object",
             "required": [
                 "group_id",
+                "is_admin",
                 "status",
                 "username"
             ],
@@ -7103,7 +7110,10 @@ const docTemplateadmin = `{
                     "type": "string"
                 },
                 "status": {
-                    "minimum": 0,
+                    "enum": [
+                        1,
+                        2
+                    ],
                     "allOf": [
                         {
                             "$ref": "#/definitions/model.StatusCode"
@@ -7140,8 +7150,8 @@ const docTemplateadmin = `{
                 },
                 "password": {
                     "type": "string",
-                    "maxLength": 32,
-                    "minLength": 4
+                    "maxLength": 128,
+                    "minLength": 12
                 }
             }
         },
@@ -7164,6 +7174,7 @@ const docTemplateadmin = `{
             "properties": {
                 "ids": {
                     "type": "array",
+                    "maxItems": 1000,
                     "items": {
                         "type": "integer"
                     }

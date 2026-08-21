@@ -90,14 +90,25 @@ func TestTypedProviderSimulationAndConfigTransactions(t *testing.T) {
 	if _, err := provider.Capabilities(ctx); err != nil {
 		t.Fatal(err)
 	}
+	expectedGeneration := uint64(42)
 	simulation, err := provider.SimulateAllocation(ctx, starrycontrol.SimulationInput{
-		ClientA:   starrycontrol.SimulationClient{IP: "192.0.2.10"},
-		ClientB:   starrycontrol.SimulationClient{IP: "2001:db8::20"},
-		Transport: starrycontrol.TransportMixed,
-		Explain:   true,
+		ClientA:                  starrycontrol.SimulationClient{IP: "192.0.2.10"},
+		ClientB:                  starrycontrol.SimulationClient{IP: "2001:db8::20"},
+		Transport:                starrycontrol.TransportMixed,
+		Explain:                  true,
+		ExpectedConfigGeneration: &expectedGeneration,
 	})
 	if err != nil || simulation.ConfigGeneration != 42 || !simulation.Selection.NonBinding {
 		t.Fatalf("simulation = %+v, err=%v", simulation, err)
+	}
+	staleGeneration := uint64(41)
+	if _, err := provider.SimulateAllocation(ctx, starrycontrol.SimulationInput{
+		ClientA:                  starrycontrol.SimulationClient{IP: "192.0.2.10"},
+		ClientB:                  starrycontrol.SimulationClient{IP: "2001:db8::20"},
+		Transport:                starrycontrol.TransportMixed,
+		ExpectedConfigGeneration: &staleGeneration,
+	}); err == nil {
+		t.Fatal("simulation response from a different config generation was accepted")
 	}
 	beforeInvalid := len(calls)
 	if _, err := provider.SimulateAllocation(ctx, starrycontrol.SimulationInput{
@@ -257,6 +268,11 @@ func TestProviderRejectsBindingSimulationAndUnsafeComments(t *testing.T) {
 	}
 	if err := validateSimulationResponse(unsafeSimulation); err == nil {
 		t.Fatal("binding allocation simulation response was accepted")
+	}
+	unsafeSimulation.Selection.NonBinding = true
+	unsafeSimulation.ConfigGeneration = 0
+	if err := validateSimulationResponse(unsafeSimulation); err == nil {
+		t.Fatal("zero-generation allocation simulation response was accepted")
 	}
 
 	if validComment("approved\nforged-log-line") {

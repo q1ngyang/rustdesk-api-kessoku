@@ -1,7 +1,7 @@
 # Database and Authentication Migration Guide
 
 This guide upgrades an existing rustdesk-api database to Kessoku database
-version 300. Rehearse every step against a restored production backup before a
+version 301. Rehearse every step against a restored production backup before a
 maintenance window.
 
 ## Supported databases and tested fixtures
@@ -17,7 +17,7 @@ the legacy schema and rows, runs the real migration, and verifies token-hash
 backfill, auth versions, version recording, and preservation of the historical
 `server_cmds` table.
 
-## What version 300 changes
+## What version 301 changes
 
 `users` gains `auth_version`, initialized to `1`.
 
@@ -31,6 +31,14 @@ by their authoritative database hash; it does not require retaining plaintext.
 `admin_audit_events` is added for control-plane audit records. The old
 `server_cmds` table remains untouched, but there is no CRUD or execution
 service for it.
+
+`user_thirds` receives unique `(user_id, op)` and `(op, open_id)` identity
+indexes. Very old pre-245 provider fields are normalized before duplicate
+validation and index creation. Kessoku never chooses, merges, or deletes a
+duplicate identity automatically.
+
+`security_invariant_locks` contains a non-secret shared row that serializes the
+final-enabled-administrator check across Kessoku replicas.
 
 The migration is additive. There is intentionally no automatic down migration:
 restoring an older application safely requires restoring its matching database
@@ -46,10 +54,75 @@ backup once Kessoku has issued new tokens.
    proceeding.
 5. Back up existing authentication keys separately. Never put a private key in
    the database backup, image, Git repository, YAML, or log archive.
-6. Leave Starry connection authentication in `off` or `audit`; never begin the
+6. For MySQL or PostgreSQL, configure and test the new certificate/hostname-
+   verified database transport before changing the application image. Mount
+   any private CA read-only and ensure the configured database hostname is in
+   the certificate SAN.
+7. Run the OAuth identity checks below. Resolve conflicts only after an owner
+   reviews which local account and external identity must remain bound.
+8. Leave Starry connection authentication in `off` or `audit`; never begin the
    schema upgrade by enabling `enforce`.
-7. Keep `server-control.read-only: true` until the Agent rollback exercise is
+9. Keep `server-control.read-only: true` until the Agent rollback exercise is
    complete.
+
+### Database TLS preflight
+
+MySQL uses the operating-system trust pool and can add a private CA bundle:
+
+```yaml
+gorm:
+  type: mysql
+mysql:
+  addr: "mysql.example.internal:3306"
+  tls: "true"
+  ca-file: "/run/secrets/mysql-ca.pem" # optional additional CA
+```
+
+PostgreSQL requires full certificate and hostname verification:
+
+```yaml
+gorm:
+  type: postgresql
+postgresql:
+  host: "postgres.example.internal"
+  sslmode: "verify-full"
+  ssl-root-cert: "/run/secrets/postgres-ca.pem" # optional with public CA
+```
+
+The old MySQL `false`/`skip-verify` values and PostgreSQL
+`disable`/`require`/`verify-ca` values now fail startup. This is an intentional
+security-breaking configuration change: correct CA/DNS/SAN deployment rather
+than weakening verification.
+
+### OAuth identity preflight
+
+On version 245 or newer, the following read-only queries must return no rows:
+
+```sql
+SELECT user_id, op, COUNT(*) AS duplicate_count
+FROM user_thirds
+GROUP BY user_id, op
+HAVING COUNT(*) > 1;
+
+SELECT op, open_id, COUNT(*) AS duplicate_count
+FROM user_thirds
+GROUP BY op, open_id
+HAVING COUNT(*) > 1;
+
+SELECT id
+FROM user_thirds
+WHERE op IS NULL OR TRIM(op) = ''
+   OR open_id IS NULL OR TRIM(open_id) = '';
+```
+
+For a pre-245 database, first rehearse the upgrade on a restored copy. Kessoku
+adds `op`/`oauth_type`, copies the historical `third_type`, and then runs the
+same duplicate checks before creating either index.
+
+If startup reports `OAuth identity migration preflight`, keep the old service
+stopped, preserve another backup, inspect the affected local accounts and
+provider subjects, and explicitly merge or unbind under an approved identity-
+recovery procedure. Do not delete a row merely to make the index build pass.
 
 ## Recommended rollout
 
@@ -72,11 +145,13 @@ stored only as hashes.
 
 Verify:
 
-- the application reports database version 300;
+- the application reports database version 301;
 - every active legacy token row has a 64-character `token_hash`;
 - every user and token row has a non-zero `auth_version`;
 - row counts match the preflight record;
 - legacy command records still exist but no command route is reachable.
+- both `idx_user_thirds_user_op` and `idx_user_thirds_op_open_id` exist and the
+  `enabled-admin` invariant row exists.
 
 ### Phase 2: enable EdDSA with a compatibility overlap
 
@@ -158,6 +233,8 @@ ownership, backup, and rotation procedures separate.
 - No bearer token or private key appears in application logs or audit rows.
 - Database backup restoration and the rollback procedure have been timed and
   recorded for all deployed database engines.
+- MySQL/PostgreSQL connect only with the reviewed CA and expected hostname;
+  both OAuth identity unique indexes and the final-admin invariant are present.
 
 See [ROLLBACK-RUNBOOK.md](ROLLBACK-RUNBOOK.md) before approving the maintenance
 window.

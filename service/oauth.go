@@ -36,22 +36,23 @@ type OidcEndpoint struct {
 }
 
 type OauthCacheItem struct {
-	UserId        uint      `json:"-"`
-	Id            string    `json:"id"` //rustdesk的设备ID
-	Op            string    `json:"op"`
-	Action        string    `json:"action"`
-	Uuid          string    `json:"uuid"`
-	DeviceName    string    `json:"device_name"`
-	DeviceOs      string    `json:"device_os"`
-	DeviceType    string    `json:"device_type"`
-	OpenId        string    `json:"open_id"`
-	Username      string    `json:"username"`
-	Name          string    `json:"name"`
-	Email         string    `json:"email"`
-	VerifiedEmail bool      `json:"verified_email"`
-	Verifier      string    `json:"-"` // used for oauth pkce
-	Nonce         string    `json:"-"`
-	ExpiresAt     time.Time `json:"-"`
+	UserId          uint      `json:"-"`
+	Id              string    `json:"id"` //rustdesk的设备ID
+	Op              string    `json:"op"`
+	Action          string    `json:"action"`
+	Uuid            string    `json:"uuid"`
+	DeviceName      string    `json:"device_name"`
+	DeviceOs        string    `json:"device_os"`
+	DeviceType      string    `json:"device_type"`
+	OpenId          string    `json:"open_id"`
+	Username        string    `json:"username"`
+	Name            string    `json:"name"`
+	Email           string    `json:"email"`
+	VerifiedEmail   bool      `json:"verified_email"`
+	Verifier        string    `json:"-"` // used for oauth pkce
+	Nonce           string    `json:"-"`
+	CallbackClaimed bool      `json:"-"`
+	ExpiresAt       time.Time `json:"-"`
 }
 
 func (oci *OauthCacheItem) ToOauthUser() *model.OauthUser {
@@ -131,6 +132,19 @@ func (os *OauthService) DeleteOauthCache(key string) {
 	OauthCache.mu.Unlock()
 }
 
+func (os *OauthService) ClaimOauthCallback(key string) (*OauthCacheItem, bool) {
+	OauthCache.mu.Lock()
+	defer OauthCache.mu.Unlock()
+	purgeExpiredOauthStatesLocked(time.Now())
+	item, ok := OauthCache.items[key]
+	if !ok || item == nil || item.CallbackClaimed || item.Op == "" || item.Action != OauthActionTypeLogin && item.Action != OauthActionTypeBind {
+		return nil, false
+	}
+	item.CallbackClaimed = true
+	clone := *item
+	return &clone, true
+}
+
 func (os *OauthService) TakeOauthLoginResult(key, deviceID, deviceUUID string) (*OauthCacheItem, bool) {
 	OauthCache.mu.Lock()
 	defer OauthCache.mu.Unlock()
@@ -159,6 +173,10 @@ func reserveOauthState(key string) error {
 }
 
 func (os *OauthService) BeginAuth(op string) (authErr error, state, verifier, nonce, authURL string) {
+	externalOrigin, err := validateOauthExternalOrigin(Config.Rustdesk.ApiServer)
+	if err != nil {
+		return err, "", "", "", ""
+	}
 	state = utils.RandomString(32)
 	if state == "" {
 		return errors.New("generate OAuth state"), "", "", "", ""
@@ -174,7 +192,7 @@ func (os *OauthService) BeginAuth(op string) (authErr error, state, verifier, no
 	verifier = ""
 	nonce = ""
 	if op == model.OauthTypeWebauth {
-		authURL = Config.Rustdesk.ApiServer + "/_admin/#/oauth/" + state
+		authURL = externalOrigin + "/_admin/#/oauth/" + state
 		//url = "http://localhost:8888/_admin/#/oauth/" + code
 		return nil, state, verifier, nonce, authURL
 	}
@@ -254,10 +272,14 @@ func (os *OauthService) GetOauthConfig(op string) (err error, oauthInfo *model.O
 	if oauthInfo.Id == 0 || oauthInfo.ClientId == "" || oauthInfo.ClientSecret == "" {
 		return errors.New("ConfigNotFound"), nil, nil, nil
 	}
+	externalOrigin, err := validateOauthExternalOrigin(Config.Rustdesk.ApiServer)
+	if err != nil {
+		return err, nil, nil, nil
+	}
 	oauthConfig = &oauth2.Config{
 		ClientID:     oauthInfo.ClientId,
 		ClientSecret: oauthInfo.ClientSecret,
-		RedirectURL:  Config.Rustdesk.ApiServer + "/api/oidc/callback",
+		RedirectURL:  externalOrigin + "/api/oidc/callback",
 	}
 
 	// Maybe should validate the oauthConfig here
@@ -318,19 +340,10 @@ func getHTTPClientWithProxy() *http.Client {
 		ResponseHeaderTimeout: 10 * time.Second,
 		IdleConnTimeout:       30 * time.Second,
 	}
-	if Config.Proxy.Enable {
-		if Config.Proxy.Host == "" {
-			Logger.Warn("Proxy is enabled but proxy host is empty.")
-			return &http.Client{Transport: boundedOauthTransport{base: transport}, Timeout: timeout, CheckRedirect: rejectOauthRedirect}
-		}
-		proxyURL, err := url.Parse(Config.Proxy.Host)
-		if err != nil || (proxyURL.Scheme != "http" && proxyURL.Scheme != "https") || proxyURL.Hostname() == "" {
-			Logger.Warn("Invalid proxy URL: ", err)
-			return &http.Client{Transport: boundedOauthTransport{base: transport}, Timeout: timeout, CheckRedirect: rejectOauthRedirect}
-		}
-		transport.Proxy = http.ProxyURL(proxyURL)
-		transport.DialContext = dialer.DialContext
-	}
+	// OAuth/OIDC requests deliberately bypass application proxies. An HTTP
+	// proxy resolves the target independently, so Kessoku could not prove that
+	// the connected address is the public address validated above. Config
+	// validation rejects proxy.enable instead of weakening this boundary.
 	return &http.Client{Transport: boundedOauthTransport{base: transport}, Timeout: timeout, CheckRedirect: rejectOauthRedirect}
 }
 
@@ -372,6 +385,20 @@ func validateOauthEndpointURL(raw string) error {
 	return nil
 }
 
+func validateOauthExternalOrigin(raw string) (string, error) {
+	if err := validateOauthEndpointURL(raw); err != nil {
+		return "", fmt.Errorf("OAuth external origin: %w", err)
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return "", err
+	}
+	if parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Path != "" && parsed.Path != "/" {
+		return "", errors.New("OAuth external origin must not include a path, query, or fragment")
+	}
+	return strings.TrimSuffix(raw, "/"), nil
+}
+
 func isDisallowedOauthIP(ip net.IP) bool {
 	return ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsMulticast()
 }
@@ -399,6 +426,7 @@ func (os *OauthService) callbackBase(oauthConfig *oauth2.Config, provider *oidc.
 	if requireIDToken && (!ok || rawIDToken == "") {
 		return errors.New("IdTokenMissing"), nil
 	}
+	verifiedSubject := ""
 	if ok && rawIDToken != "" {
 		// 验证 ID Token
 		v := provider.Verifier(&oidc.Config{ClientID: oauthConfig.ClientID})
@@ -407,21 +435,22 @@ func (os *OauthService) callbackBase(oauthConfig *oauth2.Config, provider *oidc.
 			Logger.Warn("IdTokenVerifyError: ", err2)
 			return errors.New("IdTokenVerifyError"), nil
 		}
-		if nonce != "" {
-			// 验证 nonce
-			var claims struct {
-				Nonce string `json:"nonce"`
-			}
-			if err2 = idToken.Claims(&claims); err2 != nil {
-				Logger.Warn("Failed to parse ID Token claims: ", err)
-				return errors.New("IDTokenClaimsError"), nil
-			}
-
-			if claims.Nonce != nonce {
-				Logger.Warn("Nonce does not match")
-				return errors.New("NonceDoesNotMatch"), nil
-			}
+		var claims struct {
+			Nonce   string `json:"nonce"`
+			Subject string `json:"sub"`
 		}
+		if err2 = idToken.Claims(&claims); err2 != nil {
+			Logger.Warn("Failed to parse ID Token claims: ", err2)
+			return errors.New("IDTokenClaimsError"), nil
+		}
+		if nonce != "" && claims.Nonce != nonce {
+			Logger.Warn("Nonce does not match")
+			return errors.New("NonceDoesNotMatch"), nil
+		}
+		if requireIDToken && strings.TrimSpace(claims.Subject) == "" {
+			return errors.New("OIDCSubjectMissing"), nil
+		}
+		verifiedSubject = claims.Subject
 	}
 
 	// 获取用户信息
@@ -441,12 +470,33 @@ func (os *OauthService) callbackBase(oauthConfig *oauth2.Config, provider *oidc.
 	}
 
 	// 解析用户信息
-	if err = json.NewDecoder(resp.Body).Decode(userData); err != nil {
+	if err = decodeBoundedOauthJSON(resp.Body, userData); err != nil {
 		Logger.Warn("failed decoding user info: ", err)
 		return errors.New("DecodeOauthUserInfoError"), nil
 	}
+	if requireIDToken {
+		oidcUser, validType := userData.(*model.OidcUser)
+		if !validType || !sameOidcSubject(verifiedSubject, oidcUser.Sub) {
+			return errors.New("OIDCSubjectMismatch"), nil
+		}
+	}
 
 	return nil, client
+}
+
+func decodeBoundedOauthJSON(reader io.Reader, destination interface{}) error {
+	body, err := io.ReadAll(io.LimitReader(reader, maxOauthResponseBody+1))
+	if err != nil {
+		return err
+	}
+	if len(body) > maxOauthResponseBody {
+		return errors.New("OAuth response exceeds size limit")
+	}
+	return json.Unmarshal(body, destination)
+}
+
+func sameOidcSubject(idTokenSubject, userInfoSubject string) bool {
+	return strings.TrimSpace(idTokenSubject) != "" && idTokenSubject == userInfoSubject
 }
 
 // githubCallback github回调
@@ -661,7 +711,7 @@ func (os *OauthService) getGithubPrimaryEmail(client *http.Client, githubUser *m
 		Verified bool   `json:"verified"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&emails); err != nil {
+	if err := decodeBoundedOauthJSON(resp.Body, &emails); err != nil {
 		return fmt.Errorf("failed to decode response: %w", err)
 	}
 

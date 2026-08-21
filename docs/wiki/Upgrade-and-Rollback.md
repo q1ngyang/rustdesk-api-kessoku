@@ -14,10 +14,18 @@ and restore-test:
 - Kessoku/Starry configuration and audit/provenance records; and
 - the prior images/packages.
 
+Before changing the image, configure external MySQL with `tls: "true"` (and
+`ca-file` for private PKI), or PostgreSQL with `sslmode: "verify-full"` (and
+`ssl-root-cert` when needed). Test the exact database DNS name against its
+certificate SAN. Also run the duplicate/empty OAuth identity queries in
+[`MIGRATION.md`](../../MIGRATION.md); Kessoku stops instead of guessing how to
+merge a conflicting external identity.
+
 ## Upgrade sequence
 
 1. Deploy Kessoku v2.8.0 with authentication disabled and control read-only.
-2. Verify database version 300 and legacy-token migration.
+2. Verify database version 301, OAuth identity indexes, the final-admin
+   invariant, and legacy-token migration.
 3. Enable EdDSA issuance with a bounded compatibility overlap if required.
 4. Bring up internal mTLS JWKS/introspection.
 5. Upgrade Starry with connection authentication `off`, then `audit`.

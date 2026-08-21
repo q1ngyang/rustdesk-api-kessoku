@@ -218,6 +218,7 @@ jobs:
             -e "s#(docker-compose.yaml)#(https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/docker-compose.yaml)#" \
             -e "s#(examples/compose.env.example)#(https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/compose.env.example)#" \
             -e "s#(docs/wiki/Starry-Control.md)#(https://github.com/${GITHUB_REPOSITORY}/wiki/Starry-Control)#" \
+            -e "s#(docs/wiki/Security-Finding-Closure.md)#(https://github.com/${GITHUB_REPOSITORY}/wiki/Security-Finding-Closure)#" \
             -e "s#(docs/wiki/Upgrade-and-Rollback.md)#(https://github.com/${GITHUB_REPOSITORY}/wiki/Upgrade-and-Rollback)#" \
             -e "s#(MIGRATION.md)#(https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/MIGRATION.md)#" \
             "$notes_file" >> release-notes.md

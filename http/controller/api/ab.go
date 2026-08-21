@@ -85,15 +85,55 @@ func (a *Ab) UpAb(c *gin.Context) {
 		response.Error(c, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
+	if len(abd.Peers) > service.MaxBatchSize || len(abd.Tags) > 100 || len(tc) > 100 || len(abd.TagColors) > 64<<10 {
+		response.Error(c, response.TranslateMsg(c, "ParamsError"))
+		return
+	}
+	peers := make([]*model.AddressBook, 0, len(abd.Peers))
+	for _, peerForm := range abd.Peers {
+		if peerForm == nil || len(peerForm.Tags) > 100 {
+			response.Error(c, response.TranslateMsg(c, "ParamsError"))
+			return
+		}
+		peer := peerForm.ToAddressBook()
+		if !validAddressBookPeer(peer) {
+			response.Error(c, response.TranslateMsg(c, "ParamsError"))
+			return
+		}
+		peers = append(peers, peer)
+	}
+	requestedTags := make(map[string]struct{}, len(abd.Tags))
+	for _, tag := range abd.Tags {
+		if len(tag) == 0 || len(tag) > 128 {
+			response.Error(c, response.TranslateMsg(c, "ParamsError"))
+			return
+		}
+		if _, duplicate := requestedTags[tag]; duplicate {
+			response.Error(c, response.TranslateMsg(c, "ParamsError"))
+			return
+		}
+		requestedTags[tag] = struct{}{}
+	}
+	if len(tc) != len(requestedTags) {
+		response.Error(c, response.TranslateMsg(c, "ParamsError"))
+		return
+	}
+	for tag := range tc {
+		if len(tag) == 0 || len(tag) > 128 {
+			response.Error(c, response.TranslateMsg(c, "ParamsError"))
+			return
+		}
+		if _, present := requestedTags[tag]; !present {
+			response.Error(c, response.TranslateMsg(c, "ParamsError"))
+			return
+		}
+	}
 	user := service.AllService.UserService.CurUser(c)
 
-	err = service.AllService.AddressBookService.UpdateAddressBook(abd.Peers, user.Id)
-	if err != nil {
+	if err := service.AllService.AddressBookService.UpdateAddressBookAndTags(peers, user.Id, tc); err != nil {
 		response.Error(c, response.TranslateMsg(c, "OperationFailed")+err.Error())
 		return
 	}
-
-	service.AllService.TagService.UpdateTags(user.Id, tc)
 
 	c.JSON(http.StatusOK, nil)
 }
@@ -140,10 +180,14 @@ func (a *Ab) PTags(c *gin.Context) {
 // @Security BearerAuth
 func (a *Ab) TagAdd(c *gin.Context) {
 
-	t := &model.Tag{}
+	t := &requstform.TagColorForm{}
 	err := c.ShouldBindJSON(t)
 	if err != nil {
 		response.Error(c, response.TranslateMsg(c, "ParamsError")+err.Error())
+		return
+	}
+	if len(t.Name) == 0 || len(t.Name) > 128 {
+		response.Error(c, response.TranslateMsg(c, "ParamsError"))
 		return
 	}
 
@@ -166,9 +210,8 @@ func (a *Ab) TagAdd(c *gin.Context) {
 		response.Error(c, response.TranslateMsg(c, "ItemExists"))
 		return
 	}
-	t.UserId = uid
-	t.CollectionId = cid
-	err = service.AllService.TagService.Create(t)
+	tag = &model.Tag{Name: t.Name, Color: t.Color, UserId: uid, CollectionId: cid}
+	err = service.AllService.TagService.Create(tag)
 	if err != nil {
 		response.Error(c, response.TranslateMsg(c, "OperationFailed")+err.Error())
 		return
@@ -193,6 +236,10 @@ func (a *Ab) TagRename(c *gin.Context) {
 	err := c.ShouldBindJSON(t)
 	if err != nil {
 		response.Error(c, response.TranslateMsg(c, "ParamsError")+err.Error())
+		return
+	}
+	if len(t.Old) == 0 || len(t.Old) > 128 || len(t.New) == 0 || len(t.New) > 128 {
+		response.Error(c, response.TranslateMsg(c, "ParamsError"))
 		return
 	}
 	u := service.AllService.UserService.CurUser(c)
@@ -246,6 +293,10 @@ func (a *Ab) TagUpdate(c *gin.Context) {
 		response.Error(c, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
+	if len(t.Name) == 0 || len(t.Name) > 128 {
+		response.Error(c, response.TranslateMsg(c, "ParamsError"))
+		return
+	}
 	u := service.AllService.UserService.CurUser(c)
 	guid := c.Param("guid")
 	_, uid, cid, err := a.CheckGuid(u, guid)
@@ -292,6 +343,16 @@ func (a *Ab) TagDel(c *gin.Context) {
 	if err != nil {
 		response.Error(c, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
+	}
+	if len(*t) == 0 || len(*t) > service.MaxBatchSize {
+		response.Error(c, response.TranslateMsg(c, "ParamsError"))
+		return
+	}
+	for _, name := range *t {
+		if len(name) == 0 || len(name) > 128 {
+			response.Error(c, response.TranslateMsg(c, "ParamsError"))
+			return
+		}
 	}
 	//fmt.Println(t)
 	u := service.AllService.UserService.CurUser(c)
@@ -576,6 +637,11 @@ func (a *Ab) PeerAdd(c *gin.Context) {
 		response.Error(c, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
+	ab := f.ToAddressBook()
+	if !validAddressBookPeer(ab) {
+		response.Error(c, response.TranslateMsg(c, "ParamsError"))
+		return
+	}
 
 	u := service.AllService.UserService.CurUser(c)
 	guid := c.Param("guid")
@@ -592,11 +658,14 @@ func (a *Ab) PeerAdd(c *gin.Context) {
 	}
 
 	//fmt.Println(f)
-	f.UserId = uid
-	ab := f.ToAddressBook()
+	ab.RowId = 0
+	ab.UserId = uid
 	ab.CollectionId = cid
 	if ab.Platform == "" || ab.Username == "" || ab.Hostname == "" {
-		peer := service.AllService.PeerService.FindById(ab.Id)
+		// Only enrich from a peer already owned by the authenticated actor. A
+		// writer of a shared address book must not use arbitrary device IDs to
+		// discover another tenant's peer metadata.
+		peer := service.AllService.PeerService.FindByUserIdAndId(u.Id, ab.Id)
 		if peer.RowId != 0 {
 			ab.Platform = service.AllService.AddressBookService.PlatformFromOs(peer.Os)
 			ab.Username = peer.Username
@@ -629,6 +698,16 @@ func (a *Ab) PeerDel(c *gin.Context) {
 	if err != nil {
 		response.Error(c, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
+	}
+	if len(*f) == 0 || len(*f) > service.MaxBatchSize {
+		response.Error(c, response.TranslateMsg(c, "ParamsError"))
+		return
+	}
+	for _, id := range *f {
+		if len(id) == 0 || len(id) > 128 {
+			response.Error(c, response.TranslateMsg(c, "ParamsError"))
+			return
+		}
 	}
 	u := service.AllService.UserService.CurUser(c)
 	guid := c.Param("guid")
@@ -672,9 +751,8 @@ func (a *Ab) PeerDel(c *gin.Context) {
 // @Router /ab/peer/update/{guid} [put]
 // @Security BearerAuth
 func (a *Ab) PeerUpdate(c *gin.Context) {
-	f := gin.H{}
-	//f := &requstform.PersonalAddressBookForm{}
-	err := c.ShouldBindJSON(&f)
+	f := &requstform.PersonalAddressBookUpdate{}
+	err := c.ShouldBindJSON(f)
 	if err != nil {
 		response.Error(c, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
@@ -692,36 +770,64 @@ func (a *Ab) PeerUpdate(c *gin.Context) {
 		response.Error(c, response.TranslateMsg(c, "NoAccess"))
 		return
 	}
-	//fmt.Println(f)
-	//判断f["Id"]是否存在
-	fid, ok := f["id"]
-	if !ok {
+	if f.Password != nil && len(*f.Password) > 4096 || f.Hash != nil && len(*f.Hash) > 512 || f.Alias != nil && len(*f.Alias) > 512 || f.Tags != nil && len(*f.Tags) > 100 {
 		response.Error(c, response.TranslateMsg(c, "ParamsError"))
 		return
 	}
-	fidstr := fid.(string)
+	if f.Tags != nil {
+		for _, tag := range *f.Tags {
+			if len(tag) == 0 || len(tag) > 128 {
+				response.Error(c, response.TranslateMsg(c, "ParamsError"))
+				return
+			}
+		}
+	}
 
-	ab := service.AllService.AddressBookService.InfoByUserIdAndIdAndCid(uid, fidstr, cid)
+	ab := service.AllService.AddressBookService.InfoByUserIdAndIdAndCid(uid, f.Id, cid)
 	if ab == nil || ab.RowId == 0 {
 		response.Error(c, response.TranslateMsg(c, "ItemNotFound"))
 		return
 	}
-	//允许的字段
-	allowUp := []string{"password", "hash", "tags", "alias"}
-	//f中的字段如果不在allowUp中，就删除
-	for k := range f {
-		if !utils.InArray(k, allowUp) {
-			delete(f, k)
-		}
+	updates := make(map[string]interface{}, 4)
+	if f.Password != nil {
+		updates["password"] = *f.Password
 	}
-	//fmt.Println(f)
-	if tags, _ok := f["tags"]; _ok {
-		f["tags"], _ = json.Marshal(tags)
+	if f.Hash != nil {
+		updates["hash"] = *f.Hash
 	}
-	err = service.AllService.AddressBookService.UpdateByMap(ab, f)
+	if f.Alias != nil {
+		updates["alias"] = *f.Alias
+	}
+	if f.Tags != nil {
+		updates["tags"], _ = json.Marshal(*f.Tags)
+	}
+	err = service.AllService.AddressBookService.UpdateByMap(ab, updates)
 	if err != nil {
 		response.Error(c, response.TranslateMsg(c, "OperationFailed")+err.Error())
 		return
 	}
 	c.String(http.StatusOK, "")
+}
+
+func validAddressBookPeer(peer *model.AddressBook) bool {
+	if peer == nil || len(peer.Tags) > 64<<10 {
+		return false
+	}
+	var tags []string
+	if len(peer.Tags) > 0 {
+		if err := json.Unmarshal(peer.Tags, &tags); err != nil {
+			return false
+		}
+	}
+	if len(tags) > 100 {
+		return false
+	}
+	for _, tag := range tags {
+		if len(tag) == 0 || len(tag) > 128 {
+			return false
+		}
+	}
+	return len(peer.Id) > 0 && len(peer.Id) <= 128 && len(peer.Username) <= 512 && len(peer.Password) <= 4096 &&
+		len(peer.Hostname) <= 512 && len(peer.Alias) <= 512 && len(peer.Platform) <= 128 && len(peer.Tags) <= 64<<10 &&
+		len(peer.Hash) <= 512 && len(peer.RdpPort) <= 32 && len(peer.RdpUsername) <= 512 && len(peer.LoginName) <= 512
 }

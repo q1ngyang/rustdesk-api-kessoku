@@ -46,7 +46,8 @@ mysql:
   password: ""
   addr: ""
   dbname: ""
-  tls: "false" # true / false / skip-verify / custom
+  tls: "true" # MySQL deployments require certificate-verified TLS
+  ca-file: "" # optional additional CA bundle for private database PKI
 
 postgresql:
   host: "127.0.0.1"
@@ -54,7 +55,8 @@ postgresql:
   user: ""
   password: ""
   dbname: "postgres"
-  sslmode: "disable" # disable, require, verify-ca, verify-full
+  sslmode: "verify-full" # PostgreSQL deployments require certificate and hostname verification
+  ssl-root-cert: "" # optional CA bundle path for private database PKI
   time-zone: "Asia/Shanghai" # Time zone for PostgreSQL connection
 
 rustdesk:
@@ -69,7 +71,7 @@ logger:
   level: "info" #trace,debug,info,warn,error,fatal
   report-caller: true
 proxy:
-  enable: false
+  enable: false # must remain false; OAuth/OIDC proxy mode is rejected
   host: "http://127.0.0.1:1080"
 # Ed25519 access-token profile. Keep disabled only during the one-time opaque
 # token migration window; connection-auth audit/enforce requires it enabled.

@@ -111,6 +111,7 @@ func (abc *AddressBookCollection) Update(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "NoAccess"))
 		return
 	}
+	f.UserId = u.Id
 
 	err := service.AllService.AddressBookService.UpdateCollection(f)
 	if err != nil {

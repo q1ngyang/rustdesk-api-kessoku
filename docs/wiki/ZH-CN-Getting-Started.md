@@ -51,7 +51,7 @@ Kessoku 不会把可复用初始凭据写入日志。把 bootstrap 文件中的�
 
 ## 按受控阶段继续
 
-1. 验证并备份数据库版本 300。
+1. 验证并备份数据库版本 301。
 2. 配置 Ed25519 access-token 密钥并开启 Kessoku 认证。
 3. 在私有 mTLS 路径上线内部 JWKS/introspection listener。
 4. 部署配套 Starry release，认证先用 `off`，再进入 `audit`。

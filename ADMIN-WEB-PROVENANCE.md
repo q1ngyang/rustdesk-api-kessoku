@@ -30,7 +30,7 @@ excluded from all runtime-copy, package, and image paths.
 ## Reproducible build controls
 
 The root CI and candidate workflow install from `admin-web/package-lock.json`
-with `npm ci`, then run source policy, seven tests, the high-severity production
+with `npm ci`, then run source policy, the current eight tests, the high-severity production
 dependency audit, registry signature verification, two production builds with
 identical file checksums, and CycloneDX generation. Only the verified `dist/`
 tree is copied into runtime `resources/admin`.
@@ -41,7 +41,7 @@ current Kessoku tree, including `admin-web/`, and records the same snapshot SHA
 for backend and frontend in `BUILD-INPUTS.txt`. It performs no push, image
 publication, npm publication, or release operation.
 
-The 2026-08-19 preparation run passed `npm ci`, seven tests, a zero-finding
+The 2026-08-19 preparation run passed `npm ci`, eight tests, a zero-finding
 production audit, registry signatures for 110 packages, two equivalent builds,
 and an SBOM with license metadata for all 62 production components. Browser QA
 covered login and every typed Control page flow against the repository mock.

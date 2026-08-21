@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 
@@ -43,6 +44,49 @@ func TestOauthStateIsBoundedToInitiatingDeviceAndConsumedOnce(t *testing.T) {
 	}
 }
 
+func TestOauthCallbackStateCanOnlyBeClaimedOnce(t *testing.T) {
+	oldCache := OauthCache
+	t.Cleanup(func() { OauthCache = oldCache })
+	OauthCache = &oauthStateStore{items: make(map[string]*OauthCacheItem)}
+	service := &OauthService{}
+	const state = "12345678901234567890123456789012"
+	if err := service.SetOauthCache(state, &OauthCacheItem{Action: OauthActionTypeLogin, Op: model.OauthTypeOidc}, 300); err != nil {
+		t.Fatal(err)
+	}
+	claimed, ok := service.ClaimOauthCallback(state)
+	if !ok || !claimed.CallbackClaimed {
+		t.Fatal("OAuth callback state was not claimed")
+	}
+	if _, ok := service.ClaimOauthCallback(state); ok {
+		t.Fatal("OAuth callback state was replayable")
+	}
+}
+
+func TestOidcSubjectMustMatchVerifiedIDToken(t *testing.T) {
+	if !sameOidcSubject("subject-1", "subject-1") {
+		t.Fatal("matching OIDC subjects were rejected")
+	}
+	for _, pair := range [][2]string{{"", "subject-1"}, {"subject-1", ""}, {"subject-1", "subject-2"}} {
+		if sameOidcSubject(pair[0], pair[1]) {
+			t.Fatalf("mismatched OIDC subjects were accepted: %#v", pair)
+		}
+	}
+}
+
+func TestOauthJSONDecoderEnforcesExactBodyLimit(t *testing.T) {
+	var destination map[string]interface{}
+	oversized := bytes.Repeat([]byte(" "), maxOauthResponseBody+1)
+	if err := decodeBoundedOauthJSON(bytes.NewReader(oversized), &destination); err == nil {
+		t.Fatal("oversized OAuth response was accepted")
+	}
+	if err := decodeBoundedOauthJSON(strings.NewReader(`{"sub":"subject-1"}`), &destination); err != nil {
+		t.Fatal(err)
+	}
+	if destination["sub"] != "subject-1" {
+		t.Fatalf("decoded body = %#v", destination)
+	}
+}
+
 func TestOauthEndpointValidationRejectsLocalDestinations(t *testing.T) {
 	for _, endpoint := range []string{"http://issuer.example.test", "https://127.0.0.1", "https://[::1]", "https://metadata.localhost"} {
 		if err := validateOauthEndpointURL(endpoint); err == nil {
@@ -51,6 +95,22 @@ func TestOauthEndpointValidationRejectsLocalDestinations(t *testing.T) {
 	}
 	if err := validateOauthEndpointURL("https://issuer.example.test/tenant"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestOauthExternalOriginRequiresFixedPublicHTTPSOrigin(t *testing.T) {
+	for _, origin := range []string{
+		"http://api.example.test",
+		"https://127.0.0.1:21114",
+		"https://api.example.test/path",
+		"https://api.example.test?redirect=other",
+	} {
+		if _, err := validateOauthExternalOrigin(origin); err == nil {
+			t.Fatalf("unsafe OAuth external origin accepted: %s", origin)
+		}
+	}
+	if origin, err := validateOauthExternalOrigin("https://api.example.test/"); err != nil || origin != "https://api.example.test" {
+		t.Fatalf("valid OAuth external origin rejected: %q, %v", origin, err)
 	}
 }
 

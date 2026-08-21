@@ -1,13 +1,13 @@
 # Kessoku v2.8.0 × Starry patch-v1.2.0 联合开发状态与后续计划
 
-> 状态日期：2026-08-21  
-> 状态：Starry 正式版已发布并固定；Kessoku 仍是本地 WIP，不得推送或发布
+> 状态日期：2026-08-21
+> 状态：Starry 正式版已发布并固定；Kessoku 为本地 v2.8.0 发布候选，最终确认前不得推送或发布
 
 ## 1. 当前基线
 
 | 项目 | 当前本地检查点 | 对齐目标 |
 | --- | --- | --- |
-| `rustdesk-api-kessoku` | `5f7c2ac` 之上的未提交 WIP；审计基线 `c5687e1` | Kessoku v2.8.0；Docker/Linux x86_64 优先 |
+| `rustdesk-api-kessoku` | 从本地恢复检查点 `de57744` 收敛的受审核候选；审计基线 `c5687e1` | Kessoku v2.8.0；Docker/Linux x86_64 优先 |
 | `rustdesk-server-starry` | 正式 tag `1.1.16-patch-v1.2.0`；commit `5e73b3af1423acf5ee20ca32a2d747eef6df3494` | `patch-v1.2.0` HBBS overlay 与 Linux Control Agent |
 | Control API | `control/v1` 正式契约 | OpenAPI SHA-256 `f42714264d61408c8d6c709efcf87d869b9422ca83fb5c88a9735cc5a02a5e68` |
 | Starry 配置 | `config/v3` | JSON Schema SHA-256 `425c1bafe956a256caff5ad761731583d31b9eee067bad9341cc53211ea19df3` |
@@ -27,7 +27,7 @@ Control OpenAPI 与此前本地候选 digest 完全一致。
 | Relay 与模拟 | 类型化 inventory/simulation DTO，不接受任意 cmd/option/URL | 不可变 Relay/health snapshot 与无副作用选择 trace | 实际响应 fixture、真实 HBBS simulation |
 | 配置读取与 Schema | 校验 exact YAML 的 SHA-256/ETag、runtime drift、Schema digest 与 capability digest 一致 | `GET /config` 返回精确 UTF-8 YAML、format、runtime state 和 strong ETag；Schema bundle 显式建模 | 跨仓 contract fixture 与真实 Agent 调用 |
 | 配置事务 | typed validate/plan/apply/operation/history/rollback/reload；16–128 字节幂等键；审计不记录 secret | 乐观并发、plan 绑定、原子替换、fsync、HBBS ack、自动恢复、持久 operation/audit、人工 rollback | 成功 apply/rollback/reload 跨仓 E2E；失败 apply/outage/restart Starry 黑盒测试 |
-| 管理前端 | 审核候选 `2a9d037fc271cf96b39fd4add4b97c4ff4477f12` 已内置为 `admin-web/`；仅类型化 Control DTO；DOMPurify；严格 CSP/禁止嵌入 | 浏览器不直连 Agent，所有权威状态与变更仍由 Agent 返回 | 与后端同 commit；`npm ci`、7 tests、0-vulnerability audit、110 package signatures、双构建一致、62-component CycloneDX/license、Gitleaks、完整浏览器交互 QA |
+| 管理前端 | 审核候选 `2a9d037fc271cf96b39fd4add4b97c4ff4477f12` 已内置为 `admin-web/`；仅类型化 Control DTO；DOMPurify；严格 CSP/禁止嵌入 | 浏览器不直连 Agent，所有权威状态与变更仍由 Agent 返回 | 与后端同 commit；`npm ci`、8 tests、0-vulnerability audit、110 package signatures、双构建一致、62-component CycloneDX/license、Gitleaks、完整浏览器交互 QA |
 | WebClient 边界 | 不包含 WebClient2；外部 Provider 默认关闭，不代理资产、不注入 bearer/cookie | 不涉及浏览器客户端资产 | packaging/policy 测试 |
 
 ## 3. 本次联合验证结果
@@ -53,7 +53,7 @@ Control OpenAPI 与此前本地候选 digest 完全一致。
   `2a9d037fc271cf96b39fd4add4b97c4ff4477f12`。旧任意 ServerCmd 与全部嵌入式
   WebClient/WebClient2 源码已删除；版本化 Control 页面覆盖 JWT 状态、Relay/模拟、
   YAML/Schema、校验、plan/apply、operation、rollback/reload 与脱敏审计。精确 Node/npm 下
-  `npm ci`、7 tests、生产 audit 0 漏洞、110 package signatures、双构建一致、
+  `npm ci`、8 tests、生产 audit 0 漏洞、110 package signatures、双构建一致、
   62-component CycloneDX/license、Gitleaks 与本地浏览器 QA 均通过；欢迎 Markdown XSS
   payload 已验证被净化。该源码现位于 Kessoku `admin-web/`，候选 CI、开发 Dockerfile 和
   本地候选均只从同一 Kessoku commit 构建，不再依赖独立前端仓库。
@@ -76,12 +76,11 @@ Control OpenAPI 与此前本地候选 digest 完全一致。
   Starry 自身并发测试的 150ms 延迟仅在 debug build 生效；release-aware 临时夹具允许快速
   完成时出现等价 `PLAN_STALE`，而不是只接受 `OPERATION_IN_PROGRESS`。该调整仅存在于
   `/tmp` 测试夹具，正式制品的 HBBS/Agent 哈希在执行前后保持官方值。
-- 保留的 RustDesk 1.4.9 双客户端 staging 在刷新公开 JWKS cache 元数据、通过 Kessoku
-  正常登录签发新的 10 分钟连接 token 后，使用正式 HBBS 二进制建立了目标 `900000102`
-  的混合 WSS/Relay Remote Desktop。验收同时确认 WSS 受控端连接 HBBS `:443`、控制端
-  连接 HBBR `:21117`、远控窗口存在，并在会话期间再次核对正式 HBBS hash。测试结束后
-  原 HBBS hash、Kessoku DB、客户端配置和 TLS sidecar 均已恢复。该结果关闭一个正式版
-  真实客户端路径，但不能替代完整 native/P2P/WSS/Relay 双向矩阵。
+- RustDesk 1.4.9 双客户端验收在刷新公开 JWKS cache 元数据、通过 Kessoku 正常登录签发
+  新的 10 分钟连接 token 后，对正式 Starry 镜像完成五条强制 Relay 桌面路径：`audit`
+  native/native，以及 `enforce` native/native、WSS/WSS、WSS/native、native/WSS。每条路径
+  均验证 Remote Desktop 窗口、截图和已建立 HBBR 连接，并核对正式 tag、source revision、
+  image digest 及 HBBS/HBBR/Agent 哈希。该结果不表示覆盖直接 P2P 或独立 Secure TCP case。
 - Starry 最新认证修复后的 75 个普通库测试均通过，全部 integration target 编译成功；按约定
   的“不做本地 fuzz/主动安全测试”边界，独立的确定性 mutation-corpus 单元本轮未运行。
   针对性真实进程 native TCP、Secure TCP、WSS、持久 WSS 路由、严格 introspection DTO 与
@@ -105,16 +104,16 @@ Control OpenAPI 与此前本地候选 digest 完全一致。
 - Codex Security 已完成两仓库密封静态审计，全程未启动公开服务、未发送探测流量，也未运行
   fuzz/mutation/压力或利用测试。Kessoku 冻结快照覆盖 27 个 surface、记录 23 项 finding；
   Starry 冻结快照覆盖 40 个 surface、记录 22 项 finding（6 medium、16 low，无 high/critical）。
-  Starry 已针对主要认证、边界与资源上限问题实施修复；最终候选仍需在干净 CI 对照 finding
-  逐项复核关闭或记录获批 residual risk。
+  Starry 已针对主要认证、边界与资源上限问题实施修复；Kessoku 精确本地候选已逐项静态
+  复核并记录唯一获批 residual risk，最终批准提交仍需通过受保护候选 CI。
 
 ## 4. 后续联合计划与退出条件
 
 | 优先级 | 工作包 | 负责人/依赖 | 退出条件 |
 | --- | --- | --- | --- |
 | 完成 | 发布并固定 Starry contract | Starry + Kessoku | `1.1.16-patch-v1.2.0` 已发布；Kessoku 已把同一 OpenAPI digest 提升为 `release_sha256`、设为 `PINNED`，并以官方源码/二进制复核合同与 Provider E2E |
-| P0 | 验证 Kessoku v2.8.0 单仓候选 | Kessoku；前端已内置 | 同一 commit 在干净 CI 重跑 Go/迁移、`admin-web` 7 tests、audit/signatures、双构建、SBOM、Docker linux/amd64 与 amd64 DEB 安装 |
-| P0 | 真实支持客户端认证验收 | Kessoku + Starry + staging | native/Secure TCP/WSS 的登录、Relay、logout、disable、password reset、撤销、key rotation、introspection outage 在 `audit`→canary `enforce` 下全部有证据；UDP 继续无响应/无分配 |
+| 本地完成 / CI 待完成 | 验证 Kessoku v2.8.0 单仓候选 | Kessoku；前端已内置 | 本地同源快照已重跑 Go/迁移、`admin-web` 8 tests、audit/signatures、双构建、SBOM、Docker linux/amd64 与 amd64 DEB 安装；最终批准提交仍需受保护 CI |
+| 完成 | 正式 Starry 真实客户端 Relay 验收 | Kessoku + Starry | RustDesk 1.4.9 已通过 `audit` native/native 与 `enforce` native/native、WSS/WSS、WSS/native、native/WSS；每项验证桌面窗口、截图与 HBBR 连接，不外推为直接 P2P/独立 Secure TCP 证据 |
 | P0 | 生产形态恢复演练 | 运维 staging | DB/config/identity/key 备份恢复、Agent read-only→write、ETag conflict、自动 rollback、人工 rollback、token mass invalidation 和重新登录均完成并记录 RTO/RPO |
 | P1 | 正式平台/制品矩阵 | 两项目 CI | Docker linux/amd64、Linux x86_64 tar/二进制和 amd64 DEB 完成最终候选 SBOM/provenance/签名/checksum 与干净 CI；ARM/Windows 仅非阻断兼容，不进入本版本承诺 |
 | P1 | 安全 finding 闭环与韧性验证 | 两项目 + 获批安全/CI 环境 | 以已完成的 Codex Security 密封静态审计为基线，在精确候选上逐项确认修复或 residual risk；auth/protobuf fuzz、长时间重连/并发负载和 secret/heap diagnostics 不在本地执行，并在已通过 1,000 idle WSS 与 100 次 replacement 基线之上留存外部证据 |
@@ -122,7 +121,7 @@ Control OpenAPI 与此前本地候选 digest 完全一致。
 
 ## 5. 不得跨越的门禁
 
-- 在 Kessoku v2.8.0 同提交前后端候选未通过干净 CI 时，不构建或发布完整 Kessoku
+- 在 Kessoku v2.8.0 同提交前后端候选未通过受保护候选 CI 时，不发布完整 Kessoku
   release；固定的 Starry tag/digest 不得改回移动引用。
 - 不从 `lejianwen/rustdesk-api-web@master` 或任何移动分支构建管理前端。
 - 不加入、复制、打包或通过 plugin 规避 WebClient2 的非授权闭源资产。

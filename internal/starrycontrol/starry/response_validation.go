@@ -98,7 +98,7 @@ func validateRuntimeConfigState(result starrycontrol.RuntimeConfigState) error {
 }
 
 func validateRelaysResponse(inventory starrycontrol.RelayInventory) error {
-	if !validIdentifier(inventory.HealthSnapshotID, 256) || inventory.Relays == nil || !validResponseText(inventory.Warning, 2048) {
+	if inventory.ConfigGeneration == 0 || !validIdentifier(inventory.HealthSnapshotID, 256) || inventory.Relays == nil || !validResponseText(inventory.Warning, 2048) {
 		return contractResponseError()
 	}
 	seen := make(map[string]struct{}, len(inventory.Relays))
@@ -139,7 +139,7 @@ func validateRelaysResponse(inventory starrycontrol.RelayInventory) error {
 }
 
 func validateSimulationResponse(result starrycontrol.SimulationResult) error {
-	if !validIdentifier(result.HealthSnapshotID, 256) || result.Candidates == nil || result.Warnings == nil ||
+	if result.ConfigGeneration == 0 || !validIdentifier(result.HealthSnapshotID, 256) || result.Candidates == nil || result.Warnings == nil ||
 		!oneOf(result.Selection.Kind, "geo_rule", "single_candidate", "rotation_prediction", "no_eligible_relay") || !result.Selection.NonBinding {
 		return contractResponseError()
 	}

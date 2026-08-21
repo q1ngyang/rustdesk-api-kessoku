@@ -26,7 +26,8 @@ trust, and secret references. Verify backups before starting an upgrade.
 ## 3. Process and database
 
 - Container runs unprivileged and restarts cleanly.
-- Database version is 300; migrated row counts and token hashes are correct.
+- Database version is 301; migrated row counts, token hashes, OAuth identity
+  indexes, and the final-admin invariant are correct.
 - Initial administrator password is changed.
 - Logs contain no token, private key, certificate, or full configuration.
 - Registration, Swagger, provider, and control-write defaults match policy.
@@ -62,6 +63,11 @@ For every supported RustDesk client version, collect evidence for login and:
 Do not perform penetration, exploit, public-target, fuzz/mutation, or stress
 testing as part of this local workflow. Any separately approved resilience
 testing belongs in an isolated staging/CI environment.
+
+The v2.8.0 local release evidence specifically covers RustDesk 1.4.9
+forced-Relay sessions: `audit` native/native and `enforce` native/native,
+WSS/WSS, WSS/native, and native/WSS. It does not claim direct P2P or a separate
+Secure TCP case. See [Security finding closure](Security-Finding-Closure.md).
 
 ## 7. Recovery and go/no-go
 

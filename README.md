@@ -7,10 +7,11 @@ It provides the client API and an embedded management UI, and integrates with
 [`rustdesk-server-starry`](https://github.com/q1ngyang/rustdesk-server-starry)
 through a typed, versioned Control API.
 
-> **v2.8.0 release draft.** The implementation and local Linux amd64 candidate
-> checks are complete and the official Starry contract is pinned. Publication
-> remains blocked until clean candidate CI, supported-client staging acceptance,
-> recovery drills, and release-owner approval are recorded. Do not deploy an
+> **v2.8.0 release draft.** The implementation and exact local Linux amd64
+> candidate checks are complete, the official Starry contract is pinned, and the
+> published Starry audit-to-enforce real-client matrix passes locally.
+> Publication remains blocked until deployment recovery acceptance, protected
+> candidate CI, and final release-owner approval are recorded. Do not deploy an
 > untagged worktree build as a production release.
 
 ## Component boundary
@@ -38,8 +39,8 @@ proxy, or bypass licensing for WebClient2 assets.
 - Administrator-only control routes and durable redacted intent/result audit.
 - Legacy generic ServerCmd execution removed from the runtime surface.
 - Embedded, reproducibly built management frontend; no moving frontend branch.
-- SQLite, MySQL, and PostgreSQL migration support for token hashes and
-  authentication versions.
+- SQLite, MySQL, and PostgreSQL migration support; external MySQL/PostgreSQL
+  connections require certificate- and hostname-verified TLS.
 - Docker `linux/amd64`, Linux x86_64 archive/binary, and amd64 DEB as the
   v2.8.0 release scope. ARM remains best-effort and non-blocking.
 
@@ -77,6 +78,7 @@ read-only, and complete a real-client and rollback rehearsal first.
 | JWT/JWKS/introspection rollout | [Connection authentication](docs/wiki/Connection-Authentication.md) |
 | Starry integration | [Starry control](docs/wiki/Starry-Control.md) |
 | Browser client boundary | [Web Client](docs/wiki/Web-Client.md) |
+| Security review and accepted residual | [Security finding closure](docs/wiki/Security-Finding-Closure.md) |
 | Acceptance evidence | [Operations and verification](docs/wiki/Operations-and-Verification.md) |
 | Upgrade and rollback | [Upgrade and rollback](docs/wiki/Upgrade-and-Rollback.md) |
 | Failure diagnosis | [Troubleshooting](docs/wiki/Troubleshooting.md) |

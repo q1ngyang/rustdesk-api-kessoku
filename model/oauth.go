@@ -90,7 +90,7 @@ func (oa *Oauth) FormatOauthInfo() error {
 }
 
 type OauthUser struct {
-	OpenId        string `json:"open_id" gorm:"not null;index"`
+	OpenId        string `json:"open_id" gorm:"not null;index;uniqueIndex:idx_user_thirds_op_open_id"`
 	Name          string `json:"name"`
 	Username      string `json:"username"`
 	Email         string `json:"email"`

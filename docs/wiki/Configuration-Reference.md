@@ -20,7 +20,7 @@ RUSTDESK_API_AUTH_INTERNAL_REQUEST_TIMEOUT
 | --- | --- | --- |
 | `app` | Registration, login UI behavior, Swagger, token compatibility | Registration/Swagger off; legacy token read off after migration. |
 | `gin` | Public API bind, mode, resources, trusted proxy | Release mode; exact proxy list or none. |
-| `gorm`/database | SQLite, MySQL, or PostgreSQL selection and pooling | SQLite for simple single-node use; TLS-verified external DB for production as required. |
+| `gorm`/database | SQLite, MySQL, or PostgreSQL selection and pooling | SQLite for simple single-node use; external MySQL/PostgreSQL must verify the certificate and hostname. |
 | `rustdesk` | ID/Relay/API endpoints and public server key | Exact public endpoints and `id_ed25519.pub`; never the private key. |
 | `auth` | EdDSA token profile and internal mTLS API | Enable only after keys/PKI are mounted and migration is rehearsed. |
 | `server-control` | Fixed Starry Control Agent instances | Read-only, legacy commands off, no instance until credentials are ready. |
@@ -35,6 +35,39 @@ requires its server certificate/key, a Starry client CA, and at least one exact
 allowed URI or DNS SAN.
 
 Missing or invalid required material fails startup when the profile is enabled.
+
+## Database transport
+
+SQLite uses the local data file. MySQL and PostgreSQL are never allowed to
+downgrade to plaintext or certificate-without-hostname verification.
+
+```yaml
+gorm:
+  type: mysql
+mysql:
+  addr: "mysql.example.internal:3306"
+  tls: "true"
+  ca-file: "/run/secrets/mysql-ca.pem" # optional additional CA bundle
+```
+
+MySQL always verifies the hostname from `addr` against the server certificate.
+It starts with the operating-system trust pool and adds certificates from
+`ca-file` when configured.
+
+```yaml
+gorm:
+  type: postgresql
+postgresql:
+  host: "postgres.example.internal"
+  port: "5432"
+  sslmode: "verify-full"
+  ssl-root-cert: "/run/secrets/postgres-ca.pem" # optional with public CA
+```
+
+MySQL values other than the literal `true`, and PostgreSQL modes other than
+`verify-full`, fail configuration validation. CA read/parse failures and
+certificate/SAN mismatches also fail startup. Mount CA files read-only and use
+the certificate DNS name, not an unreviewed IP alias.
 
 ## Starry instances
 
@@ -55,6 +88,8 @@ the normal profile outside an approved configuration window.
 - `app.web-client` must remain zero; use the external-provider governance
   model instead.
 - Old HS256 JWT settings are not a supported authentication profile.
+- `proxy.enable` is rejected for OAuth/OIDC because a proxy independently
+  resolves provider targets and would bypass Kessoku's destination validation.
 - `legacy-command-enabled` does not restore command execution; compatibility
   routes only report removal.
 - Do not put private keys, bearer tokens, raw YAML secrets, or certificate

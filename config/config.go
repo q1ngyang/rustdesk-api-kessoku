@@ -67,6 +67,12 @@ func (c Config) Validate() error {
 	if err := c.Ldap.Validate(); err != nil {
 		return err
 	}
+	if c.Proxy.Enable {
+		return errors.New("proxy.enable is not supported for OAuth/OIDC because a proxy can bypass destination address validation")
+	}
+	if err := c.validateDatabaseTransport(); err != nil {
+		return err
+	}
 	return c.ServerControl.Validate()
 }
 

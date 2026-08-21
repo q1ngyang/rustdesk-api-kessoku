@@ -70,7 +70,8 @@ func (a *Audit) ConnDelete(c *gin.Context) {
 	}
 	l := service.AllService.AuditService.ConnInfoById(f.Id)
 	if l.Id > 0 {
-		err := service.AllService.AuditService.DeleteAuditConn(l)
+		actor := service.AllService.UserService.CurUser(c)
+		err := service.AllService.AuditService.DeleteAuditConnContext(c.Request.Context(), actor.Id, controlRequestID(c), l)
 		if err == nil {
 			response.Success(c, nil)
 			return
@@ -103,7 +104,8 @@ func (a *Audit) BatchConnDelete(c *gin.Context) {
 		return
 	}
 
-	err := service.AllService.AuditService.BatchDeleteAuditConn(f.Ids)
+	actor := service.AllService.UserService.CurUser(c)
+	err := service.AllService.AuditService.BatchDeleteAuditConnContext(c.Request.Context(), actor.Id, controlRequestID(c), f.Ids)
 	if err == nil {
 		response.Success(c, nil)
 		return
@@ -169,7 +171,8 @@ func (a *Audit) FileDelete(c *gin.Context) {
 	}
 	l := service.AllService.AuditService.FileInfoById(f.Id)
 	if l.Id > 0 {
-		err := service.AllService.AuditService.DeleteAuditFile(l)
+		actor := service.AllService.UserService.CurUser(c)
+		err := service.AllService.AuditService.DeleteAuditFileContext(c.Request.Context(), actor.Id, controlRequestID(c), l)
 		if err == nil {
 			response.Success(c, nil)
 			return
@@ -202,7 +205,8 @@ func (a *Audit) BatchFileDelete(c *gin.Context) {
 		return
 	}
 
-	err := service.AllService.AuditService.BatchDeleteAuditFile(f.Ids)
+	actor := service.AllService.UserService.CurUser(c)
+	err := service.AllService.AuditService.BatchDeleteAuditFileContext(c.Request.Context(), actor.Id, controlRequestID(c), f.Ids)
 	if err == nil {
 		response.Success(c, nil)
 		return

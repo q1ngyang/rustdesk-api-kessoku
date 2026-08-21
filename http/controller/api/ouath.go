@@ -149,18 +149,18 @@ func (o *Oauth) OidcAuthQuery(c *gin.Context) {
 // @Router /oidc/callback [get]
 func (o *Oauth) OauthCallback(c *gin.Context) {
 	state := c.Query("state")
-	if state == "" {
+	code := c.Query("code")
+	if len(state) != 32 || code == "" || len(code) > 8192 {
 		c.HTML(http.StatusOK, "oauth_fail.html", gin.H{
-			"message":     "ParamIsEmpty",
-			"sub_message": "state",
+			"message": "ParamsError",
 		})
 		return
 	}
 	cacheKey := state
 	oauthService := service.AllService.OauthService
 	//从缓存中获取
-	oauthCache := oauthService.GetOauthCache(cacheKey)
-	if oauthCache == nil {
+	oauthCache, claimed := oauthService.ClaimOauthCallback(cacheKey)
+	if !claimed {
 		c.HTML(http.StatusOK, "oauth_fail.html", gin.H{
 			"message": "OauthExpired",
 		})
@@ -172,7 +172,6 @@ func (o *Oauth) OauthCallback(c *gin.Context) {
 	verifier := oauthCache.Verifier
 	var user *model.User
 	// 获取用户信息
-	code := c.Query("code")
 	err, oauthUser := oauthService.Callback(code, verifier, op, nonce)
 	if err != nil {
 		c.HTML(http.StatusOK, "oauth_fail.html", gin.H{
@@ -230,6 +229,10 @@ func (o *Oauth) OauthCallback(c *gin.Context) {
 			if oauthConfig == nil || oauthConfig.Id == 0 || oauthConfig.AutoRegister == nil || !*oauthConfig.AutoRegister {
 				//c.String(http.StatusInternalServerError, "还未绑定用户，请先绑定")
 				oauthCache.UpdateFromOauthUser(oauthUser)
+				if err := oauthService.SetOauthCache(cacheKey, oauthCache, 0); err != nil {
+					c.HTML(http.StatusOK, "oauth_fail.html", gin.H{"message": "OauthFailed"})
+					return
+				}
 				c.Redirect(http.StatusFound, "/_admin/#/oauth/bind/"+cacheKey)
 				return
 			}

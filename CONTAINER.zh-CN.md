@@ -126,8 +126,11 @@ access-token 与 Control Agent 签名密钥不得复用。不要把 secret 内�
 ## 升级与回滚
 
 升级前备份数据库、认证密钥、内部 PKI、配置、当前镜像 digest 和 Starry generation。
-Kessoku 数据库版本 300 是增量迁移，但旧程序无法认证 v2.8.0 新签发的仅 hash token。
+Kessoku 数据库版本 301 是增量迁移，但旧程序无法认证 v2.8.0 新签发的仅 hash token。
 如果 v2.8.0 已签发令牌，回滚旧程序时必须恢复匹配的升级前数据库备份。
+
+外部 MySQL/PostgreSQL 必须使用验证证书和主机名的 TLS；需要时只读挂载私有 CA。详见
+[配置参数参考](docs/wiki/ZH-CN-Configuration-Reference.md)。
 
 不得覆盖或移动已经公开的版本 tag。详见
 [升级与回滚](docs/wiki/ZH-CN-Upgrade-and-Rollback.md)。

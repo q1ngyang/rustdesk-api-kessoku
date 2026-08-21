@@ -38,20 +38,22 @@ PostgreSQL 16.4 真实迁移测试，后端容器构建、可达漏洞扫描、�
 Starry 契约阻断已经解除：正式 tag `1.1.16-patch-v1.2.0`（commit
 `5e73b3af1423acf5ee20ca32a2d747eef6df3494`）已发布，Control OpenAPI digest 与本地候选
 完全一致，Kessoku 已设为 `PINNED`，并使用官方源码、Release 二进制和 GHCR amd64 镜像
-完成本机复核。以下项目仍是硬阻断，不能用 mock、移动分支或关闭审计代替：
+完成本机复核。以下发布收尾项不能用 mock、移动分支或关闭审计代替：
 
 - 已完成 native/Secure TCP/WSS auth transport、Relay 模拟以及正式 Agent↔Kessoku
-  apply/rollback/reload 联合 E2E，但这些服务进程验证仍不能替代支持版本 RustDesk 图形客户端
-  的 staging 验收；
+  apply/rollback/reload 联合 E2E；正式 Starry 镜像还通过 RustDesk 1.4.9 强制 Relay 桌面
+  矩阵：`audit` native/native，以及 `enforce` native/native、WSS/WSS、WSS/native、
+  native/WSS。每项均验证 Remote Desktop 窗口、截图和已建立 HBBR 连接；该证据不声称
+  覆盖直接 P2P 或独立 Secure TCP case；
 - 已审核管理前端候选 `2a9d037fc271cf96b39fd4add4b97c4ff4477f12` 已作为 `admin-web/`
-  源码并入本仓库，删除 ServerCmd/WebClient2 并实现版本化 Relay/配置管理。`npm ci`、7 tests、
+  源码并入本仓库，删除 ServerCmd/WebClient2 并实现版本化 Relay/配置管理。`npm ci`、8 tests、
   0-vulnerability audit、签名校验、双构建复现、SBOM/license、Markdown XSS 净化和浏览器 QA
   均通过；正式候选只从同一 Kessoku commit 构建，不再依赖独立前端仓库；
 - 本地非发布候选脚本快照同一前后端源树；已通过前后端重复构建、可复现 tar/DEB、
   非 root 镜像、实际 CSP/防嵌入/禁止目录枚举响应头以及已删除配置泄露路由的 `404`。这些
   本地结果不会把 `RELEASE_STATUS` 提升为可发布状态；
-- 生产形态数据库备份恢复、密钥恢复、token 全失效与重新登录、`audit`→`enforce` 灰度、
-  Agent read-only→apply 和人工 rollback 演练必须在真实候选环境记录后才能完成 K7。
+- 精确候选的数据库备份恢复、密钥恢复、token 全失效与重新登录、`audit`→`enforce` 灰度、
+  Agent read-only→apply 和人工 rollback 证据，以及最终发布负责人批准，仍须在发布门禁中记录。
 
 权威发布门禁见 [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md)。在上述阻断解除前，不得创建或
 推送 tag、镜像、package 或 release。

@@ -14,6 +14,7 @@ The main trust boundaries are:
 3. Kessoku to each fixed Starry Control Agent instance.
 4. Administrators to Kessoku's versioned control API.
 5. Kessoku to an independently hosted external Web Client Provider.
+6. Kessoku to SQLite storage or a certificate-verified external database.
 
 Kessoku never mounts Starry configuration, accesses a Docker socket, executes
 shell commands, or accepts an Agent URL from a browser request.
@@ -32,10 +33,47 @@ not contain a reusable bearer token. A single-device logout revokes its JTI.
 Password changes, user disablement, and global logout atomically increase the
 user's `auth_version` and revoke existing rows.
 
+Role/status changes and deletion serialize through a shared database invariant
+row before counting enabled administrators and writing the change. This keeps
+at least one enabled administrator even when multiple Kessoku replicas receive
+concurrent requests. A disabled administrator is not incorrectly treated as
+the final enabled administrator.
+
 The signing private key is read from `current-key.private-key-file`. Previous
 keys are public-key files used only during a bounded rotation overlap. Access
 keys must be stored outside the image and database, mounted read-only, backed
 up separately, and readable only by the service account.
+
+## OAuth and OIDC identities
+
+OAuth state is bounded, expires, and is atomically claimed once before a
+provider callback is used. Login completion remains bound to the initiating
+device ID/UUID; account binding remains bound to the initiating authenticated
+user. OIDC requires a verified non-empty ID-token `sub` and an exact UserInfo
+`sub` match. Provider responses and authorization codes are bounded, and
+trailing JSON is rejected.
+
+Provider discovery/token/UserInfo endpoints and the public callback origin
+must be absolute public HTTPS URLs. Direct connections resolve every address,
+reject private/local/special-use targets, pin the selected public address, and
+reject redirects. `proxy.enable` is rejected because an HTTP proxy performs an
+independent target resolution that Kessoku cannot verify. OAuth identity rows
+enforce unique provider/subject and user/provider bindings; migration stops
+with an actionable error instead of choosing between duplicate identities.
+
+## Database transport and invariants
+
+SQLite is a local file trust boundary. External MySQL requires `tls: "true"`,
+uses hostname verification and the operating-system trust pool, and can add a
+private CA bundle with `ca-file`. PostgreSQL requires `sslmode: verify-full`
+and can use `ssl-root-cert`. Insecure, require-only, or skip-verify profiles
+fail configuration validation. Database credentials are encoded by driver/URL
+builders and are not interpolated into a raw DSN.
+
+The schema contains unique authentication/identity indexes and a shared
+security-invariant lock used to serialize the final-enabled-administrator
+check across replicas. Database backups are confidential and must be restored
+and checked before an upgrade window.
 
 ## Internal JWKS and introspection
 
@@ -95,7 +133,9 @@ All control routes require both an authenticated backend session and
 read and mutation creates a redacted intent record before local/provider work
 and records success or failure afterward. An unavailable audit store prevents
 the Agent call. Simulation responses are accepted only when the Agent marks
-them non-binding; apply/rollback also require ETag and idempotency guards.
+them non-binding and both request and response carry the same explicit non-zero
+configuration generation. Relay inventory also requires a non-zero generation.
+Apply/rollback additionally require ETag and idempotency guards.
 
 ## Legacy server commands
 
@@ -118,11 +158,21 @@ cookie, user identity, address book, or session. See
   deployment responsibilities.
 - A compromised administrator can request all operations exposed by the typed
   API, but cannot turn it into a raw command or arbitrary-URL proxy.
+- RustDesk 1.4.9 audit/sysinfo uploads have no authorization header. The
+  compatibility surface is limited to 64 KiB, bounded fields, and an exact
+  already-persisted peer ID/UUID; the request cannot change its owner. A UUID
+  is not a secret, so someone who knows both values can still submit spoofed
+  operational telemetry.
 - Audit rows are operational evidence, not an immutable external audit ledger.
-  Export them to append-only storage where compliance requires it.
-- The digest-locked local candidate has completed native/Secure TCP/WSS
-  enforcement tests and real HBBS/Control-Agent-to-Kessoku configuration
-  apply/rollback E2E. A published immutable Starry candidate and supported
-  real-client staging matrix remain release gates.
-- The separately maintained admin frontend is a release blocker until its fork,
-  dependency audit, tests, and fixed reviewed commit are available.
+  Export them to append-only storage where non-repudiation is required.
+- The published Starry `1.1.16-patch-v1.2.0` image and binaries are pinned by
+  digest/hash. RustDesk 1.4.9 forced-Relay sessions passed audit native/native
+  and enforce native/native, WSS/WSS, WSS/native, and native/WSS. Direct P2P
+  and a separate Secure TCP case were not claimed by that matrix.
+- The reviewed management frontend source lives in `admin-web/`, is built from
+  the same Kessoku commit with `npm ci`, and is not a browser remote-desktop
+  client. No WebClient2 assets are included.
+
+See [Security finding closure](docs/wiki/Security-Finding-Closure.md) for the
+sealed-snapshot boundary, all 23 Kessoku dispositions, and the accepted
+compatibility residual.

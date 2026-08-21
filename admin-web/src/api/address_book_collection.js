@@ -6,7 +6,6 @@ export function list (params) {
     params,
   })
 }
-
 export function detail (id) {
   return request({
     url: `/address_book_collection/detail/${id}`,
@@ -36,4 +35,3 @@ export function remove (data) {
     data,
   })
 }
-

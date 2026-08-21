@@ -1352,13 +1352,16 @@ const docTemplateapi = `{
             "type": "object",
             "properties": {
                 "name": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 256
                 },
                 "os": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 64
                 },
                 "type": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 64
                 }
             }
         },
@@ -1375,15 +1378,17 @@ const docTemplateapi = `{
                     "$ref": "#/definitions/api.DeviceInfoInLogin"
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 128
                 },
                 "password": {
                     "type": "string",
-                    "maxLength": 32,
+                    "maxLength": 128,
                     "minLength": 4
                 },
                 "type": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 64
                 },
                 "username": {
                     "type": "string",
@@ -1391,7 +1396,8 @@ const docTemplateapi = `{
                     "minLength": 2
                 },
                 "uuid": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 256
                 }
             }
         },
