@@ -32,7 +32,7 @@ Starry HBBS 仍是信令、连接授权与 Relay 分配的权威实现。
 
 ## 安全默认值
 
-- 使用不可变 v2.8.2 镜像 tag，再固定解析出的 digest。
+- 使用不可变 v2.8.3 镜像 tag，再固定解析出的 digest。
 - 注册、Swagger、内置 Web Client 和旧 token 兼容保持关闭，直到对应部署 profile 经过
   明确审核；客户端只能在独立 HTTPS origin 上启用。
 - Starry 连接认证必须从 `off` 或 `audit` 开始，不能直接进入 `enforce`。
@@ -43,6 +43,6 @@ Starry HBBS 仍是信令、连接授权与 Relay 分配的权威实现。
 
 ## 发布与法律状态
 
-v2.8.2 是稳定版。生产部署应验证 Release checksum，并固定带版本的 GHCR digest。
+v2.8.3 是稳定版。生产部署应验证 Release checksum，并固定带版本的 GHCR digest。
 已审核源码使用 MIT 许可证，与 RustDesk 无隶属关系。仓库自有 Web Client 使用 MIT，
 第三方依赖许可证记录在 release SBOM；不包含历史 WebClient2/V2 资产。

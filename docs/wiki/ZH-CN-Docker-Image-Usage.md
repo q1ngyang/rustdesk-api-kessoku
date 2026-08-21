@@ -13,8 +13,8 @@ secret、端口、验收与回滚。
 - [Compose 范例](../../docker-compose.yaml)
 - [环境变量范例](../../examples/compose.env.example)
 - [Caddy HTTPS 范例](../../examples/Caddyfile.example)
-- [v2.8.2 发布说明](../../RELEASE-NOTES-v2.8.2.zh-CN.md)
+- [v2.8.3 发布说明](../../RELEASE-NOTES-v2.8.3.zh-CN.md)
 
-受支持镜像平台为 `linux/amd64`。发布流程会把不可变 `v2.8.2` 与移动的 `latest` 推送为
+受支持镜像平台为 `linux/amd64`。发布流程会把不可变 `v2.8.3` 与移动的 `latest` 推送为
 同一镜像。生产部署应检查并固定版本 tag 的 digest；只有在明确跟随最新稳定版且已准备
 回滚时才使用 `latest`。

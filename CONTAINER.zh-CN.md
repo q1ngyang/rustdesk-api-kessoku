@@ -5,7 +5,7 @@
 本文是从 GHCR package 页面进入项目时使用的版本化入口。推荐在 Linux amd64 上使用
 Docker Compose 部署。
 
-> 在受保护发布流程完成前，本文中的 `v2.8.2` 镜像仍只是发布目标。正式发布的 `latest`
+> 在受保护发布流程完成前，本文中的 `v2.8.3` 镜像仍只是发布目标。正式发布的 `latest`
 > 将指向最新成功发布的稳定版；不要用本地工作树镜像替代。
 
 部署链接：
@@ -22,7 +22,7 @@ Docker Compose 部署。
 
 ## 镜像范围
 
-v2.8.2 镜像包含一个非特权 `kessoku-api` 进程、从同一源码提交构建的已审核管理前端与
+v2.8.3 镜像包含一个非特权 `kessoku-api` 进程、从同一源码提交构建的已审核管理前端与
 Web Client、API 文档和运行配置模板。该镜像：
 
 - 目标平台为 `linux/amd64`；
@@ -42,18 +42,18 @@ Kessoku 不是 HBBS/HBBR。请独立部署配套 Starry HBBS 和官方 HBBR。
 发布后执行：
 
 ```sh
-docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v2.8.2
+docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v2.8.3
 docker image inspect \
-  ghcr.io/q1ngyang/rustdesk-api-kessoku:v2.8.2 \
+  ghcr.io/q1ngyang/rustdesk-api-kessoku:v2.8.3 \
   --format '{{json .RepoDigests}}'
 ```
 
-发布 workflow 会把不可变 `v2.8.2` 与移动的 `latest` 推送为同一镜像。只有在明确希望跟随
+发布 workflow 会把不可变 `v2.8.3` 与移动的 `latest` 推送为同一镜像。只有在明确希望跟随
 最新稳定版时才使用 `latest`；生产变更控制与回滚应解析并固定版本 tag 的 digest。
 
 ## Compose 快速开始
 
-在 v2.8.2 源码或下载的部署文件目录中：
+在 v2.8.3 源码或下载的部署文件目录中：
 
 ```sh
 cp examples/compose.env.example .env
@@ -143,8 +143,8 @@ access-token 与 Control Agent 签名密钥不得复用。不要把 secret 内�
 ## 升级与回滚
 
 升级前备份数据库、认证密钥、内部 PKI、配置、当前镜像 digest 和 Starry generation。
-Kessoku 数据库版本 301 是增量迁移，但旧程序无法认证 v2.8.2 新签发的仅 hash token。
-如果 v2.8.2 已签发令牌，回滚旧程序时必须恢复匹配的升级前数据库备份。
+Kessoku 数据库版本 301 是增量迁移，但旧程序无法认证 v2.8.3 新签发的仅 hash token。
+如果 v2.8.3 已签发令牌，回滚旧程序时必须恢复匹配的升级前数据库备份。
 
 外部 MySQL/PostgreSQL 必须使用验证证书和主机名的 TLS；需要时只读挂载私有 CA。详见
 [配置参数参考](docs/wiki/ZH-CN-Configuration-Reference.md)。

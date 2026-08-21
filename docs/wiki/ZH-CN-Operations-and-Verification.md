@@ -72,7 +72,7 @@ VP9 鼠标/基本键盘会话。该证据不表示支持 P2P、被控模式、�
 可重复的本机编排入口为 `scripts/verify-official-starry-web-client.sh`；它按精确内容 digest
 要求已记录的本地 RustDesk 1.4.9 QA 目标镜像，不会发布任何制品。
 
-v2.8.2 本机发布证据精确覆盖 RustDesk 1.4.9 强制 Relay 会话：`audit` native/native，
+v2.8.3 本机发布证据精确覆盖 RustDesk 1.4.9 强制 Relay 会话：`audit` native/native，
 以及 `enforce` native/native、WSS/WSS、WSS/native、native/WSS；不表示已覆盖直接 P2P
 或独立 Secure TCP case。详见[安全发现闭环](ZH-CN-Security-Finding-Closure.md)。
 

@@ -1,8 +1,8 @@
-# Kessoku v2.8.2 release notes
+# Kessoku v2.8.3 release notes
 
-**English** | [简体中文](RELEASE-NOTES-v2.8.2.zh-CN.md)
+**English** | [简体中文](RELEASE-NOTES-v2.8.3.zh-CN.md)
 
-> v2.8.2 replaces the unpublished `v2.8.0` source tag. Its candidate workflow
+> v2.8.3 replaces the unpublished `v2.8.0` source tag. Its candidate workflow
 > stopped before build because of a container-shell configuration error; no
 > v2.8.0 Release, package, image, `latest` update, or release asset was created,
 > and that tag is not moved or reused.
@@ -12,8 +12,14 @@
 > runtime build because the container checkout was trusted too late and its
 > race run reused migration-test databases. It likewise created no runtime,
 > package, image, `latest` update, Release, or release asset.
+>
+> The subsequent `v2.8.2` source tag is also an unpublished, immutable
+> tombstone. Its complete source/runtime gates passed, but downstream packaging
+> failed closed after GitHub artifact extraction normalized the executable
+> mode. It created no final candidate, package, image, `latest` update,
+> Release, or published asset.
 
-v2.8.2 turns the former general RustDesk API service into a bounded account
+v2.8.3 turns the former general RustDesk API service into a bounded account
 and administration plane designed to pair with
 `rustdesk-server-starry patch-v1.2.0`.
 
@@ -33,11 +39,11 @@ Docker Compose on Linux amd64 is the recommended deployment.
 - [Starry integration guide](docs/wiki/Starry-Control.md)
 
 The release publishes
-`ghcr.io/q1ngyang/rustdesk-api-kessoku:v2.8.2` and `:latest` for the same image.
+`ghcr.io/q1ngyang/rustdesk-api-kessoku:v2.8.3` and `:latest` for the same image.
 The version tag is immutable; `latest` moves only after a successful stable
 release. Resolve and pin the version tag's digest for production rollout.
 
-## New in v2.8.2
+## New in v2.8.3
 
 ### Authentication and token lifecycle
 
@@ -110,7 +116,7 @@ release. Resolve and pin the version tag's digest for production rollout.
 
 ### Packaging and automation
 
-- Linux amd64 is the supported v2.8.2 platform: GHCR image, Linux x86_64
+- Linux amd64 is the supported v2.8.3 platform: GHCR image, Linux x86_64
   archive/binary, and amd64 DEB.
 - The image runs as an unprivileged user, contains `resources/client`, exposes
   separate port 21122, and rejects historical browser-client assets.
@@ -131,7 +137,7 @@ release. Resolve and pin the version tag's digest for production rollout.
   `postgresql.sslmode: verify-full` and can use `ssl-root-cert`. Insecure or
   hostname-unverified database transport fails startup.
 - The migration is additive, but older applications cannot use credentials
-  issued without a plaintext token. After v2.8.2 issues tokens, application
+  issued without a plaintext token. After v2.8.3 issues tokens, application
   rollback requires the matching verified pre-upgrade database backup.
 - Existing opaque credentials may use a bounded compatibility phase. Removed
   HS256 settings are not a supported connection-authentication profile.
@@ -143,7 +149,7 @@ release. Resolve and pin the version tag's digest for production rollout.
 See [Upgrade and rollback](docs/wiki/Upgrade-and-Rollback.md) and
 [`MIGRATION.md`](MIGRATION.md).
 
-## Known limitation accepted for v2.8.2
+## Known limitation accepted for v2.8.3
 
 RustDesk 1.4.9 audit/sysinfo uploads do not carry an authorization header.
 Kessoku retains a bounded compatibility route requiring an already registered
@@ -157,7 +163,7 @@ disposition and evidence boundary are in
 
 - Supported: Docker `linux/amd64`, Linux x86_64 archive/binary, amd64 DEB.
 - Best effort and non-blocking: ARM source/build compatibility.
-- Outside the v2.8.2 release promise: Windows artifacts.
+- Outside the v2.8.3 release promise: Windows artifacts.
 
 ## Pre-release status
 
@@ -191,4 +197,4 @@ actions:
 - approve the final documentation and new-feature wording, including this
   recorded Web Client acceptance; and
 - run protected non-publishing candidate CI for that approved commit before the
-  immutable tag, GHCR `v2.8.2`/`latest`, GitHub Release, and Wiki are published.
+  immutable tag, GHCR `v2.8.3`/`latest`, GitHub Release, and Wiki are published.
