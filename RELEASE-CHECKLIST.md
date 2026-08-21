@@ -193,7 +193,7 @@ evidence, not penetration or stress testing.
 - [x] The release owner confirms that the public project/repository/image name
       remains `rustdesk-api-kessoku` and that no requested rename to
       `rustdesk-server-kessoku` is pending.
-- [ ] The concise English/Chinese README, bilingual v2.8.0 release notes,
+- [x] The concise English/Chinese README, bilingual v2.8.0 release notes,
       bilingual container guide, all paired Wiki pages, and project/package
       metadata wording are reviewed and approved, including the requested
       current Web Client implementation explanation.
@@ -212,7 +212,7 @@ evidence, not penetration or stress testing.
       each deployment owner must record its recovery owners, maintenance window,
       RTO/RPO, and go/no-go decision before rollout. This is a deployment gate,
       not a software-publication gate.
-- [ ] The release owner explicitly approves the final new-feature,
+- [x] The release owner explicitly approves the final new-feature,
       compatibility, platform-scope, and migration wording before any tag,
       Wiki, GHCR image, or GitHub Release is published, including the final TLS,
       OAuth/OIDC, accepted-residual, Starry matrix, `latest`, and Web Client
