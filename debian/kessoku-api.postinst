@@ -1,0 +1,37 @@
+#!/bin/sh
+set -e
+
+service_name=kessoku-api.service
+service_user=kessoku-api
+state_dir=/var/lib/kessoku-api
+
+if [ "$1" = "configure" ]; then
+    if ! getent group "$service_user" >/dev/null; then
+        addgroup --system "$service_user"
+    fi
+    if ! getent passwd "$service_user" >/dev/null; then
+        adduser --system --ingroup "$service_user" --home "$state_dir" \
+            --no-create-home --disabled-login --disabled-password "$service_user"
+    fi
+    install -d -m 0700 -o "$service_user" -g "$service_user" \
+        "$state_dir/data" "$state_dir/runtime" "$state_dir/resources/public/upload"
+fi
+
+case "$1" in
+    configure|abort-upgrade|abort-deconfigure|abort-remove)
+        deb-systemd-helper unmask "$service_name" >/dev/null || true
+        if deb-systemd-helper --quiet was-enabled "$service_name"; then
+            deb-systemd-invoke enable "$service_name" >/dev/null || true
+        else
+            deb-systemd-invoke update-state "$service_name" >/dev/null || true
+        fi
+        systemctl --system daemon-reload >/dev/null || true
+        if [ -n "${2:-}" ]; then
+            deb-systemd-invoke restart "$service_name" >/dev/null || true
+        else
+            deb-systemd-invoke start "$service_name" >/dev/null || true
+        fi
+        ;;
+esac
+
+exit 0

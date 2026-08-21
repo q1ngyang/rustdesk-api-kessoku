@@ -1,0 +1,6 @@
+bin/kessoku-api usr/bin
+systemd/kessoku-api.service lib/systemd/system
+conf var/lib/kessoku-api
+data var/lib/kessoku-api
+resources var/lib/kessoku-api
+runtime var/lib/kessoku-api

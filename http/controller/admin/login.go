@@ -4,14 +4,14 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-	"github.com/lejianwen/rustdesk-api/v2/global"
-	"github.com/lejianwen/rustdesk-api/v2/http/controller/api"
-	"github.com/lejianwen/rustdesk-api/v2/http/request/admin"
-	apiReq "github.com/lejianwen/rustdesk-api/v2/http/request/api"
-	"github.com/lejianwen/rustdesk-api/v2/http/response"
-	adResp "github.com/lejianwen/rustdesk-api/v2/http/response/admin"
-	"github.com/lejianwen/rustdesk-api/v2/model"
-	"github.com/lejianwen/rustdesk-api/v2/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/controller/api"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/request/admin"
+	apiReq "github.com/q1ngyang/rustdesk-api-kessoku/v2/http/request/api"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response"
+	adResp "github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response/admin"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
 )
 
 type Login struct {
@@ -27,7 +27,6 @@ type Login struct {
 // @Success 200 {object} response.Response{data=adResp.LoginPayload}
 // @Failure 500 {object} response.Response
 // @Router /admin/login [post]
-// @Security token
 func (ct *Login) Login(c *gin.Context) {
 	if global.Config.App.DisablePwdLogin {
 		response.Fail(c, 101, response.TranslateMsg(c, "PwdLoginDisabled"))
@@ -94,6 +93,10 @@ func (ct *Login) Login(c *gin.Context) {
 		Type:     model.LoginLogTypeAccount,
 		Platform: f.Platform,
 	})
+	if ut == nil {
+		response.Fail(c, 101, response.TranslateMsg(c, "SystemError"))
+		return
+	}
 
 	// 登录成功，清除登录限制
 	loginLimiter.RemoveAttempts(clientIp)
@@ -138,11 +141,15 @@ func (ct *Login) Captcha(c *gin.Context) {
 // @Success 200 {object} response.Response
 // @Failure 500 {object} response.Response
 // @Router /admin/logout [post]
+// @Security token
 func (ct *Login) Logout(c *gin.Context) {
 	u := service.AllService.UserService.CurUser(c)
 	token, ok := c.Get("token")
 	if ok {
-		service.AllService.UserService.Logout(u, token.(string))
+		if err := service.AllService.UserService.LogoutContext(c.Request.Context(), u, token.(string)); err != nil {
+			response.Fail(c, 101, response.TranslateMsg(c, "SystemError"))
+			return
+		}
 	}
 	response.Success(c, nil)
 }
@@ -197,7 +204,7 @@ func (ct *Login) OidcAuth(c *gin.Context) {
 		return
 	}
 
-	service.AllService.OauthService.SetOauthCache(state, &service.OauthCacheItem{
+	if err := service.AllService.OauthService.SetOauthCache(state, &service.OauthCacheItem{
 		Action:     service.OauthActionTypeLogin,
 		Op:         f.Op,
 		Id:         f.Id,
@@ -207,7 +214,10 @@ func (ct *Login) OidcAuth(c *gin.Context) {
 		Uuid:     f.Uuid,
 		Verifier: verifier,
 		Nonce:    nonce,
-	}, 5*60)
+	}, 5*60); err != nil {
+		response.Error(c, response.TranslateMsg(c, "OauthFailed"))
+		return
+	}
 
 	response.Success(c, gin.H{
 		"code": state,

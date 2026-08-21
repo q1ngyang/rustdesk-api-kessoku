@@ -4,11 +4,12 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/lejianwen/rustdesk-api/v2/global"
-	"github.com/lejianwen/rustdesk-api/v2/http/request/admin"
-	adminReq "github.com/lejianwen/rustdesk-api/v2/http/request/admin"
-	"github.com/lejianwen/rustdesk-api/v2/http/response"
-	"github.com/lejianwen/rustdesk-api/v2/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/request/admin"
+	adminReq "github.com/q1ngyang/rustdesk-api-kessoku/v2/http/request/admin"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
 )
 
 type Oauth struct {
@@ -17,7 +18,7 @@ type Oauth struct {
 // Info
 func (o *Oauth) Info(c *gin.Context) {
 	code := c.Query("code")
-	if code == "" {
+	if len(code) != 32 {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
 		return
 	}
@@ -26,7 +27,7 @@ func (o *Oauth) Info(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ItemNotFound"))
 		return
 	}
-	response.Success(c, v)
+	response.Success(c, oauthCacheResponse(v))
 }
 
 func (o *Oauth) ToBind(c *gin.Context) {
@@ -50,13 +51,16 @@ func (o *Oauth) ToBind(c *gin.Context) {
 		return
 	}
 
-	service.AllService.OauthService.SetOauthCache(state, &service.OauthCacheItem{
+	if err := service.AllService.OauthService.SetOauthCache(state, &service.OauthCacheItem{
 		Action:   service.OauthActionTypeBind,
 		Op:       f.Op,
 		UserId:   u.Id,
 		Verifier: verifier,
 		Nonce:    nonce,
-	}, 5*60)
+	}, 5*60); err != nil {
+		response.Error(c, response.TranslateMsg(c, "OauthFailed"))
+		return
+	}
 
 	response.Success(c, gin.H{
 		"code": state,
@@ -81,10 +85,17 @@ func (o *Oauth) Confirm(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "OauthExpired"))
 		return
 	}
+	if v.Action != service.OauthActionTypeLogin || v.Op != model.OauthTypeWebauth || v.UserId != 0 {
+		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
+		return
+	}
 	u := service.AllService.UserService.CurUser(c)
 	v.UserId = u.Id
-	service.AllService.OauthService.SetOauthCache(j.Code, v, 0)
-	response.Success(c, v)
+	if err := service.AllService.OauthService.SetOauthCache(j.Code, v, 0); err != nil {
+		response.Fail(c, 101, response.TranslateMsg(c, "OperationFailed"))
+		return
+	}
+	response.Success(c, oauthCacheResponse(v))
 }
 
 func (o *Oauth) BindConfirm(c *gin.Context) {
@@ -104,6 +115,10 @@ func (o *Oauth) BindConfirm(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "OauthExpired"))
 		return
 	}
+	if oauthCache.Action != service.OauthActionTypeLogin || oauthCache.UserId != 0 || oauthCache.OpenId == "" {
+		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
+		return
+	}
 	oauthUser := oauthCache.ToOauthUser()
 	user := service.AllService.UserService.CurUser(c)
 	err = oauthService.BindOauthUser(user.Id, oauthUser, oauthCache.Op)
@@ -113,8 +128,19 @@ func (o *Oauth) BindConfirm(c *gin.Context) {
 	}
 
 	oauthCache.UserId = user.Id
-	oauthService.SetOauthCache(j.Code, oauthCache, 0)
-	response.Success(c, oauthCache)
+	oauthService.DeleteOauthCache(j.Code)
+	response.Success(c, oauthCacheResponse(oauthCache))
+}
+
+func oauthCacheResponse(item *service.OauthCacheItem) gin.H {
+	return gin.H{
+		"op":          item.Op,
+		"id":          item.Id,
+		"device_name": item.DeviceName,
+		"device_os":   item.DeviceOs,
+		"device_type": item.DeviceType,
+		"third_name":  item.Name,
+	}
 }
 
 func (o *Oauth) Unbind(c *gin.Context) {

@@ -11,7 +11,9 @@ type User struct {
 	GroupId  uint       `json:"group_id" gorm:"default:0;not null;index"`
 	IsAdmin  *bool      `json:"is_admin" gorm:"default:0;not null;"`
 	Status   StatusCode `json:"status" gorm:"default:1;not null;"`
-	Remark   string     `json:"remark" gorm:"default:'';not null;"`
+	// AuthVersion invalidates every previously issued token when incremented.
+	AuthVersion uint64 `json:"auth_version" gorm:"default:1;not null;"`
+	Remark      string `json:"remark" gorm:"default:'';not null;"`
 	TimeModel
 }
 

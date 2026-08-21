@@ -2,8 +2,9 @@ package middleware
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/lejianwen/rustdesk-api/v2/http/response"
-	"github.com/lejianwen/rustdesk-api/v2/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
+	"net/http"
 )
 
 // BackendUserAuth 后台权限验证中间件
@@ -13,13 +14,13 @@ func BackendUserAuth() gin.HandlerFunc {
 		//测试先关闭
 		token := c.GetHeader("api-token")
 		if token == "" {
-			response.Fail(c, 403, response.TranslateMsg(c, "NeedLogin"))
+			response.FailStatus(c, http.StatusUnauthorized, 401, response.TranslateMsg(c, "NeedLogin"))
 			c.Abort()
 			return
 		}
-		user, ut := service.AllService.UserService.InfoByAccessToken(token)
+		user, _ := service.AllService.UserService.InfoByAccessTokenContext(c.Request.Context(), token)
 		if user.Id == 0 {
-			response.Fail(c, 403, response.TranslateMsg(c, "NeedLogin"))
+			response.FailStatus(c, http.StatusUnauthorized, 401, response.TranslateMsg(c, "NeedLogin"))
 			c.Abort()
 			return
 		}
@@ -34,9 +35,6 @@ func BackendUserAuth() gin.HandlerFunc {
 
 		c.Set("curUser", user)
 		c.Set("token", token)
-		//如果时间小于1天,token自动续期
-		service.AllService.UserService.AutoRefreshAccessToken(ut)
-
 		c.Next()
 	}
 }

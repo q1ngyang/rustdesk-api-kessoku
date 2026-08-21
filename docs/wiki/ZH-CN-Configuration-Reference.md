@@ -1,0 +1,99 @@
+# 配置参数参考
+
+[English](Configuration-Reference.md) | **简体中文**
+
+完整注释模板为 [`conf/config.yaml`](../../conf/config.yaml)。程序读取该 YAML，也可用
+`RUSTDESK_API_` 前缀的环境变量覆盖；点和连字符会转换为下划线。
+
+示例：
+
+```text
+auth.internal.request-timeout
+RUSTDESK_API_AUTH_INTERNAL_REQUEST_TIMEOUT
+```
+
+## 主要配置段
+
+| 配置段 | 用途 | 安全起点 |
+| --- | --- | --- |
+| `app` | 注册、登录 UI、Swagger、token 兼容 | 注册/Swagger 关闭；迁移后关闭旧 token 读取。 |
+| `gin` | 公共 API 监听、模式、资源、可信代理 | release 模式；只设精确代理地址或不设。 |
+| `gorm`/数据库 | SQLite、MySQL、PostgreSQL 与连接池 | 简单单机可用 SQLite；外部 MySQL/PostgreSQL 必须验证证书与主机名。 |
+| `rustdesk` | ID/Relay/API 地址与服务端公钥 | 精确公网地址和 `id_ed25519.pub`，不能使用私钥。 |
+| `auth` | EdDSA token profile 与内部 mTLS API | 挂载密钥/PKI 且演练迁移后再开启。 |
+| `server-control` | 固定 Starry Control Agent 实例 | 只读、旧命令关闭；凭据未就绪前不配置实例。 |
+| `web-client` | 内置浏览器客户端 listener、origin、WSS map、公钥、generation、grant TTL | `disabled`；启用时使用独立 HTTPS origin 与 loopback listener。 |
+| `ldap`/OAuth | 可选身份源 | 验证 TLS、最小权限、删除示例密码。 |
+
+## 认证文件
+
+`auth.current-key.private-key-file` 必须引用 Ed25519 PKCS#8 私钥；previous key 使用公钥
+文件。内部 listener 另需服务端证书/私钥、Starry 客户端 CA，以及至少一个精确允许的 URI
+或 DNS SAN。
+
+profile 启用后，所需材料缺失或无效会使启动失败。
+
+## 数据库传输
+
+SQLite 使用本地数据文件。MySQL/PostgreSQL 不允许降级为明文，或只验证证书而不验证主机名。
+
+```yaml
+gorm:
+  type: mysql
+mysql:
+  addr: "mysql.example.internal:3306"
+  tls: "true"
+  ca-file: "/run/secrets/mysql-ca.pem" # 可选的附加 CA bundle
+```
+
+MySQL 始终用 `addr` 中的主机名验证服务端证书。默认使用操作系统信任池；配置 `ca-file` 后
+会把其中证书加入信任池。
+
+```yaml
+gorm:
+  type: postgresql
+postgresql:
+  host: "postgres.example.internal"
+  port: "5432"
+  sslmode: "verify-full"
+  ssl-root-cert: "/run/secrets/postgres-ca.pem" # 使用公共 CA 时可省略
+```
+
+MySQL 不是字面值 `true`、或 PostgreSQL 不是 `verify-full` 时，配置校验会失败。CA
+读取/解析失败以及证书/SAN 不匹配同样会使启动失败。CA 文件应只读挂载，并使用证书中的
+DNS 名称，不能使用未经审核的 IP 别名。
+
+## Starry 实例
+
+每个启用实例固定：
+
+- 部署 ID 与显示名称；
+- 绝对 HTTPS Agent origin；
+- 预期 Agent instance UUID 与 TLS server name；
+- CA 和客户端证书/私钥文件路径；
+- 独立 service-JWT 签名密钥与 key ID；
+- control issuer 与证书绑定 authorized party。
+
+浏览器无法覆盖这些值。除经过批准的配置窗口外，应保持
+`server-control.read-only: true`。
+
+## 内置 Web 客户端
+
+`web-client.mode` 只能是 `disabled` 或 `builtin`。Builtin 要求开启 `auth.enabled`、明确
+listener、不同的精确 HTTPS `public-origin`/`api-origin`、精确
+`wss://.../ws/id` rendezvous、至少一个 Relay 名称到 `wss://.../ws/relay` 的精确 map、
+base64 32-byte Ed25519 公钥，以及正数 `profile-generation`。
+`connection-token-ttl` 默认 15 分钟，不能超过一小时或 `auth.maximum-token-ttl`。
+
+公共客户端 profile 只公开端点、服务端公钥/fingerprint 与 generation。已批准端点或密钥
+profile 变化时应递增 generation。详见[内置 Web 客户端](ZH-CN-Web-Client.md)。
+
+## 已删除或拒绝的设置
+
+- `app.web-client` 必须为零；改用 `web-client.mode`。
+- 已删除的 root `web-client-provider` block 会被拒绝，不会静默忽略。
+- 旧 HS256 JWT 设置不是受支持认证 profile。
+- OAuth/OIDC 拒绝 `proxy.enable`：代理会独立解析 provider 目标，从而绕过 Kessoku 的
+  目标地址校验。
+- `legacy-command-enabled` 不会恢复命令执行，兼容路由只会报告功能已删除。
+- 不要把私钥、bearer token、完整 YAML secret 或证书内容写入环境变量、日志或管理审计。

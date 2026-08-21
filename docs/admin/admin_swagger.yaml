@@ -39,6 +39,7 @@ definitions:
       user_ids:
         items:
           type: integer
+        maxItems: 1000
         type: array
       username:
         type: string
@@ -50,6 +51,7 @@ definitions:
       ids:
         items:
           type: integer
+        maxItems: 1000
         type: array
     required:
     - ids
@@ -59,6 +61,7 @@ definitions:
       ids:
         items:
           type: integer
+        maxItems: 1000
         type: array
     required:
     - ids
@@ -66,8 +69,8 @@ definitions:
   admin.ChangeCurPasswordForm:
     properties:
       new_password:
-        maxLength: 32
-        minLength: 4
+        maxLength: 128
+        minLength: 12
         type: string
       old_password:
         maxLength: 32
@@ -76,6 +79,42 @@ definitions:
     required:
     - new_password
     - old_password
+    type: object
+  admin.ControlAPIError:
+    properties:
+      code:
+        type: string
+      details:
+        additionalProperties: true
+        type: object
+      message:
+        type: string
+      request_id:
+        type: string
+      retryable:
+        type: boolean
+    type: object
+  admin.ControlAPIProblem:
+    properties:
+      error:
+        $ref: '#/definitions/admin.ControlAPIError'
+    type: object
+  admin.ControlAPIResponse:
+    properties:
+      data: {}
+    type: object
+  admin.ControlAuditEventList:
+    properties:
+      list:
+        items:
+          $ref: '#/definitions/model.AdminAuditEvent'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
     type: object
   admin.DeviceGroupForm:
     properties:
@@ -102,6 +141,7 @@ definitions:
       ids:
         items:
           type: integer
+        maxItems: 1000
         type: array
     required:
     - ids
@@ -155,12 +195,15 @@ definitions:
       row_ids:
         items:
           type: integer
+        maxItems: 1000
         type: array
     required:
     - row_ids
     type: object
   admin.PeerForm:
     properties:
+      alias:
+        type: string
       cpu:
         type: string
       group_id:
@@ -187,28 +230,10 @@ definitions:
       ids:
         items:
           type: integer
+        maxItems: 1000
         type: array
     required:
     - ids
-    type: object
-  admin.ShareByWebClientForm:
-    properties:
-      expire:
-        type: integer
-      id:
-        type: string
-      password:
-        type: string
-      password_type:
-        description: 只能是once,fixed
-        enum:
-        - once
-        - fixed
-        type: string
-    required:
-    - id
-    - password
-    - password_type
     type: object
   admin.ShareRecordForm:
     properties:
@@ -249,16 +274,21 @@ definitions:
       nickname:
         description: Password string           `json:"password" validate:"required,gte=4,lte=20"`
         type: string
+      remark:
+        type: string
       status:
         allOf:
         - $ref: '#/definitions/model.StatusCode'
-        minimum: 0
+        enum:
+        - 1
+        - 2
       username:
         maxLength: 32
         minLength: 2
         type: string
     required:
     - group_id
+    - is_admin
     - status
     - username
     type: object
@@ -274,23 +304,31 @@ definitions:
       id:
         type: integer
       password:
-        maxLength: 32
-        minLength: 4
+        maxLength: 128
+        minLength: 12
         type: string
     required:
     - id
     - password
+    type: object
+  admin.UserSessionRevokeForm:
+    properties:
+      id:
+        type: integer
+    required:
+    - id
     type: object
   admin.UserTokenBatchDeleteForm:
     properties:
       ids:
         items:
           type: integer
+        maxItems: 1000
         type: array
     required:
     - ids
     type: object
-  github_com_lejianwen_rustdesk-api_v2_http_request_admin.Login:
+  github_com_q1ngyang_rustdesk-api-kessoku_v2_http_request_admin.Login:
     properties:
       captcha:
         type: string
@@ -421,6 +459,31 @@ definitions:
         type: integer
       total:
         type: integer
+    type: object
+  model.AdminAuditEvent:
+    properties:
+      action:
+        type: string
+      actor_user_id:
+        type: integer
+      created_at:
+        type: string
+      error_code:
+        type: string
+      id:
+        type: integer
+      metadata:
+        type: object
+      request_id:
+        type: string
+      result:
+        type: string
+      target_id:
+        type: string
+      target_type:
+        type: string
+      updated_at:
+        type: string
     type: object
   model.AuditConn:
     properties:
@@ -589,6 +652,7 @@ definitions:
   model.Oauth:
     properties:
       auto_register:
+        description: RedirectUrl  string `json:"redirect_url"`
         type: boolean
       client_id:
         type: string
@@ -628,6 +692,8 @@ definitions:
     type: object
   model.Peer:
     properties:
+      alias:
+        type: string
       cpu:
         type: string
       created_at:
@@ -682,6 +748,9 @@ definitions:
     x-enum-comments:
       COMMON_STATUS_DISABLED: 通用状态 禁用
       COMMON_STATUS_ENABLE: 通用状态 启用
+    x-enum-descriptions:
+    - 通用状态 启用
+    - 通用状态 禁用
     x-enum-varnames:
     - COMMON_STATUS_ENABLE
     - COMMON_STATUS_DISABLED
@@ -721,6 +790,9 @@ definitions:
     type: object
   model.User:
     properties:
+      auth_version:
+        description: AuthVersion invalidates every previously issued token when incremented.
+        type: integer
       avatar:
         type: string
       created_at:
@@ -734,6 +806,8 @@ definitions:
       is_admin:
         type: boolean
       nickname:
+        type: string
+      remark:
         type: string
       status:
         $ref: '#/definitions/model.StatusCode'
@@ -757,6 +831,8 @@ definitions:
     type: object
   model.UserToken:
     properties:
+      auth_version:
+        type: integer
       created_at:
         type: string
       device_id:
@@ -767,7 +843,15 @@ definitions:
         type: integer
       id:
         type: integer
-      token:
+      issued_at:
+        type: integer
+      jti:
+        type: string
+      kid:
+        type: string
+      revoked_at:
+        type: integer
+      revoked_reason:
         type: string
       updated_at:
         type: string
@@ -798,6 +882,496 @@ definitions:
         type: integer
       data: {}
       message:
+        type: string
+    type: object
+  service.ServerControlInstance:
+    properties:
+      available:
+        type: boolean
+      enabled:
+        type: boolean
+      error_code:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      read_only:
+        type: boolean
+    type: object
+  starrycontrol.ActivationAck:
+    properties:
+      activated_at:
+        type: string
+      audit_id:
+        type: string
+      effective_digest:
+        type: string
+      generation:
+        type: integer
+      schema_version:
+        type: integer
+      source_digest:
+        type: string
+      subsystem_acks:
+        items:
+          $ref: '#/definitions/starrycontrol.SubsystemAck'
+        type: array
+    type: object
+  starrycontrol.AgentLimits:
+    properties:
+      max_config_bytes:
+        type: integer
+      max_plan_lifetime_seconds:
+        type: integer
+      operation_retention_seconds:
+        type: integer
+    type: object
+  starrycontrol.AllocationCandidate:
+    properties:
+      configured_order:
+        type: integer
+      eligible:
+        type: boolean
+      exclusion_reason:
+        type: string
+      priority:
+        type: integer
+      relay_id:
+        type: string
+    type: object
+  starrycontrol.AllocationSelection:
+    properties:
+      kind:
+        type: string
+      non_binding:
+        type: boolean
+      predicted_index:
+        type: integer
+      relay_id:
+        type: string
+    type: object
+  starrycontrol.ApplyRequest:
+    properties:
+      candidate_digest:
+        type: string
+      comment:
+        type: string
+      plan_id:
+        type: string
+    type: object
+  starrycontrol.AuthMetrics:
+    properties:
+      allowed:
+        type: integer
+      attempts:
+        type: integer
+      audit_would_deny:
+        type: integer
+      cache_hits:
+        type: integer
+      denied:
+        type: integer
+      introspection_failures:
+        type: integer
+      introspection_requests:
+        type: integer
+    type: object
+  starrycontrol.AuthStatus:
+    properties:
+      configured_mode:
+        type: string
+      effective_mode:
+        type: string
+      key_age_seconds:
+        type: integer
+      key_count:
+        type: integer
+      metrics:
+        $ref: '#/definitions/starrycontrol.AuthMetrics'
+      verifier_state:
+        type: string
+    type: object
+  starrycontrol.Capabilities:
+    properties:
+      capabilities:
+        $ref: '#/definitions/starrycontrol.CapabilityVersions'
+      config:
+        $ref: '#/definitions/starrycontrol.ConfigCapabilities'
+      instance:
+        $ref: '#/definitions/starrycontrol.InstanceInfo'
+      limits:
+        $ref: '#/definitions/starrycontrol.AgentLimits'
+      protocol:
+        $ref: '#/definitions/starrycontrol.ProtocolInfo'
+    type: object
+  starrycontrol.CapabilityVersions:
+    properties:
+      allocation_simulation:
+        type: integer
+      config_rollback:
+        type: integer
+      config_transaction:
+        type: integer
+      connection_auth:
+        type: integer
+      relay_inventory:
+        type: integer
+    type: object
+  starrycontrol.ConfigCandidate:
+    properties:
+      document:
+        type: string
+      format:
+        type: string
+    type: object
+  starrycontrol.ConfigCapabilities:
+    properties:
+      active_schema_version:
+        type: integer
+      schema_digest:
+        type: string
+      supported_schema_versions:
+        items:
+          type: integer
+        type: array
+    type: object
+  starrycontrol.ConfigDocument:
+    properties:
+      activated_at:
+        type: string
+      document:
+        type: string
+      drift:
+        type: boolean
+      effective_digest:
+        type: string
+      etag:
+        type: string
+      format:
+        type: string
+      generation:
+        type: integer
+      last_error:
+        type: string
+      schema_version:
+        type: integer
+      source_digest:
+        type: string
+      status:
+        type: string
+      subsystem_acks:
+        items:
+          $ref: '#/definitions/starrycontrol.SubsystemAck'
+        type: array
+    type: object
+  starrycontrol.ConfigPlan:
+    properties:
+      base_etag:
+        type: string
+      base_generation:
+        type: integer
+      candidate_digest:
+        type: string
+      changes:
+        items:
+          type: object
+        type: array
+      expires_at:
+        type: string
+      impact:
+        $ref: '#/definitions/starrycontrol.PlanImpact'
+      instance_id:
+        type: string
+      plan_id:
+        type: string
+    type: object
+  starrycontrol.ConfigRevision:
+    properties:
+      actor:
+        type: string
+      after_etag:
+        type: string
+      before_etag:
+        type: string
+      candidate_digest:
+        type: string
+      comment:
+        type: string
+      created_at:
+        type: string
+      generation:
+        type: integer
+      id:
+        type: string
+      result:
+        type: string
+    type: object
+  starrycontrol.Diagnostic:
+    properties:
+      code:
+        type: string
+      column:
+        type: integer
+      line:
+        type: integer
+      message:
+        type: string
+      pointer:
+        type: string
+      severity:
+        type: string
+    type: object
+  starrycontrol.InstanceInfo:
+    properties:
+      id:
+        type: string
+      role:
+        type: string
+      starry_version:
+        type: string
+      upstream_version:
+        type: string
+    type: object
+  starrycontrol.MatchedRule:
+    properties:
+      direction:
+        type: string
+      index:
+        type: integer
+      name:
+        type: string
+    type: object
+  starrycontrol.NativeRelayStatus:
+    properties:
+      observed_at:
+        type: string
+      state:
+        type: string
+    type: object
+  starrycontrol.Operation:
+    properties:
+      activation_ack:
+        $ref: '#/definitions/starrycontrol.ActivationAck'
+      audit_id:
+        type: string
+      created_at:
+        type: string
+      error:
+        $ref: '#/definitions/starrycontrol.OperationProblem'
+      id:
+        type: string
+      kind:
+        type: string
+      state:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  starrycontrol.OperationProblem:
+    properties:
+      code:
+        type: string
+      detail:
+        type: string
+      errors:
+        items:
+          $ref: '#/definitions/starrycontrol.Diagnostic'
+        type: array
+      request_id:
+        type: string
+      retryable:
+        type: boolean
+      status:
+        type: integer
+      title:
+        type: string
+      type:
+        type: string
+    type: object
+  starrycontrol.PlanImpact:
+    properties:
+      restart_required:
+        type: boolean
+      risk:
+        type: string
+    type: object
+  starrycontrol.ProtocolInfo:
+    properties:
+      major:
+        type: integer
+      name:
+        type: string
+      version:
+        type: string
+    type: object
+  starrycontrol.Relay:
+    properties:
+      configured_order:
+        type: integer
+      eligible_for:
+        items:
+          $ref: '#/definitions/starrycontrol.Transport'
+        type: array
+      id:
+        type: string
+      native:
+        $ref: '#/definitions/starrycontrol.NativeRelayStatus'
+      referenced_by_rules:
+        items:
+          type: string
+        type: array
+      websocket:
+        $ref: '#/definitions/starrycontrol.WebSocketRelayStatus'
+    type: object
+  starrycontrol.RelayInventory:
+    properties:
+      config_generation:
+        type: integer
+      health_snapshot_id:
+        type: string
+      relays:
+        items:
+          $ref: '#/definitions/starrycontrol.Relay'
+        type: array
+      warning:
+        type: string
+    type: object
+  starrycontrol.RollbackRequest:
+    properties:
+      comment:
+        type: string
+      revision_id:
+        type: string
+    type: object
+  starrycontrol.RuntimeConfigState:
+    properties:
+      activated_at:
+        type: string
+      effective_digest:
+        type: string
+      generation:
+        type: integer
+      last_error:
+        type: string
+      schema_version:
+        type: integer
+      source_digest:
+        type: string
+      status:
+        type: string
+      subsystem_acks:
+        items:
+          $ref: '#/definitions/starrycontrol.SubsystemAck'
+        type: array
+    type: object
+  starrycontrol.RuntimeReloadRequest:
+    properties:
+      expected_source_digest:
+        type: string
+    type: object
+  starrycontrol.SchemaBundle:
+    properties:
+      digest:
+        type: string
+      etag:
+        type: string
+      schema:
+        type: object
+      ui_schema:
+        type: object
+    type: object
+  starrycontrol.SimulationClient:
+    properties:
+      ip:
+        type: string
+    type: object
+  starrycontrol.SimulationInput:
+    properties:
+      client_a:
+        $ref: '#/definitions/starrycontrol.SimulationClient'
+      client_b:
+        $ref: '#/definitions/starrycontrol.SimulationClient'
+      expected_config_generation:
+        type: integer
+      explain:
+        type: boolean
+      transport:
+        $ref: '#/definitions/starrycontrol.Transport'
+    type: object
+  starrycontrol.SimulationResult:
+    properties:
+      candidates:
+        items:
+          $ref: '#/definitions/starrycontrol.AllocationCandidate'
+        type: array
+      config_generation:
+        type: integer
+      health_snapshot_id:
+        type: string
+      matched_rule:
+        $ref: '#/definitions/starrycontrol.MatchedRule'
+      selection:
+        $ref: '#/definitions/starrycontrol.AllocationSelection'
+      warnings:
+        items:
+          type: string
+        type: array
+    type: object
+  starrycontrol.Status:
+    properties:
+      auth:
+        $ref: '#/definitions/starrycontrol.AuthStatus'
+      config:
+        $ref: '#/definitions/starrycontrol.RuntimeConfigState'
+      ready:
+        type: boolean
+    type: object
+  starrycontrol.SubsystemAck:
+    properties:
+      accepted:
+        type: boolean
+      detail:
+        type: string
+      subsystem:
+        type: string
+    type: object
+  starrycontrol.Transport:
+    enum:
+    - native
+    - wss
+    - mixed
+    type: string
+    x-enum-varnames:
+    - TransportNative
+    - TransportWSS
+    - TransportMixed
+  starrycontrol.ValidationResult:
+    properties:
+      diagnostics:
+        items:
+          $ref: '#/definitions/starrycontrol.Diagnostic'
+        type: array
+      effective_digest:
+        type: string
+      source_digest:
+        type: string
+      valid:
+        type: boolean
+    type: object
+  starrycontrol.WebSocketRelayStatus:
+    properties:
+      configured:
+        type: boolean
+      error_code:
+        type: string
+      last_probe_at:
+        type: string
+      latency_ms:
+        type: integer
+      state:
+        type: string
+      url:
         type: string
     type: object
 info:
@@ -973,34 +1547,6 @@ paths:
       security:
       - token: []
       summary: 地址簿列表
-      tags:
-      - 地址簿
-  /admin/address_book/share:
-    post:
-      consumes:
-      - application/json
-      description: 地址簿分享
-      parameters:
-      - description: 地址簿信息
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/admin.ShareByWebClientForm'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/response.Response'
-      security:
-      - token: []
-      summary: 地址簿分享
       tags:
       - 地址簿
   /admin/address_book/update:
@@ -1618,27 +2164,6 @@ paths:
       summary: APP服务配置
       tags:
       - ADMIN
-  /admin/config/server:
-    get:
-      consumes:
-      - application/json
-      description: 服务配置,给webclient提供api-server
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/response.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/response.Response'
-      security:
-      - token: []
-      summary: RUSTDESK服务配置
-      tags:
-      - ADMIN
   /admin/device_group/create:
     post:
       consumes:
@@ -2020,7 +2545,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/github_com_lejianwen_rustdesk-api_v2_http_request_admin.Login'
+          $ref: '#/definitions/github_com_q1ngyang_rustdesk-api-kessoku_v2_http_request_admin.Login'
       produces:
       - application/json
       responses:
@@ -2037,8 +2562,6 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.Response'
-      security:
-      - token: []
       summary: 登录
       tags:
       - 登录
@@ -2206,6 +2729,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.Response'
+      security:
+      - token: []
       summary: 登出
       tags:
       - 登录
@@ -3382,6 +3907,801 @@ paths:
       summary: 设备编辑
       tags:
       - 设备
+  /admin/server-control/v1/audit-events:
+    get:
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Page size (maximum 100)
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.ControlAPIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/admin.ControlAuditEventList'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+      security:
+      - token: []
+      summary: List server-control audit events
+      tags:
+      - Server Control
+  /admin/server-control/v1/instances:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.ControlAPIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/service.ServerControlInstance'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+      security:
+      - token: []
+      summary: List configured Starry instances
+      tags:
+      - Server Control
+  /admin/server-control/v1/instances/{id}/allocation-simulations:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Deployment instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Typed simulation input
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/starrycontrol.SimulationInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.ControlAPIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/starrycontrol.SimulationResult'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+      security:
+      - token: []
+      summary: Simulate Relay allocation
+      tags:
+      - Server Control
+  /admin/server-control/v1/instances/{id}/capabilities:
+    get:
+      parameters:
+      - description: Deployment instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.ControlAPIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/starrycontrol.Capabilities'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+      security:
+      - token: []
+      summary: Read Starry capabilities
+      tags:
+      - Server Control
+  /admin/server-control/v1/instances/{id}/config:
+    get:
+      parameters:
+      - description: Deployment instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.ControlAPIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/starrycontrol.ConfigDocument'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+      security:
+      - token: []
+      summary: Read active Starry configuration
+      tags:
+      - Server Control
+  /admin/server-control/v1/instances/{id}/config/apply:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Deployment instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Current configuration ETag
+        in: header
+        name: If-Match
+        required: true
+        type: string
+      - description: Unique apply key
+        in: header
+        name: Idempotency-Key
+        required: true
+        type: string
+      - description: Planned apply request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/starrycontrol.ApplyRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.ControlAPIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/starrycontrol.Operation'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "412":
+          description: Precondition Failed
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "428":
+          description: Precondition Required
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+      security:
+      - token: []
+      summary: Apply a planned Starry configuration
+      tags:
+      - Server Control
+  /admin/server-control/v1/instances/{id}/config/history:
+    get:
+      parameters:
+      - description: Deployment instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.ControlAPIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/starrycontrol.ConfigRevision'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+      security:
+      - token: []
+      summary: List Starry configuration history
+      tags:
+      - Server Control
+  /admin/server-control/v1/instances/{id}/config/plan:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Deployment instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Current configuration ETag
+        in: header
+        name: If-Match
+        required: true
+        type: string
+      - description: UTF-8 YAML document
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/starrycontrol.ConfigCandidate'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.ControlAPIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/starrycontrol.ConfigPlan'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "412":
+          description: Precondition Failed
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "428":
+          description: Precondition Required
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+      security:
+      - token: []
+      summary: Plan a Starry configuration change
+      tags:
+      - Server Control
+  /admin/server-control/v1/instances/{id}/config/rollback:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Deployment instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Current configuration ETag
+        in: header
+        name: If-Match
+        required: true
+        type: string
+      - description: Unique rollback key
+        in: header
+        name: Idempotency-Key
+        required: true
+        type: string
+      - description: Rollback revision
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/starrycontrol.RollbackRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.ControlAPIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/starrycontrol.Operation'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "412":
+          description: Precondition Failed
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "428":
+          description: Precondition Required
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+      security:
+      - token: []
+      summary: Roll back Starry configuration
+      tags:
+      - Server Control
+  /admin/server-control/v1/instances/{id}/config/schema:
+    get:
+      parameters:
+      - description: Deployment instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.ControlAPIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/starrycontrol.SchemaBundle'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+      security:
+      - token: []
+      summary: Read Starry configuration schema
+      tags:
+      - Server Control
+  /admin/server-control/v1/instances/{id}/config/validate:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Deployment instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: UTF-8 YAML document
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/starrycontrol.ConfigCandidate'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.ControlAPIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/starrycontrol.ValidationResult'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+      security:
+      - token: []
+      summary: Validate a Starry configuration candidate
+      tags:
+      - Server Control
+  /admin/server-control/v1/instances/{id}/operations/{operation_id}:
+    get:
+      parameters:
+      - description: Deployment instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Operation UUID
+        in: path
+        name: operation_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.ControlAPIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/starrycontrol.Operation'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+      security:
+      - token: []
+      summary: Read a Starry configuration operation
+      tags:
+      - Server Control
+  /admin/server-control/v1/instances/{id}/relays:
+    get:
+      parameters:
+      - description: Deployment instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.ControlAPIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/starrycontrol.RelayInventory'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+      security:
+      - token: []
+      summary: List Starry Relays
+      tags:
+      - Server Control
+  /admin/server-control/v1/instances/{id}/runtime/reload:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Deployment instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Unique reload key
+        in: header
+        name: Idempotency-Key
+        required: true
+        type: string
+      - description: Expected source digest
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/starrycontrol.RuntimeReloadRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.ControlAPIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/starrycontrol.ActivationAck'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "428":
+          description: Precondition Required
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+      security:
+      - token: []
+      summary: Reload the Starry runtime
+      tags:
+      - Server Control
+  /admin/server-control/v1/instances/{id}/status:
+    get:
+      parameters:
+      - description: Deployment instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.ControlAPIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/starrycontrol.Status'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+      security:
+      - token: []
+      summary: Read Starry status
+      tags:
+      - Server Control
   /admin/share_record/batchDelete:
     post:
       consumes:
@@ -3853,6 +5173,34 @@ paths:
       security:
       - token: []
       summary: 我的授权
+      tags:
+      - 用户
+  /admin/user/revokeSessions:
+    post:
+      consumes:
+      - application/json
+      description: 原子递增 auth_version 并撤销该用户全部现有 token
+      parameters:
+      - description: 用户 ID
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/admin.UserSessionRevokeForm'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - token: []
+      summary: 撤销用户全部登录会话
       tags:
       - 用户
   /admin/user/update:

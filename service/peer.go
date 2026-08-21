@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/lejianwen/rustdesk-api/v2/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
 	"gorm.io/gorm"
 )
 
@@ -12,6 +12,12 @@ type PeerService struct {
 func (ps *PeerService) FindById(id string) *model.Peer {
 	p := &model.Peer{}
 	DB.Where("id = ?", id).First(p)
+	return p
+}
+
+func (ps *PeerService) FindByUserIdAndId(userID uint, id string) *model.Peer {
+	p := &model.Peer{}
+	DB.Where("user_id = ? and id = ?", userID, id).First(p)
 	return p
 }
 func (ps *PeerService) FindByUuid(uuid string) *model.Peer {

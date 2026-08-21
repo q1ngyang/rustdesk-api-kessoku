@@ -1,0 +1,29 @@
+{
+  "name": "@kessoku/web-client",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": "24.15.0",
+    "npm": "11.12.1"
+  },
+  "packageManager": "npm@11.12.1",
+  "scripts": {
+    "build": "tsc --noEmit && vite build",
+    "generate:proto": "protoc -I ./proto --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=src/generated --ts_proto_opt=esModuleInterop=true,forceLong=bigint,useExactTypes=false,outputEncodeMethods=true,outputJsonMethods=false,outputClientImpl=false,env=browser,useOptionals=none ./proto/kessoku_wire.proto",
+    "lint": "node scripts/check-source.mjs && tsc --noEmit",
+    "test": "vitest run",
+    "check": "npm run lint && npm run test && npm run build"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "2.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.3.0",
+    "ts-proto": "2.12.1",
+    "typescript": "5.9.2",
+    "vite": "7.3.6",
+    "vitest": "3.2.7"
+  }
+}

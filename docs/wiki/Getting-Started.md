@@ -1,0 +1,67 @@
+# Getting started
+
+**English** | [简体中文](ZH-CN-Getting-Started.md)
+
+This guide reaches a verified basic Kessoku API deployment. It intentionally
+keeps strict connection enforcement and Starry configuration writes disabled
+until their separate acceptance steps are complete.
+
+## Prerequisites
+
+- Linux amd64 with a supported Docker Engine and Compose plugin;
+- a running RustDesk ID Server and Relay Server;
+- the public `id_ed25519.pub` value from that server;
+- a public HTTPS name for Kessoku; and
+- a database backup when upgrading an existing API deployment.
+
+## Prepare and validate
+
+```sh
+cp examples/compose.env.example .env
+mkdir -p data/kessoku secrets
+chmod 0700 data/kessoku secrets
+umask 077
+openssl rand -base64 24 > secrets/bootstrap-admin-password
+chown 65534:65534 secrets/bootstrap-admin-password
+chmod 0600 secrets/bootstrap-admin-password
+vi .env
+
+docker compose --env-file .env -f docker-compose.yaml config
+docker compose --env-file .env -f docker-compose.yaml config --quiet
+```
+
+Review the resolved image, bind address, public API URL, ID/Relay addresses,
+public server key, and persistent paths. Do not continue with placeholder
+values.
+
+## Start the API
+
+```sh
+docker compose --env-file .env -f docker-compose.yaml pull
+docker compose --env-file .env -f docker-compose.yaml up -d
+docker compose --env-file .env -f docker-compose.yaml ps
+docker compose --env-file .env -f docker-compose.yaml logs --tail 100 kessoku-api
+docker compose --env-file .env -f docker-compose.yaml exec kessoku-api \
+  ./kessoku-api reset-admin-pwd \
+  --password-file /run/secrets/bootstrap-admin-password
+```
+
+Kessoku does not log a reusable initial credential. Move the value in the
+bootstrap file directly to an approved password manager, open
+`https://your-api.example/_admin/`, sign in, rotate the password, and delete the
+host secret file. Configure one supported RustDesk client with the same API
+Server, ID Server, and server public key, then verify login, address-book
+access, logout, and login again.
+
+## Continue in controlled phases
+
+1. Verify and back up database version 301.
+2. Configure Ed25519 access-token keys and enable Kessoku authentication.
+3. Commission the internal JWKS/introspection listener on private mTLS.
+4. Deploy the matching Starry release with authentication `off`, then `audit`.
+5. Commission the Control Agent read-only.
+6. Complete supported-client and rollback acceptance before `enforce` or writes.
+
+See [Connection Authentication](Connection-Authentication.md),
+[Starry Control](Starry-Control.md), and
+[Operations and Verification](Operations-and-Verification.md).

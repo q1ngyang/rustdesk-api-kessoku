@@ -5,13 +5,13 @@ import (
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	"github.com/go-redis/redis/v8"
-	"github.com/lejianwen/rustdesk-api/v2/config"
-	"github.com/lejianwen/rustdesk-api/v2/lib/cache"
-	"github.com/lejianwen/rustdesk-api/v2/lib/jwt"
-	"github.com/lejianwen/rustdesk-api/v2/lib/lock"
-	"github.com/lejianwen/rustdesk-api/v2/lib/upload"
-	"github.com/lejianwen/rustdesk-api/v2/utils"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/config"
+	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v2/internal/auth"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/lib/cache"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/lib/lock"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/lib/upload"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/utils"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"gorm.io/gorm"
@@ -33,7 +33,7 @@ var (
 		ValidVar    func(ctx *gin.Context, field interface{}, tag string) []string
 	}
 	Oss          *upload.Oss
-	Jwt          *jwt.Jwt
+	Auth         *internalAuth.Manager
 	Lock         lock.Locker
 	Localizer    func(lang string) *i18n.Localizer
 	LoginLimiter *utils.LoginLimiter

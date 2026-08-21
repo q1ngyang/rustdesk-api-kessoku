@@ -23,6 +23,7 @@ const (
 const (
 	LoginLogTypeAccount = "account"
 	LoginLogTypeOauth   = "oauth"
+	LoginLogTypeGrant   = "grant"
 )
 
 const (

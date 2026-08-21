@@ -3,17 +3,26 @@ package cache
 import (
 	"fmt"
 	"github.com/go-redis/redis/v8"
+	"os"
 	"reflect"
 	"testing"
 )
 
+func redisOptionsForTest(tb testing.TB) *redis.Options {
+	tb.Helper()
+	address := os.Getenv("KESSOKU_TEST_REDIS_ADDR")
+	if address == "" {
+		tb.Skip("set KESSOKU_TEST_REDIS_ADDR to run Redis integration tests")
+	}
+	return &redis.Options{
+		Addr:     address,
+		Password: os.Getenv("KESSOKU_TEST_REDIS_PASSWORD"),
+	}
+}
+
 func TestRedisSet(t *testing.T) {
 	//rc := New("redis")
-	rc := RedisCacheInit(&redis.Options{
-		Addr:     "192.168.1.168:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
+	rc := RedisCacheInit(redisOptionsForTest(t))
 	err := rc.Set("123", "ddd", 0)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -22,11 +31,7 @@ func TestRedisSet(t *testing.T) {
 }
 
 func TestRedisGet(t *testing.T) {
-	rc := RedisCacheInit(&redis.Options{
-		Addr:     "192.168.1.168:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
+	rc := RedisCacheInit(redisOptionsForTest(t))
 	err := rc.Set("123", "451156", 300)
 	if err != nil {
 		t.Fatalf("写入失败")
@@ -40,11 +45,7 @@ func TestRedisGet(t *testing.T) {
 }
 
 func TestRedisGetJson(t *testing.T) {
-	rc := RedisCacheInit(&redis.Options{
-		Addr:     "192.168.1.168:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
+	rc := RedisCacheInit(redisOptionsForTest(t))
 	type r struct {
 		Aa string `json:"a"`
 		B  string `json:"c"`
@@ -69,11 +70,7 @@ func TestRedisGetJson(t *testing.T) {
 }
 
 func BenchmarkRSet(b *testing.B) {
-	rc := RedisCacheInit(&redis.Options{
-		Addr:     "192.168.1.168:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
+	rc := RedisCacheInit(redisOptionsForTest(b))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		rc.Set("123", "{dsv}", 1000)
@@ -81,11 +78,7 @@ func BenchmarkRSet(b *testing.B) {
 }
 
 func BenchmarkRGet(b *testing.B) {
-	rc := RedisCacheInit(&redis.Options{
-		Addr:     "192.168.1.168:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
+	rc := RedisCacheInit(redisOptionsForTest(b))
 	b.ResetTimer()
 	v := ""
 	for i := 0; i < b.N; i++ {

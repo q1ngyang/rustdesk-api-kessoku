@@ -1,0 +1,20 @@
+#!/bin/sh
+set -e
+
+service_name=kessoku-api.service
+
+systemctl --system daemon-reload >/dev/null || true
+
+case "$1" in
+    purge)
+        # Authentication state and audit data are deliberately not deleted by
+        # package scripts. The operator must archive or remove them explicitly.
+        deb-systemd-helper purge "$service_name" >/dev/null || true
+        deb-systemd-helper unmask "$service_name" >/dev/null || true
+        ;;
+    remove)
+        deb-systemd-helper mask "$service_name" >/dev/null || true
+        ;;
+esac
+
+exit 0

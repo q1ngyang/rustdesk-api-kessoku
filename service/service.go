@@ -1,12 +1,17 @@
 package service
 
 import (
-	"github.com/lejianwen/rustdesk-api/v2/config"
-	"github.com/lejianwen/rustdesk-api/v2/lib/jwt"
-	"github.com/lejianwen/rustdesk-api/v2/lib/lock"
-	"github.com/lejianwen/rustdesk-api/v2/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/config"
+	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v2/internal/auth"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/lib/lock"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+)
+
+const (
+	MaxPageSize  uint = 1000
+	MaxBatchSize      = 1000
 )
 
 type Service struct {
@@ -21,7 +26,8 @@ type Service struct {
 	*LoginLogService
 	*AuditService
 	*ShareRecordService
-	*ServerCmdService
+	*AuthIntrospectionService
+	*StarryControlService
 	*LdapService
 	*AppService
 }
@@ -30,25 +36,25 @@ type Dependencies struct {
 	Config *config.Config
 	DB     *gorm.DB
 	Logger *log.Logger
-	Jwt    *jwt.Jwt
+	Auth   *internalAuth.Manager
 	Lock   *lock.Locker
 }
 
 var Config *config.Config
 var DB *gorm.DB
 var Logger *log.Logger
-var Jwt *jwt.Jwt
+var Auth *internalAuth.Manager
 var Lock lock.Locker
 
 var AllService *Service
 
-func New(c *config.Config, g *gorm.DB, l *log.Logger, j *jwt.Jwt, lo lock.Locker) *Service {
+func New(c *config.Config, g *gorm.DB, l *log.Logger, authManager *internalAuth.Manager, lo lock.Locker) *Service {
 	Config = c
 	DB = g
 	Logger = l
-	Jwt = j
+	Auth = authManager
 	Lock = lo
-	AllService = new(Service)
+	AllService = &Service{StarryControlService: NewStarryControlService(c, l, authManager)}
 	return AllService
 }
 
@@ -60,8 +66,16 @@ func Paginate(page, pageSize uint) func(db *gorm.DB) *gorm.DB {
 		if pageSize == 0 {
 			pageSize = 10
 		}
-		offset := (page - 1) * pageSize
-		return db.Offset(int(offset)).Limit(int(pageSize))
+		if pageSize > MaxPageSize {
+			pageSize = MaxPageSize
+		}
+		pageIndex := uint64(page - 1)
+		size := uint64(pageSize)
+		maximumInt := uint64(^uint(0) >> 1)
+		if pageIndex > maximumInt/size {
+			return db.Where("1 = 0").Limit(int(pageSize))
+		}
+		return db.Offset(int(pageIndex * size)).Limit(int(pageSize))
 	}
 }
 

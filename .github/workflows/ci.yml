@@ -1,0 +1,212 @@
+name: Backend CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - develop
+
+permissions:
+  contents: read
+
+jobs:
+  documentation:
+    name: Verify bilingual documentation and Compose
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Check documentation links and pairs
+        run: python3 scripts/check_docs.py
+
+      - name: Validate recommended Docker deployment
+        run: |
+          docker compose --env-file examples/compose.env.example \
+            -f docker-compose.yaml config
+          docker compose --env-file examples/compose.env.example \
+            -f docker-compose.yaml config --quiet
+
+  test:
+    runs-on: ubuntu-24.04
+    container:
+      image: golang:1.26.6-bookworm@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+        env:
+          POSTGRES_USER: kessoku
+          POSTGRES_PASSWORD: kessoku-test-password
+          POSTGRES_DB: kessoku_test_migration
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kessoku -d kessoku_test_migration"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      mysql:
+        image: mysql:8.4.2@sha256:ac80b6e09e5b12b4f9d5cd4f6425e43464247aa4ba4f6169da5daf59e5877f7d
+        env:
+          MYSQL_ROOT_PASSWORD: kessoku-test-password
+          MYSQL_DATABASE: kessoku_test_migration
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -uroot -pkessoku-test-password --silent"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+    env:
+      KESSOKU_TEST_POSTGRES_DSN: "host=postgres port=5432 user=kessoku password=kessoku-test-password dbname=kessoku_test_migration sslmode=disable TimeZone=UTC"
+      KESSOKU_TEST_MYSQL_DSN: "root:kessoku-test-password@tcp(mysql:3306)/kessoku_test_migration?charset=utf8mb4&parseTime=True&loc=UTC"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Verify dependency lock
+        run: |
+          test "$(go version | awk '{print $3}')" = "go1.26.6"
+          test -s go.mod
+          test -s go.sum
+          mod_before="$(sha256sum go.mod)"
+          sum_before="$(sha256sum go.sum)"
+          go mod download
+          printf '%s\n' "$mod_before" "$sum_before" | sha256sum --check
+
+      - name: Check formatting
+        run: test -z "$(git ls-files -z -- '*.go' | xargs -0 -r gofmt -l)"
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test -timeout=3m ./...
+
+  frontends:
+    name: Verify embedded frontends
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24.15.0
+          cache: npm
+          cache-dependency-path: |
+            admin-web/package-lock.json
+            web-client/package-lock.json
+
+      - name: Install, audit, test, and reproduce production build
+        working-directory: admin-web
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = v24.15.0
+          test "$(npm --version)" = 11.12.1
+          npm ci
+          npm run lint
+          npm test
+          npm audit --omit=dev --audit-level=high
+          npm audit signatures
+          npm run build
+          find dist -type f -print0 | LC_ALL=C sort -z \
+            | xargs -0 sha256sum > "${RUNNER_TEMP}/admin-web-dist-1.sha256"
+          npm run build
+          find dist -type f -print0 | LC_ALL=C sort -z \
+            | xargs -0 sha256sum > "${RUNNER_TEMP}/admin-web-dist-2.sha256"
+          diff -u "${RUNNER_TEMP}/admin-web-dist-1.sha256" \
+            "${RUNNER_TEMP}/admin-web-dist-2.sha256"
+          npm sbom --omit=dev --sbom-format cyclonedx > "${RUNNER_TEMP}/admin-web.cdx.json"
+          node -e 'const fs=require("fs");const s=JSON.parse(fs.readFileSync(process.argv[1]));if(s.components.some(c=>!(c.licenses||[]).length))throw new Error("missing production licence metadata")' "${RUNNER_TEMP}/admin-web.cdx.json"
+
+      - name: Install, audit, test, and reproduce web client build
+        working-directory: web-client
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = v24.15.0
+          test "$(npm --version)" = 11.12.1
+          npm ci
+          npm run lint
+          npm test
+          npm audit --omit=dev --audit-level=high
+          npm audit signatures
+          npm run build
+          test -s dist/third-party-licenses/@bufbuild-protobuf-2.9.0.txt
+          find dist -type f -print0 | LC_ALL=C sort -z \
+            | xargs -0 sha256sum > "${RUNNER_TEMP}/web-client-dist-1.sha256"
+          npm run build
+          find dist -type f -print0 | LC_ALL=C sort -z \
+            | xargs -0 sha256sum > "${RUNNER_TEMP}/web-client-dist-2.sha256"
+          diff -u "${RUNNER_TEMP}/web-client-dist-1.sha256" \
+            "${RUNNER_TEMP}/web-client-dist-2.sha256"
+          npm sbom --sbom-format cyclonedx > "${RUNNER_TEMP}/web-client.cdx.json"
+          node -e 'const fs=require("fs");const s=JSON.parse(fs.readFileSync(process.argv[1]));if(s.components.some(c=>!(c.licenses||[]).length))throw new Error("missing licence metadata");if(!s.components.some(c=>c.name==="@bufbuild/protobuf"&&c.version==="2.9.0"&&(c.licenses||[]).length))throw new Error("web client runtime dependency missing from SBOM")' "${RUNNER_TEMP}/web-client.cdx.json"
+
+  race:
+    runs-on: ubuntu-24.04
+    container:
+      image: golang:1.26.6-bookworm@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Race test
+        run: |
+          test "$(go version | awk '{print $3}')" = "go1.26.6"
+          go test -race -timeout=5m ./...
+
+  security-evidence:
+    runs-on: ubuntu-24.04
+    container:
+      image: golang:1.26.6-bookworm@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36
+    timeout-minutes: 15
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install checksum-pinned scanners
+        run: sh scripts/install-ci-tools.sh "${RUNNER_TEMP}/kessoku-tools"
+
+      - name: Lint GitHub Actions workflows
+        run: |
+          "${RUNNER_TEMP}/kessoku-tools/actionlint"
+
+      - name: Scan reachable Go vulnerabilities
+        run: |
+          test "$(go version | awk '{print $3}')" = "go1.26.6"
+          go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+
+      - name: Scan Git history for secrets
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          "${RUNNER_TEMP}/kessoku-tools/gitleaks" git . --redact --no-banner --exit-code 1
+
+      - name: Generate source SBOM
+        run: |
+          "${RUNNER_TEMP}/kessoku-tools/syft" scan dir:. -o spdx-json=kessoku-source.spdx.json
+
+      - name: Upload SBOM evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: kessoku-source-sbom-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 7
+          path: kessoku-source.spdx.json

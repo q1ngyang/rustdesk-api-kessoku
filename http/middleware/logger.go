@@ -2,7 +2,7 @@ package middleware
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/lejianwen/rustdesk-api/v2/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
 	"github.com/sirupsen/logrus"
 )
 
@@ -11,7 +11,9 @@ func Logger() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		global.Logger.WithFields(
 			logrus.Fields{
-				"uri":    c.Request.URL,
+				// Query strings can contain OAuth authorization codes and other
+				// credentials. Log only the stable route path.
+				"path":   c.Request.URL.Path,
 				"ip":     c.ClientIP(),
 				"method": c.Request.Method,
 			}).Debug("Request")

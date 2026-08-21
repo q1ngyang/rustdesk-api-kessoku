@@ -301,51 +301,6 @@ const docTemplateadmin = `{
                 }
             }
         },
-        "/admin/address_book/share": {
-            "post": {
-                "security": [
-                    {
-                        "token": []
-                    }
-                ],
-                "description": "地址簿分享",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "地址簿"
-                ],
-                "summary": "地址簿分享",
-                "parameters": [
-                    {
-                        "description": "地址簿信息",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/admin.ShareByWebClientForm"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/admin/address_book/update": {
             "post": {
                 "security": [
@@ -1373,40 +1328,6 @@ const docTemplateadmin = `{
                 }
             }
         },
-        "/admin/config/server": {
-            "get": {
-                "security": [
-                    {
-                        "token": []
-                    }
-                ],
-                "description": "服务配置,给webclient提供api-server",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "ADMIN"
-                ],
-                "summary": "RUSTDESK服务配置",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/admin/device_group/create": {
             "post": {
                 "security": [
@@ -2034,11 +1955,6 @@ const docTemplateadmin = `{
         },
         "/admin/login": {
             "post": {
-                "security": [
-                    {
-                        "token": []
-                    }
-                ],
                 "description": "登录",
                 "consumes": [
                     "application/json"
@@ -2057,7 +1973,7 @@ const docTemplateadmin = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_lejianwen_rustdesk-api_v2_http_request_admin.Login"
+                            "$ref": "#/definitions/github_com_q1ngyang_rustdesk-api-kessoku_v2_http_request_admin.Login"
                         }
                     }
                 ],
@@ -2334,6 +2250,11 @@ const docTemplateadmin = `{
         },
         "/admin/logout": {
             "post": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
                 "description": "登出",
                 "consumes": [
                     "application/json"
@@ -4325,6 +4246,1308 @@ const docTemplateadmin = `{
                 }
             }
         },
+        "/admin/server-control/v1/audit-events": {
+            "get": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server Control"
+                ],
+                "summary": "List server-control audit events",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (maximum 100)",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.ControlAPIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/admin.ControlAuditEventList"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/server-control/v1/instances": {
+            "get": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server Control"
+                ],
+                "summary": "List configured Starry instances",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.ControlAPIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/service.ServerControlInstance"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/server-control/v1/instances/{id}/allocation-simulations": {
+            "post": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server Control"
+                ],
+                "summary": "Simulate Relay allocation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Deployment instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Typed simulation input",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/starrycontrol.SimulationInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.ControlAPIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/starrycontrol.SimulationResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/server-control/v1/instances/{id}/capabilities": {
+            "get": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server Control"
+                ],
+                "summary": "Read Starry capabilities",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Deployment instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.ControlAPIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/starrycontrol.Capabilities"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/server-control/v1/instances/{id}/config": {
+            "get": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server Control"
+                ],
+                "summary": "Read active Starry configuration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Deployment instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.ControlAPIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/starrycontrol.ConfigDocument"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/server-control/v1/instances/{id}/config/apply": {
+            "post": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server Control"
+                ],
+                "summary": "Apply a planned Starry configuration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Deployment instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Current configuration ETag",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Unique apply key",
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Planned apply request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/starrycontrol.ApplyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.ControlAPIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/starrycontrol.Operation"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "412": {
+                        "description": "Precondition Failed",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "428": {
+                        "description": "Precondition Required",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/server-control/v1/instances/{id}/config/history": {
+            "get": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server Control"
+                ],
+                "summary": "List Starry configuration history",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Deployment instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.ControlAPIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/starrycontrol.ConfigRevision"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/server-control/v1/instances/{id}/config/plan": {
+            "post": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server Control"
+                ],
+                "summary": "Plan a Starry configuration change",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Deployment instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Current configuration ETag",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "UTF-8 YAML document",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/starrycontrol.ConfigCandidate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.ControlAPIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/starrycontrol.ConfigPlan"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "412": {
+                        "description": "Precondition Failed",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "428": {
+                        "description": "Precondition Required",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/server-control/v1/instances/{id}/config/rollback": {
+            "post": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server Control"
+                ],
+                "summary": "Roll back Starry configuration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Deployment instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Current configuration ETag",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Unique rollback key",
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Rollback revision",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/starrycontrol.RollbackRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.ControlAPIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/starrycontrol.Operation"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "412": {
+                        "description": "Precondition Failed",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "428": {
+                        "description": "Precondition Required",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/server-control/v1/instances/{id}/config/schema": {
+            "get": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server Control"
+                ],
+                "summary": "Read Starry configuration schema",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Deployment instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.ControlAPIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/starrycontrol.SchemaBundle"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/server-control/v1/instances/{id}/config/validate": {
+            "post": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server Control"
+                ],
+                "summary": "Validate a Starry configuration candidate",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Deployment instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "UTF-8 YAML document",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/starrycontrol.ConfigCandidate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.ControlAPIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/starrycontrol.ValidationResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/server-control/v1/instances/{id}/operations/{operation_id}": {
+            "get": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server Control"
+                ],
+                "summary": "Read a Starry configuration operation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Deployment instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Operation UUID",
+                        "name": "operation_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.ControlAPIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/starrycontrol.Operation"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/server-control/v1/instances/{id}/relays": {
+            "get": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server Control"
+                ],
+                "summary": "List Starry Relays",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Deployment instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.ControlAPIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/starrycontrol.RelayInventory"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/server-control/v1/instances/{id}/runtime/reload": {
+            "post": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server Control"
+                ],
+                "summary": "Reload the Starry runtime",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Deployment instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Unique reload key",
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Expected source digest",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/starrycontrol.RuntimeReloadRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.ControlAPIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/starrycontrol.ActivationAck"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "428": {
+                        "description": "Precondition Required",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/server-control/v1/instances/{id}/status": {
+            "get": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server Control"
+                ],
+                "summary": "Read Starry status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Deployment instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.ControlAPIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/starrycontrol.Status"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/share_record/batchDelete": {
             "post": {
                 "security": [
@@ -5118,6 +6341,51 @@ const docTemplateadmin = `{
                 }
             }
         },
+        "/admin/user/revokeSessions": {
+            "post": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "description": "原子递增 auth_version 并撤销该用户全部现有 token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户"
+                ],
+                "summary": "撤销用户全部登录会话",
+                "parameters": [
+                    {
+                        "description": "用户 ID",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.UserSessionRevokeForm"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/user/update": {
             "post": {
                 "security": [
@@ -5437,6 +6705,7 @@ const docTemplateadmin = `{
                 },
                 "user_ids": {
                     "type": "array",
+                    "maxItems": 1000,
                     "items": {
                         "type": "integer"
                     }
@@ -5454,6 +6723,7 @@ const docTemplateadmin = `{
             "properties": {
                 "ids": {
                     "type": "array",
+                    "maxItems": 1000,
                     "items": {
                         "type": "integer"
                     }
@@ -5468,6 +6738,7 @@ const docTemplateadmin = `{
             "properties": {
                 "ids": {
                     "type": "array",
+                    "maxItems": 1000,
                     "items": {
                         "type": "integer"
                     }
@@ -5483,13 +6754,68 @@ const docTemplateadmin = `{
             "properties": {
                 "new_password": {
                     "type": "string",
-                    "maxLength": 32,
-                    "minLength": 4
+                    "maxLength": 128,
+                    "minLength": 12
                 },
                 "old_password": {
                     "type": "string",
                     "maxLength": 32,
                     "minLength": 4
+                }
+            }
+        },
+        "admin.ControlAPIError": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "details": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "message": {
+                    "type": "string"
+                },
+                "request_id": {
+                    "type": "string"
+                },
+                "retryable": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "admin.ControlAPIProblem": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/admin.ControlAPIError"
+                }
+            }
+        },
+        "admin.ControlAPIResponse": {
+            "type": "object",
+            "properties": {
+                "data": {}
+            }
+        },
+        "admin.ControlAuditEventList": {
+            "type": "object",
+            "properties": {
+                "list": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.AdminAuditEvent"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },
@@ -5532,6 +6858,7 @@ const docTemplateadmin = `{
             "properties": {
                 "ids": {
                     "type": "array",
+                    "maxItems": 1000,
                     "items": {
                         "type": "integer"
                     }
@@ -5612,6 +6939,7 @@ const docTemplateadmin = `{
             "properties": {
                 "row_ids": {
                     "type": "array",
+                    "maxItems": 1000,
                     "items": {
                         "type": "integer"
                     }
@@ -5621,6 +6949,9 @@ const docTemplateadmin = `{
         "admin.PeerForm": {
             "type": "object",
             "properties": {
+                "alias": {
+                    "type": "string"
+                },
                 "cpu": {
                     "type": "string"
                 },
@@ -5661,36 +6992,10 @@ const docTemplateadmin = `{
             "properties": {
                 "ids": {
                     "type": "array",
+                    "maxItems": 1000,
                     "items": {
                         "type": "integer"
                     }
-                }
-            }
-        },
-        "admin.ShareByWebClientForm": {
-            "type": "object",
-            "required": [
-                "id",
-                "password",
-                "password_type"
-            ],
-            "properties": {
-                "expire": {
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                },
-                "password_type": {
-                    "description": "只能是once,fixed",
-                    "type": "string",
-                    "enum": [
-                        "once",
-                        "fixed"
-                    ]
                 }
             }
         },
@@ -5733,6 +7038,7 @@ const docTemplateadmin = `{
             "type": "object",
             "required": [
                 "group_id",
+                "is_admin",
                 "status",
                 "username"
             ],
@@ -5757,8 +7063,14 @@ const docTemplateadmin = `{
                     "description": "Password string           ` + "`" + `json:\"password\" validate:\"required,gte=4,lte=20\"` + "`" + `",
                     "type": "string"
                 },
+                "remark": {
+                    "type": "string"
+                },
                 "status": {
-                    "minimum": 0,
+                    "enum": [
+                        1,
+                        2
+                    ],
                     "allOf": [
                         {
                             "$ref": "#/definitions/model.StatusCode"
@@ -5795,8 +7107,19 @@ const docTemplateadmin = `{
                 },
                 "password": {
                     "type": "string",
-                    "maxLength": 32,
-                    "minLength": 4
+                    "maxLength": 128,
+                    "minLength": 12
+                }
+            }
+        },
+        "admin.UserSessionRevokeForm": {
+            "type": "object",
+            "required": [
+                "id"
+            ],
+            "properties": {
+                "id": {
+                    "type": "integer"
                 }
             }
         },
@@ -5808,13 +7131,14 @@ const docTemplateadmin = `{
             "properties": {
                 "ids": {
                     "type": "array",
+                    "maxItems": 1000,
                     "items": {
                         "type": "integer"
                     }
                 }
             }
         },
-        "github_com_lejianwen_rustdesk-api_v2_http_request_admin.Login": {
+        "github_com_q1ngyang_rustdesk-api-kessoku_v2_http_request_admin.Login": {
             "type": "object",
             "required": [
                 "password",
@@ -6007,6 +7331,44 @@ const docTemplateadmin = `{
                 },
                 "total": {
                     "type": "integer"
+                }
+            }
+        },
+        "model.AdminAuditEvent": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "actor_user_id": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "error_code": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "metadata": {
+                    "type": "object"
+                },
+                "request_id": {
+                    "type": "string"
+                },
+                "result": {
+                    "type": "string"
+                },
+                "target_id": {
+                    "type": "string"
+                },
+                "target_type": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
                 }
             }
         },
@@ -6263,6 +7625,7 @@ const docTemplateadmin = `{
             "type": "object",
             "properties": {
                 "auto_register": {
+                    "description": "RedirectUrl  string ` + "`" + `json:\"redirect_url\"` + "`" + `",
                     "type": "boolean"
                 },
                 "client_id": {
@@ -6323,6 +7686,9 @@ const docTemplateadmin = `{
         "model.Peer": {
             "type": "object",
             "properties": {
+                "alias": {
+                    "type": "string"
+                },
                 "cpu": {
                     "type": "string"
                 },
@@ -6403,6 +7769,10 @@ const docTemplateadmin = `{
                 "COMMON_STATUS_DISABLED": "通用状态 禁用",
                 "COMMON_STATUS_ENABLE": "通用状态 启用"
             },
+            "x-enum-descriptions": [
+                "通用状态 启用",
+                "通用状态 禁用"
+            ],
             "x-enum-varnames": [
                 "COMMON_STATUS_ENABLE",
                 "COMMON_STATUS_DISABLED"
@@ -6461,6 +7831,10 @@ const docTemplateadmin = `{
         "model.User": {
             "type": "object",
             "properties": {
+                "auth_version": {
+                    "description": "AuthVersion invalidates every previously issued token when incremented.",
+                    "type": "integer"
+                },
                 "avatar": {
                     "type": "string"
                 },
@@ -6480,6 +7854,9 @@ const docTemplateadmin = `{
                     "type": "boolean"
                 },
                 "nickname": {
+                    "type": "string"
+                },
+                "remark": {
                     "type": "string"
                 },
                 "status": {
@@ -6516,6 +7893,9 @@ const docTemplateadmin = `{
         "model.UserToken": {
             "type": "object",
             "properties": {
+                "auth_version": {
+                    "type": "integer"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -6531,7 +7911,19 @@ const docTemplateadmin = `{
                 "id": {
                     "type": "integer"
                 },
-                "token": {
+                "issued_at": {
+                    "type": "integer"
+                },
+                "jti": {
+                    "type": "string"
+                },
+                "kid": {
+                    "type": "string"
+                },
+                "revoked_at": {
+                    "type": "integer"
+                },
+                "revoked_reason": {
                     "type": "string"
                 },
                 "updated_at": {
@@ -6578,6 +7970,757 @@ const docTemplateadmin = `{
                 },
                 "data": {},
                 "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.ServerControlInstance": {
+            "type": "object",
+            "properties": {
+                "available": {
+                    "type": "boolean"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "error_code": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "read_only": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "starrycontrol.ActivationAck": {
+            "type": "object",
+            "properties": {
+                "activated_at": {
+                    "type": "string"
+                },
+                "audit_id": {
+                    "type": "string"
+                },
+                "effective_digest": {
+                    "type": "string"
+                },
+                "generation": {
+                    "type": "integer"
+                },
+                "schema_version": {
+                    "type": "integer"
+                },
+                "source_digest": {
+                    "type": "string"
+                },
+                "subsystem_acks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/starrycontrol.SubsystemAck"
+                    }
+                }
+            }
+        },
+        "starrycontrol.AgentLimits": {
+            "type": "object",
+            "properties": {
+                "max_config_bytes": {
+                    "type": "integer"
+                },
+                "max_plan_lifetime_seconds": {
+                    "type": "integer"
+                },
+                "operation_retention_seconds": {
+                    "type": "integer"
+                }
+            }
+        },
+        "starrycontrol.AllocationCandidate": {
+            "type": "object",
+            "properties": {
+                "configured_order": {
+                    "type": "integer"
+                },
+                "eligible": {
+                    "type": "boolean"
+                },
+                "exclusion_reason": {
+                    "type": "string"
+                },
+                "priority": {
+                    "type": "integer"
+                },
+                "relay_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "starrycontrol.AllocationSelection": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string"
+                },
+                "non_binding": {
+                    "type": "boolean"
+                },
+                "predicted_index": {
+                    "type": "integer"
+                },
+                "relay_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "starrycontrol.ApplyRequest": {
+            "type": "object",
+            "properties": {
+                "candidate_digest": {
+                    "type": "string"
+                },
+                "comment": {
+                    "type": "string"
+                },
+                "plan_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "starrycontrol.AuthMetrics": {
+            "type": "object",
+            "properties": {
+                "allowed": {
+                    "type": "integer"
+                },
+                "attempts": {
+                    "type": "integer"
+                },
+                "audit_would_deny": {
+                    "type": "integer"
+                },
+                "cache_hits": {
+                    "type": "integer"
+                },
+                "denied": {
+                    "type": "integer"
+                },
+                "introspection_failures": {
+                    "type": "integer"
+                },
+                "introspection_requests": {
+                    "type": "integer"
+                }
+            }
+        },
+        "starrycontrol.AuthStatus": {
+            "type": "object",
+            "properties": {
+                "configured_mode": {
+                    "type": "string"
+                },
+                "effective_mode": {
+                    "type": "string"
+                },
+                "key_age_seconds": {
+                    "type": "integer"
+                },
+                "key_count": {
+                    "type": "integer"
+                },
+                "metrics": {
+                    "$ref": "#/definitions/starrycontrol.AuthMetrics"
+                },
+                "verifier_state": {
+                    "type": "string"
+                }
+            }
+        },
+        "starrycontrol.Capabilities": {
+            "type": "object",
+            "properties": {
+                "capabilities": {
+                    "$ref": "#/definitions/starrycontrol.CapabilityVersions"
+                },
+                "config": {
+                    "$ref": "#/definitions/starrycontrol.ConfigCapabilities"
+                },
+                "instance": {
+                    "$ref": "#/definitions/starrycontrol.InstanceInfo"
+                },
+                "limits": {
+                    "$ref": "#/definitions/starrycontrol.AgentLimits"
+                },
+                "protocol": {
+                    "$ref": "#/definitions/starrycontrol.ProtocolInfo"
+                }
+            }
+        },
+        "starrycontrol.CapabilityVersions": {
+            "type": "object",
+            "properties": {
+                "allocation_simulation": {
+                    "type": "integer"
+                },
+                "config_rollback": {
+                    "type": "integer"
+                },
+                "config_transaction": {
+                    "type": "integer"
+                },
+                "connection_auth": {
+                    "type": "integer"
+                },
+                "relay_inventory": {
+                    "type": "integer"
+                }
+            }
+        },
+        "starrycontrol.ConfigCandidate": {
+            "type": "object",
+            "properties": {
+                "document": {
+                    "type": "string"
+                },
+                "format": {
+                    "type": "string"
+                }
+            }
+        },
+        "starrycontrol.ConfigCapabilities": {
+            "type": "object",
+            "properties": {
+                "active_schema_version": {
+                    "type": "integer"
+                },
+                "schema_digest": {
+                    "type": "string"
+                },
+                "supported_schema_versions": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "starrycontrol.ConfigDocument": {
+            "type": "object",
+            "properties": {
+                "activated_at": {
+                    "type": "string"
+                },
+                "document": {
+                    "type": "string"
+                },
+                "drift": {
+                    "type": "boolean"
+                },
+                "effective_digest": {
+                    "type": "string"
+                },
+                "etag": {
+                    "type": "string"
+                },
+                "format": {
+                    "type": "string"
+                },
+                "generation": {
+                    "type": "integer"
+                },
+                "last_error": {
+                    "type": "string"
+                },
+                "schema_version": {
+                    "type": "integer"
+                },
+                "source_digest": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "subsystem_acks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/starrycontrol.SubsystemAck"
+                    }
+                }
+            }
+        },
+        "starrycontrol.ConfigPlan": {
+            "type": "object",
+            "properties": {
+                "base_etag": {
+                    "type": "string"
+                },
+                "base_generation": {
+                    "type": "integer"
+                },
+                "candidate_digest": {
+                    "type": "string"
+                },
+                "changes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "impact": {
+                    "$ref": "#/definitions/starrycontrol.PlanImpact"
+                },
+                "instance_id": {
+                    "type": "string"
+                },
+                "plan_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "starrycontrol.ConfigRevision": {
+            "type": "object",
+            "properties": {
+                "actor": {
+                    "type": "string"
+                },
+                "after_etag": {
+                    "type": "string"
+                },
+                "before_etag": {
+                    "type": "string"
+                },
+                "candidate_digest": {
+                    "type": "string"
+                },
+                "comment": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "generation": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "result": {
+                    "type": "string"
+                }
+            }
+        },
+        "starrycontrol.Diagnostic": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "column": {
+                    "type": "integer"
+                },
+                "line": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "pointer": {
+                    "type": "string"
+                },
+                "severity": {
+                    "type": "string"
+                }
+            }
+        },
+        "starrycontrol.InstanceInfo": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "starry_version": {
+                    "type": "string"
+                },
+                "upstream_version": {
+                    "type": "string"
+                }
+            }
+        },
+        "starrycontrol.MatchedRule": {
+            "type": "object",
+            "properties": {
+                "direction": {
+                    "type": "string"
+                },
+                "index": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "starrycontrol.NativeRelayStatus": {
+            "type": "object",
+            "properties": {
+                "observed_at": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                }
+            }
+        },
+        "starrycontrol.Operation": {
+            "type": "object",
+            "properties": {
+                "activation_ack": {
+                    "$ref": "#/definitions/starrycontrol.ActivationAck"
+                },
+                "audit_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "error": {
+                    "$ref": "#/definitions/starrycontrol.OperationProblem"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "starrycontrol.OperationProblem": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "detail": {
+                    "type": "string"
+                },
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/starrycontrol.Diagnostic"
+                    }
+                },
+                "request_id": {
+                    "type": "string"
+                },
+                "retryable": {
+                    "type": "boolean"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "starrycontrol.PlanImpact": {
+            "type": "object",
+            "properties": {
+                "restart_required": {
+                    "type": "boolean"
+                },
+                "risk": {
+                    "type": "string"
+                }
+            }
+        },
+        "starrycontrol.ProtocolInfo": {
+            "type": "object",
+            "properties": {
+                "major": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "starrycontrol.Relay": {
+            "type": "object",
+            "properties": {
+                "configured_order": {
+                    "type": "integer"
+                },
+                "eligible_for": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/starrycontrol.Transport"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "native": {
+                    "$ref": "#/definitions/starrycontrol.NativeRelayStatus"
+                },
+                "referenced_by_rules": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "websocket": {
+                    "$ref": "#/definitions/starrycontrol.WebSocketRelayStatus"
+                }
+            }
+        },
+        "starrycontrol.RelayInventory": {
+            "type": "object",
+            "properties": {
+                "config_generation": {
+                    "type": "integer"
+                },
+                "health_snapshot_id": {
+                    "type": "string"
+                },
+                "relays": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/starrycontrol.Relay"
+                    }
+                },
+                "warning": {
+                    "type": "string"
+                }
+            }
+        },
+        "starrycontrol.RollbackRequest": {
+            "type": "object",
+            "properties": {
+                "comment": {
+                    "type": "string"
+                },
+                "revision_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "starrycontrol.RuntimeConfigState": {
+            "type": "object",
+            "properties": {
+                "activated_at": {
+                    "type": "string"
+                },
+                "effective_digest": {
+                    "type": "string"
+                },
+                "generation": {
+                    "type": "integer"
+                },
+                "last_error": {
+                    "type": "string"
+                },
+                "schema_version": {
+                    "type": "integer"
+                },
+                "source_digest": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "subsystem_acks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/starrycontrol.SubsystemAck"
+                    }
+                }
+            }
+        },
+        "starrycontrol.RuntimeReloadRequest": {
+            "type": "object",
+            "properties": {
+                "expected_source_digest": {
+                    "type": "string"
+                }
+            }
+        },
+        "starrycontrol.SchemaBundle": {
+            "type": "object",
+            "properties": {
+                "digest": {
+                    "type": "string"
+                },
+                "etag": {
+                    "type": "string"
+                },
+                "schema": {
+                    "type": "object"
+                },
+                "ui_schema": {
+                    "type": "object"
+                }
+            }
+        },
+        "starrycontrol.SimulationClient": {
+            "type": "object",
+            "properties": {
+                "ip": {
+                    "type": "string"
+                }
+            }
+        },
+        "starrycontrol.SimulationInput": {
+            "type": "object",
+            "properties": {
+                "client_a": {
+                    "$ref": "#/definitions/starrycontrol.SimulationClient"
+                },
+                "client_b": {
+                    "$ref": "#/definitions/starrycontrol.SimulationClient"
+                },
+                "expected_config_generation": {
+                    "type": "integer"
+                },
+                "explain": {
+                    "type": "boolean"
+                },
+                "transport": {
+                    "$ref": "#/definitions/starrycontrol.Transport"
+                }
+            }
+        },
+        "starrycontrol.SimulationResult": {
+            "type": "object",
+            "properties": {
+                "candidates": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/starrycontrol.AllocationCandidate"
+                    }
+                },
+                "config_generation": {
+                    "type": "integer"
+                },
+                "health_snapshot_id": {
+                    "type": "string"
+                },
+                "matched_rule": {
+                    "$ref": "#/definitions/starrycontrol.MatchedRule"
+                },
+                "selection": {
+                    "$ref": "#/definitions/starrycontrol.AllocationSelection"
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "starrycontrol.Status": {
+            "type": "object",
+            "properties": {
+                "auth": {
+                    "$ref": "#/definitions/starrycontrol.AuthStatus"
+                },
+                "config": {
+                    "$ref": "#/definitions/starrycontrol.RuntimeConfigState"
+                },
+                "ready": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "starrycontrol.SubsystemAck": {
+            "type": "object",
+            "properties": {
+                "accepted": {
+                    "type": "boolean"
+                },
+                "detail": {
+                    "type": "string"
+                },
+                "subsystem": {
+                    "type": "string"
+                }
+            }
+        },
+        "starrycontrol.Transport": {
+            "type": "string",
+            "enum": [
+                "native",
+                "wss",
+                "mixed"
+            ],
+            "x-enum-varnames": [
+                "TransportNative",
+                "TransportWSS",
+                "TransportMixed"
+            ]
+        },
+        "starrycontrol.ValidationResult": {
+            "type": "object",
+            "properties": {
+                "diagnostics": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/starrycontrol.Diagnostic"
+                    }
+                },
+                "effective_digest": {
+                    "type": "string"
+                },
+                "source_digest": {
+                    "type": "string"
+                },
+                "valid": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "starrycontrol.WebSocketRelayStatus": {
+            "type": "object",
+            "properties": {
+                "configured": {
+                    "type": "boolean"
+                },
+                "error_code": {
+                    "type": "string"
+                },
+                "last_probe_at": {
+                    "type": "string"
+                },
+                "latency_ms": {
+                    "type": "integer"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "url": {
                     "type": "string"
                 }
             }

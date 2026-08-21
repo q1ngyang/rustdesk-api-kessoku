@@ -1,7 +1,11 @@
 package service
 
 import (
-	"github.com/lejianwen/rustdesk-api/v2/model"
+	"context"
+	"errors"
+	"strconv"
+
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
 	"gorm.io/gorm"
 )
 
@@ -28,6 +32,18 @@ func (as *AuditService) CreateAuditConn(u *model.AuditConn) error {
 	return res
 }
 func (as *AuditService) DeleteAuditConn(u *model.AuditConn) error {
+	return as.DeleteAuditConnContext(context.Background(), 0, "", u)
+}
+
+func (as *AuditService) DeleteAuditConnContext(ctx context.Context, actorUserID uint, requestID string, u *model.AuditConn) (operationErr error) {
+	if u == nil || u.Id == 0 {
+		return errors.New("cannot delete empty connection audit")
+	}
+	event, auditErr := beginSecurityAudit(ctx, actorUserID, requestID, "audit.connection.deleted", "audit_connection", strconv.FormatUint(uint64(u.Id), 10), nil)
+	if auditErr != nil {
+		return auditErr
+	}
+	defer finalizeSecurityAudit(event, &operationErr, "AUDIT_CONNECTION_DELETE_FAILED")
 	return DB.Delete(u).Error
 }
 
@@ -77,6 +93,18 @@ func (as *AuditService) CreateAuditFile(u *model.AuditFile) error {
 	return res
 }
 func (as *AuditService) DeleteAuditFile(u *model.AuditFile) error {
+	return as.DeleteAuditFileContext(context.Background(), 0, "", u)
+}
+
+func (as *AuditService) DeleteAuditFileContext(ctx context.Context, actorUserID uint, requestID string, u *model.AuditFile) (operationErr error) {
+	if u == nil || u.Id == 0 {
+		return errors.New("cannot delete empty file audit")
+	}
+	event, auditErr := beginSecurityAudit(ctx, actorUserID, requestID, "audit.file.deleted", "audit_file", strconv.FormatUint(uint64(u.Id), 10), nil)
+	if auditErr != nil {
+		return auditErr
+	}
+	defer finalizeSecurityAudit(event, &operationErr, "AUDIT_FILE_DELETE_FAILED")
 	return DB.Delete(u).Error
 }
 
@@ -86,9 +114,33 @@ func (as *AuditService) UpdateAuditFile(u *model.AuditFile) error {
 }
 
 func (as *AuditService) BatchDeleteAuditConn(ids []uint) error {
-	return DB.Where("id in (?)", ids).Delete(&model.AuditConn{}).Error
+	return as.BatchDeleteAuditConnContext(context.Background(), 0, "", ids)
 }
 
 func (as *AuditService) BatchDeleteAuditFile(ids []uint) error {
+	return as.BatchDeleteAuditFileContext(context.Background(), 0, "", ids)
+}
+
+func (as *AuditService) BatchDeleteAuditConnContext(ctx context.Context, actorUserID uint, requestID string, ids []uint) (operationErr error) {
+	if len(ids) == 0 || len(ids) > MaxBatchSize {
+		return errors.New("invalid connection audit batch")
+	}
+	event, auditErr := beginSecurityAudit(ctx, actorUserID, requestID, "audit.connection.batch_deleted", "audit_connection", "batch", map[string]interface{}{"count": len(ids)})
+	if auditErr != nil {
+		return auditErr
+	}
+	defer finalizeSecurityAudit(event, &operationErr, "AUDIT_CONNECTION_DELETE_FAILED")
+	return DB.Where("id in (?)", ids).Delete(&model.AuditConn{}).Error
+}
+
+func (as *AuditService) BatchDeleteAuditFileContext(ctx context.Context, actorUserID uint, requestID string, ids []uint) (operationErr error) {
+	if len(ids) == 0 || len(ids) > MaxBatchSize {
+		return errors.New("invalid file audit batch")
+	}
+	event, auditErr := beginSecurityAudit(ctx, actorUserID, requestID, "audit.file.batch_deleted", "audit_file", "batch", map[string]interface{}{"count": len(ids)})
+	if auditErr != nil {
+		return auditErr
+	}
+	defer finalizeSecurityAudit(event, &operationErr, "AUDIT_FILE_DELETE_FAILED")
 	return DB.Where("id in (?)", ids).Delete(&model.AuditFile{}).Error
 }

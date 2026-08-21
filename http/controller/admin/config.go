@@ -2,35 +2,15 @@ package admin
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/lejianwen/rustdesk-api/v2/global"
-	"github.com/lejianwen/rustdesk-api/v2/http/response"
-	"github.com/lejianwen/rustdesk-api/v2/model"
-	"github.com/lejianwen/rustdesk-api/v2/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
 	"os"
 	"strings"
 )
 
 type Config struct {
-}
-
-// ServerConfig RUSTDESK服务配置
-// @Tags ADMIN
-// @Summary RUSTDESK服务配置
-// @Description 服务配置,给webclient提供api-server
-// @Accept  json
-// @Produce  json
-// @Success 200 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /admin/config/server [get]
-// @Security token
-func (co *Config) ServerConfig(c *gin.Context) {
-	cf := &response.ServerConfigResponse{
-		IdServer:    global.Config.Rustdesk.IdServer,
-		Key:         global.Config.Rustdesk.Key,
-		RelayServer: global.Config.Rustdesk.RelayServer,
-		ApiServer:   global.Config.Rustdesk.ApiServer,
-	}
-	response.Success(c, cf)
 }
 
 // AppConfig APP服务配置
@@ -44,8 +24,15 @@ func (co *Config) ServerConfig(c *gin.Context) {
 // @Router /admin/config/app [get]
 // @Security token
 func (co *Config) AppConfig(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	c.Header("Pragma", "no-cache")
+	publicOrigin := ""
+	if global.Config.WebClient.Enabled() {
+		publicOrigin = global.Config.WebClient.PublicOrigin
+	}
 	response.Success(c, &gin.H{
-		"web_client": global.Config.App.WebClient,
+		"web_client_mode":          global.Config.WebClient.EffectiveMode(),
+		"web_client_public_origin": publicOrigin,
 	})
 }
 
@@ -64,7 +51,7 @@ func (co *Config) AdminConfig(c *gin.Context) {
 	u := &model.User{}
 	token := c.GetHeader("api-token")
 	if token != "" {
-		u, _ = service.AllService.UserService.InfoByAccessToken(token)
+		u, _ = service.AllService.UserService.InfoByAccessTokenContext(c.Request.Context(), token)
 		if !service.AllService.UserService.CheckUserEnable(u) {
 			u.Id = 0
 		}

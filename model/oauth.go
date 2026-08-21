@@ -83,11 +83,14 @@ func (oa *Oauth) FormatOauthInfo() error {
 	if oa.PkceMethod == "" {
 		oa.PkceMethod = PKCEMethodS256
 	}
+	if oa.PkceEnable != nil && *oa.PkceEnable && oa.PkceMethod != PKCEMethodS256 {
+		return errors.New("PKCE-enabled providers must use S256")
+	}
 	return nil
 }
 
 type OauthUser struct {
-	OpenId        string `json:"open_id" gorm:"not null;index"`
+	OpenId        string `json:"open_id" gorm:"not null;index;uniqueIndex:idx_user_thirds_op_open_id"`
 	Name          string `json:"name"`
 	Username      string `json:"username"`
 	Email         string `json:"email"`

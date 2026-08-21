@@ -1,19 +1,23 @@
 package service
 
 import (
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-ldap/ldap/v3"
 
-	"github.com/lejianwen/rustdesk-api/v2/config"
-	"github.com/lejianwen/rustdesk-api/v2/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/config"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
 )
 
 var (
@@ -31,6 +35,7 @@ var (
 	ErrLdapToLocalUserFailed = errors.New("LdapToLocalUserFailed")
 	ErrLdapCreateUserFailed  = errors.New("LdapCreateUserFailed")
 	ErrLdapPasswordNotMatch  = errors.New("PasswordNotMatch")
+	ErrLdapIdentityCollision = errors.New("LdapIdentityCollision")
 )
 
 // LdapService is responsible for LDAP authentication and user synchronization.
@@ -78,25 +83,23 @@ func (ls *LdapService) connectAndBind(cfg *config.Ldap, username, password strin
 		return nil, errors.Join(ErrUrlParseFailed, err)
 	}
 
-	var conn *ldap.Conn
-	if u.Scheme == "ldaps" {
-		// WARNING: InsecureSkipVerify: true is not recommended for production
-		tlsConfig := &tls.Config{InsecureSkipVerify: !cfg.TlsVerify}
-		if cfg.TlsCaFile != "" {
-			caCert, err := os.ReadFile(cfg.TlsCaFile)
-			if err != nil {
-				return nil, errors.Join(ErrFileReadFailed, err)
-			}
-			caCertPool := x509.NewCertPool()
-			if !caCertPool.AppendCertsFromPEM(caCert) {
-				return nil, errors.Join(ErrLdapTlsFailed, errors.New("failed to append CA certificate"))
-			}
-			tlsConfig.RootCAs = caCertPool
-		}
-		conn, err = ldap.DialURL(cfg.Url, ldap.DialWithTLSConfig(tlsConfig))
-	} else {
-		conn, err = ldap.DialURL(cfg.Url)
+	if u.Scheme != "ldaps" || !cfg.TlsVerify {
+		return nil, errors.Join(ErrLdapTlsFailed, errors.New("verified ldaps transport is required"))
 	}
+	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12, ServerName: u.Hostname()}
+	if cfg.TlsCaFile != "" {
+		caCert, readErr := os.ReadFile(cfg.TlsCaFile)
+		if readErr != nil {
+			return nil, errors.Join(ErrFileReadFailed, readErr)
+		}
+		caCertPool := x509.NewCertPool()
+		if !caCertPool.AppendCertsFromPEM(caCert) {
+			return nil, errors.Join(ErrLdapTlsFailed, errors.New("failed to append CA certificate"))
+		}
+		tlsConfig.RootCAs = caCertPool
+	}
+	dialer := &net.Dialer{Timeout: 10 * time.Second}
+	conn, err := ldap.DialURL(cfg.Url, ldap.DialWithDialer(dialer), ldap.DialWithTLSConfig(tlsConfig))
 
 	if err != nil {
 		return nil, errors.Join(ErrLdapConnectFailed, err)
@@ -104,7 +107,6 @@ func (ls *LdapService) connectAndBind(cfg *config.Ldap, username, password strin
 
 	// Bind as the "service" user
 	if err = conn.Bind(username, password); err != nil {
-		fmt.Println("Bind failed")
 		conn.Close()
 		return nil, errors.Join(ErrLdapBindService, err)
 	}
@@ -139,14 +141,14 @@ func (ls *LdapService) Authenticate(username, password string) (*model.User, err
 	cfg := &Config.Ldap
 
 	// Skip allow-group check for admins
-    isAdmin := ls.isUserAdmin(cfg, ldapUser)
-    
-    // non-admins only check if allow-group is configured
-    if !isAdmin && cfg.User.AllowGroup != "" {
-        if !ls.isUserInGroup(cfg, ldapUser, cfg.User.AllowGroup) {
-            return nil, errors.New("user not in allowed group")
-        }
-    }
+	isAdmin := ls.isUserAdmin(cfg, ldapUser)
+
+	// non-admins only check if allow-group is configured
+	if !isAdmin && cfg.User.AllowGroup != "" {
+		if !ls.isUserInGroup(cfg, ldapUser, cfg.User.AllowGroup) {
+			return nil, errors.New("user not in allowed group")
+		}
+	}
 
 	err = ls.verifyCredentials(cfg, ldapUser.Dn, password)
 	if err != nil {
@@ -161,49 +163,65 @@ func (ls *LdapService) Authenticate(username, password string) (*model.User, err
 
 // isUserInGroup checks if the user is a member of the specified group. by_sw
 func (ls *LdapService) isUserInGroup(cfg *config.Ldap, ldapUser *LdapUser, groupDN string) bool {
-    // Check "memberOf" directly
-    if len(ldapUser.MemberOf) > 0 {
-        for _, group := range ldapUser.MemberOf {
-            if strings.EqualFold(group, groupDN) {
-                return true
-            }
-        }
-    }
+	// Check "memberOf" directly
+	if len(ldapUser.MemberOf) > 0 {
+		for _, group := range ldapUser.MemberOf {
+			if strings.EqualFold(group, groupDN) {
+				return true
+			}
+		}
+	}
 
-    // For "member" attribute, perform a reverse search on the group
-    member := "member"
-    userDN := ldap.EscapeFilter(ldapUser.Dn)
-    groupDN = ldap.EscapeFilter(groupDN)
-    groupFilter := fmt.Sprintf("(%s=%s)", member, userDN)
+	// For "member" attribute, perform a reverse search on the group
+	member := "member"
+	userDN := ldap.EscapeFilter(ldapUser.Dn)
+	groupFilter := fmt.Sprintf("(%s=%s)", member, userDN)
 
-    // Create the LDAP search request
-    groupSearchRequest := ldap.NewSearchRequest(
-        groupDN,
-        ldap.ScopeWholeSubtree,
-        ldap.NeverDerefAliases,
-        0,     // Unlimited search results
-        0,     // No time limit
-        false, // Return both attributes and DN
-        groupFilter,
-        []string{"dn"},
-        nil,
-    )
+	// Create the LDAP search request
+	groupSearchRequest := ldap.NewSearchRequest(
+		groupDN,
+		ldap.ScopeWholeSubtree,
+		ldap.NeverDerefAliases,
+		1,
+		10,
+		false, // Return both attributes and DN
+		groupFilter,
+		[]string{"dn"},
+		nil,
+	)
 
-    // Perform the group search
-    groupResult, err := ls.searchResult(cfg, groupSearchRequest)
-    if err != nil {
-        return false
-    }
+	// Perform the group search
+	groupResult, err := ls.searchResult(cfg, groupSearchRequest)
+	if err != nil {
+		return false
+	}
 
-    // If any results are returned, the user is part of the group
-    return len(groupResult.Entries) > 0
+	// If any results are returned, the user is part of the group
+	return len(groupResult.Entries) > 0
 }
 
 // mapToLocalUser checks whether the user exists locally; if not, creates one.
 // If the user exists and Ldap.Sync is enabled, it updates local info.
 func (ls *LdapService) mapToLocalUser(cfg *config.Ldap, lu *LdapUser) (*model.User, error) {
 	userService := &UserService{}
-	localUser := userService.InfoByUsername(lu.Username)
+	provider, subject, err := ldapIdentityFingerprints(cfg, lu.Dn)
+	if err != nil {
+		return nil, err
+	}
+	identity := &model.LdapIdentity{}
+	DB.Where("provider = ? AND subject = ?", provider, subject).First(identity)
+	localUser := &model.User{}
+	if identity.Id != 0 {
+		localUser = userService.InfoById(identity.UserId)
+		if localUser.Id == 0 {
+			return nil, ErrLdapIdentityCollision
+		}
+	} else {
+		localUser = userService.InfoByUsername(lu.Username)
+		if localUser.Id != 0 {
+			return nil, ErrLdapIdentityCollision
+		}
+	}
 	isAdmin := ls.isUserAdmin(cfg, lu)
 	// If the user doesn't exist in local DB, create a new one
 	if localUser.Id == 0 {
@@ -212,10 +230,23 @@ func (ls *LdapService) mapToLocalUser(cfg *config.Ldap, lu *LdapUser) (*model.Us
 		// If needed, you can set a random password here.
 		newUser.IsAdmin = &isAdmin
 		newUser.GroupId = 1
-		if err := DB.Create(newUser).Error; err != nil {
+		tx := DB.Begin()
+		if tx.Error != nil {
+			return nil, errors.Join(ErrLdapCreateUserFailed, tx.Error)
+		}
+		if err := tx.Create(newUser).Error; err != nil {
+			tx.Rollback()
 			return nil, errors.Join(ErrLdapCreateUserFailed, err)
 		}
-		return userService.InfoByUsername(lu.Username), nil
+		identity = &model.LdapIdentity{UserId: newUser.Id, Provider: provider, Subject: subject}
+		if err := tx.Create(identity).Error; err != nil {
+			tx.Rollback()
+			return nil, errors.Join(ErrLdapCreateUserFailed, err)
+		}
+		if err := tx.Commit().Error; err != nil {
+			return nil, errors.Join(ErrLdapCreateUserFailed, err)
+		}
+		return userService.InfoById(newUser.Id), nil
 	}
 
 	// If the user already exists and sync is enabled, update local info
@@ -236,6 +267,29 @@ func (ls *LdapService) mapToLocalUser(cfg *config.Ldap, lu *LdapUser) (*model.Us
 	}
 
 	return localUser, nil
+}
+
+func ldapIdentityFingerprints(cfg *config.Ldap, subjectDN string) (string, string, error) {
+	parsedURL, err := url.Parse(cfg.Url)
+	if err != nil {
+		return "", "", errors.Join(ErrUrlParseFailed, err)
+	}
+	parsedDN, err := ldap.ParseDN(subjectDN)
+	if err != nil {
+		return "", "", errors.Join(ErrLdapToLocalUserFailed, err)
+	}
+	providerInput := strings.ToLower(parsedURL.Scheme+"://"+parsedURL.Host) + "\x00" + strings.ToLower(strings.TrimSpace(lsBaseDN(cfg)))
+	subjectInput := strings.ToLower(parsedDN.String())
+	providerSum := sha256.Sum256([]byte(providerInput))
+	subjectSum := sha256.Sum256([]byte(subjectInput))
+	return hex.EncodeToString(providerSum[:]), hex.EncodeToString(subjectSum[:]), nil
+}
+
+func lsBaseDN(cfg *config.Ldap) string {
+	if cfg.User.BaseDn != "" {
+		return cfg.User.BaseDn
+	}
+	return cfg.BaseDn
 }
 
 // IsUsernameExists checks if a username exists in LDAP (can be useful for local registration checks).
@@ -357,8 +411,8 @@ func (ls *LdapService) buildUserSearchRequest(cfg *config.Ldap, filter string) *
 		baseDn,
 		ldap.ScopeWholeSubtree,
 		ldap.NeverDerefAliases,
-		0,     // unlimited search results
-		0,     // no server-side time limit
+		2,
+		10,
 		false, // typesOnly
 		combinedFilter,
 		attributes,
@@ -397,7 +451,7 @@ func (ls *LdapService) userResultToLdapUser(cfg *config.Ldap, entry *ldap.Entry)
 
 // filterField helps build simple attribute filters, e.g. (uid=username).
 func (ls *LdapService) filterField(field, value string) string {
-	return fmt.Sprintf("(%s=%s)", field, value)
+	return fmt.Sprintf("(%s=%s)", field, ldap.EscapeFilter(value))
 }
 
 // fieldUsername returns the configured username attribute or "uid" if not set.
@@ -472,16 +526,15 @@ func (ls *LdapService) isUserAdmin(cfg *config.Ldap, ldapUser *LdapUser) bool {
 	// For "member" attribute, perform a reverse search on the group
 	member := "member"
 	userDN := ldap.EscapeFilter(ldapUser.Dn)
-	adminGroupDn := ldap.EscapeFilter(adminGroup)
 	groupFilter := fmt.Sprintf("(%s=%s)", member, userDN)
 
 	// Create the LDAP search request
 	groupSearchRequest := ldap.NewSearchRequest(
-		adminGroupDn,
+		adminGroup,
 		ldap.ScopeWholeSubtree,
 		ldap.NeverDerefAliases,
-		0,     // Unlimited search results
-		0,     // No time limit
+		1,
+		10,
 		false, // Return both attributes and DN
 		groupFilter,
 		[]string{"dn"},

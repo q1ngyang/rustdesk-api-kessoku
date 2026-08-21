@@ -47,6 +47,8 @@ type LoginLimiter struct {
 	cleanupStop chan struct{}
 }
 
+const maxActiveCaptchas = 4096
+
 var defaultSecurityPolicy = SecurityPolicy{
 	CaptchaThreshold: 3,
 	BanThreshold:     5,
@@ -125,6 +127,15 @@ func (ll *LoginLimiter) RequireCaptcha() (error, CaptchaMeta) {
 	if ll.provider == nil {
 		return errors.New("no captcha provider available"), CaptchaMeta{}
 	}
+	now := time.Now()
+	for id, captcha := range ll.captchas {
+		if !captcha.ExpiresAt.After(now) {
+			delete(ll.captchas, id)
+		}
+	}
+	if len(ll.captchas) >= maxActiveCaptchas {
+		return errors.New("captcha capacity reached"), CaptchaMeta{}
+	}
 
 	id, content, answer, err := ll.provider.Generate()
 	if err != nil {
@@ -136,7 +147,7 @@ func (ll *LoginLimiter) RequireCaptcha() (error, CaptchaMeta) {
 		Id:        id,
 		Content:   content,
 		Answer:    answer,
-		ExpiresAt: time.Now().Add(ll.provider.Expiration()),
+		ExpiresAt: now.Add(ll.provider.Expiration()),
 	}
 
 	return nil, ll.captchas[id]

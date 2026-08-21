@@ -1,14 +1,11 @@
 services:
-  rustdesk-api:
+  kessoku-api:
     build: 
       context: .
       dockerfile: Dockerfile.dev
-      args:
-        COUNTRY: CN
-        FRONTEND_GIT_REPO: https://github.com/lejianwen/rustdesk-api-web.git
-        FRONTEND_GIT_BRANCH: master
-    # image: lejianwen/rustdesk-api
-    container_name: rustdesk-api
+    # Dockerfile.dev builds both frontends from this same repository commit.
+    image: rustdesk-api-kessoku:local
+    container_name: rustdesk-api-kessoku
     environment:
       - TZ=Asia/Shanghai
       - RUSTDESK_API_RUSTDESK_ID_SERVER=192.168.1.66:21116
@@ -17,6 +14,7 @@ services:
       - RUSTDESK_API_RUSTDESK_KEY=123456789
     ports:
       - 21114:21114
+      - 127.0.0.1:21122:21122
     volumes:
       - ./data/rustdesk/api:/app/data #将数据库挂载出来方便备份
       - ./conf:/app/conf # config

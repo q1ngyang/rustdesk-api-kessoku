@@ -1,0 +1,5 @@
+# The release owner approved this source candidate for the protected
+# tag/candidate/publication sequence in RELEASE-PROCESS.md. Approval does not
+# mean that a tag, image, package, GitHub Release, or Wiki has been published.
+status: APPROVED
+release_tag: v2.8.0

@@ -1,6 +1,6 @@
 package admin
 
-import "github.com/lejianwen/rustdesk-api/v2/model"
+import "github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
 
 type PeerForm struct {
 	RowId    uint   `json:"row_id" `
@@ -17,7 +17,7 @@ type PeerForm struct {
 }
 
 type PeerBatchDeleteForm struct {
-	RowIds []uint `json:"row_ids" validate:"required"`
+	RowIds []uint `json:"row_ids" binding:"required,max=1000,dive,gt=0"`
 }
 
 // ToPeer
@@ -49,5 +49,5 @@ type PeerQuery struct {
 }
 
 type SimpleDataQuery struct {
-	Ids []string `json:"ids" form:"ids"`
+	Ids []string `json:"ids" form:"ids" binding:"required,max=1000,dive,max=128"`
 }

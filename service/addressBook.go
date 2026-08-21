@@ -2,9 +2,9 @@ package service
 
 import (
 	"encoding/json"
-	"github.com/google/uuid"
-	"github.com/lejianwen/rustdesk-api/v2/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"strings"
 )
 
@@ -48,17 +48,33 @@ func (s *AddressBookService) ListByUserIds(userIds []uint, page, pageSize uint) 
 
 // AddAddressBook
 func (s *AddressBookService) AddAddressBook(ab *model.AddressBook) error {
-	return DB.Create(ab).Error
+	ab.Collection = nil
+	return DB.Omit(clause.Associations).Create(ab).Error
 }
 
 // UpdateAddressBook
 func (s *AddressBookService) UpdateAddressBook(abs []*model.AddressBook, userId uint) error {
+	return DB.Transaction(func(tx *gorm.DB) error {
+		return s.updateAddressBook(tx, abs, userId)
+	})
+}
+
+func (s *AddressBookService) UpdateAddressBookAndTags(abs []*model.AddressBook, userId uint, tags map[string]uint) error {
+	return DB.Transaction(func(tx *gorm.DB) error {
+		if err := s.updateAddressBook(tx, abs, userId); err != nil {
+			return err
+		}
+		return AllService.TagService.updateTags(tx, userId, tags)
+	})
+}
+
+func (s *AddressBookService) updateAddressBook(tx *gorm.DB, abs []*model.AddressBook, userId uint) error {
 	//比较peers和数据库中的数据，如果peers中的数据在数据库中不存在，则添加，如果存在则更新，如果数据库中的数据在peers中不存在，则删除
-	// 开始事务
-	tx := DB.Begin()
 	//1. 获取数据库中的数据
 	var dbABs []*model.AddressBook
-	tx.Where("user_id = ?", userId).Find(&dbABs)
+	if err := tx.Where("user_id = ? AND collection_id = 0", userId).Find(&dbABs).Error; err != nil {
+		return err
+	}
 	//2. 比较peers和数据库中的数据
 	//2.1 获取peers中的id
 	aBIds := make(map[string]*model.AddressBook)
@@ -74,30 +90,38 @@ func (s *AddressBookService) UpdateAddressBook(abs []*model.AddressBook, userId 
 	for id, ab := range aBIds {
 		dbAB, ok := dbABIds[id]
 		ab.UserId = userId
+		ab.CollectionId = 0
+		ab.Collection = nil
 		if !ok {
+			ab.RowId = 0
 			//添加
 			if ab.Platform == "" || ab.Username == "" || ab.Hostname == "" {
-				peer := AllService.PeerService.FindById(ab.Id)
+				peer := AllService.PeerService.FindByUserIdAndId(userId, ab.Id)
 				if peer.RowId != 0 {
 					ab.Platform = AllService.AddressBookService.PlatformFromOs(peer.Os)
 					ab.Username = peer.Username
 					ab.Hostname = peer.Hostname
 				}
 			}
-			tx.Create(ab)
+			if err := tx.Omit(clause.Associations).Create(ab).Error; err != nil {
+				return err
+			}
 		} else {
 			//更新
-			tx.Model(&model.AddressBook{}).Where("row_id = ?", dbAB.RowId).Updates(ab)
+			if err := tx.Model(dbAB).Omit(clause.Associations, "row_id", "user_id", "collection_id", "created_at").Updates(ab).Error; err != nil {
+				return err
+			}
 		}
 	}
 	//2.4 删除
 	for id, dbAB := range dbABIds {
 		_, ok := aBIds[id]
 		if !ok {
-			tx.Delete(dbAB)
+			if err := tx.Delete(dbAB).Error; err != nil {
+				return err
+			}
 		}
 	}
-	tx.Commit()
 	return nil
 
 }
@@ -128,7 +152,8 @@ func (s *AddressBookService) FromPeer(peer *model.Peer) (a *model.AddressBook) {
 
 // Create 创建
 func (s *AddressBookService) Create(u *model.AddressBook) error {
-	res := DB.Create(u).Error
+	u.Collection = nil
+	res := DB.Omit(clause.Associations).Create(u).Error
 	return res
 }
 func (s *AddressBookService) Delete(u *model.AddressBook) error {
@@ -137,7 +162,8 @@ func (s *AddressBookService) Delete(u *model.AddressBook) error {
 
 // Update 更新
 func (s *AddressBookService) Update(u *model.AddressBook) error {
-	return DB.Model(u).Updates(u).Error
+	u.Collection = nil
+	return DB.Model(u).Omit(clause.Associations).Updates(u).Error
 }
 
 // UpdateByMap 更新
@@ -147,20 +173,8 @@ func (s *AddressBookService) UpdateByMap(u *model.AddressBook, data map[string]i
 
 // UpdateAll 更新
 func (s *AddressBookService) UpdateAll(u *model.AddressBook) error {
-	return DB.Model(u).Select("*").Omit("created_at").Updates(u).Error
-}
-
-// ShareByWebClient 分享
-func (s *AddressBookService) ShareByWebClient(m *model.ShareRecord) error {
-	m.ShareToken = uuid.New().String()
-	return DB.Create(m).Error
-}
-
-// SharedPeer
-func (s *AddressBookService) SharedPeer(shareToken string) *model.ShareRecord {
-	m := &model.ShareRecord{}
-	DB.Where("share_token = ?", shareToken).First(m)
-	return m
+	u.Collection = nil
+	return DB.Model(u).Select("*").Omit(clause.Associations, "created_at").Updates(u).Error
 }
 
 // PlatformFromOs

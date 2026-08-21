@@ -2,11 +2,11 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
-	apiReq "github.com/lejianwen/rustdesk-api/v2/http/request/api"
-	"github.com/lejianwen/rustdesk-api/v2/http/response"
-	apiResp "github.com/lejianwen/rustdesk-api/v2/http/response/api"
-	"github.com/lejianwen/rustdesk-api/v2/model"
-	"github.com/lejianwen/rustdesk-api/v2/service"
+	apiReq "github.com/q1ngyang/rustdesk-api-kessoku/v2/http/request/api"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response"
+	apiResp "github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response/api"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
 	"net/http"
 )
 
@@ -49,6 +49,11 @@ func (g *Group) Users(c *gin.Context) {
 	for _, user := range userList.Users {
 		up := &apiResp.UserPayload{}
 		up.FromUser(user)
+		if user.Id != u.Id {
+			up.Email = ""
+			isAdmin := false
+			up.IsAdmin = &isAdmin
+		}
 		data = append(data, up)
 	}
 	c.JSON(http.StatusOK, response.DataResponse{

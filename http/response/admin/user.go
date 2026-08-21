@@ -1,6 +1,6 @@
 package admin
 
-import "github.com/lejianwen/rustdesk-api/v2/model"
+import "github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
 
 type LoginPayload struct {
 	Username   string   `json:"username"`
@@ -21,4 +21,17 @@ func (lp *LoginPayload) FromUser(user *model.User) {
 type UserOauthItem struct {
 	Op     string `json:"op"`
 	Status int    `json:"status"`
+}
+
+// GroupDirectory payloads intentionally expose only the identifiers and
+// display names required by the address-book sharing UI.
+type GroupDirectoryGroup struct {
+	Id   uint   `json:"id"`
+	Name string `json:"name"`
+}
+
+type GroupDirectoryUser struct {
+	Id       uint   `json:"id"`
+	Username string `json:"username"`
+	GroupId  uint   `json:"group_id"`
 }

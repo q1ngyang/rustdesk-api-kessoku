@@ -18,9 +18,6 @@ type Rustdesk struct {
 	Key             string `mapstructure:"key"`
 	KeyFile         string `mapstructure:"key-file"`
 	Personal        int    `mapstructure:"personal"`
-	//webclient-magic-queryonline
-	WebclientMagicQueryonline int    `mapstructure:"webclient-magic-queryonline"`
-	WsHost                    string `mapstructure:"ws-host"`
 }
 
 func (rd *Rustdesk) LoadKeyFile() {

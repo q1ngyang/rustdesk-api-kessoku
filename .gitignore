@@ -2,7 +2,13 @@
 runtime/*
 !runtime
 !runtime/cache/.gitkeep
-go.sum
 resources/admin
+resources/client
+admin-web/node_modules
+admin-web/dist
+web-client/node_modules
+web-client/dist
+web-client/dist-*.sha256
+web-client/web-client.cdx.json
 release
 data/rustdeskapi.db

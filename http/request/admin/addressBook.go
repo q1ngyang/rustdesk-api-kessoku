@@ -2,7 +2,7 @@ package admin
 
 import (
 	"encoding/json"
-	"github.com/lejianwen/rustdesk-api/v2/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
 )
 
 type AddressBookForm struct {
@@ -16,7 +16,7 @@ type AddressBookForm struct {
 	Tags             []string `json:"tags"`
 	Hash             string   `json:"hash"`
 	UserId           uint     `json:"user_id"`
-	UserIds          []uint   `json:"user_ids"`
+	UserIds          []uint   `json:"user_ids" binding:"omitempty,max=1000,dive,gt=0"`
 	ForceAlwaysRelay bool     `json:"forceAlwaysRelay"`
 	RdpPort          string   `json:"rdpPort"`
 	RdpUsername      string   `json:"rdpUsername"`
@@ -90,23 +90,6 @@ type AddressBookQuery struct {
 	PageQuery
 }
 
-type ShareByWebClientForm struct {
-	Id           string `json:"id" validate:"required"`
-	PasswordType string `json:"password_type" validate:"required,oneof=once fixed"` //只能是once,fixed
-	Password     string `json:"password" validate:"required"`
-	Expire       int64  `json:"expire"`
-}
-
-func (sbwcf ShareByWebClientForm) ToShareRecord() *model.ShareRecord {
-	return &model.ShareRecord{
-		UserId:       0,
-		PeerId:       sbwcf.Id,
-		PasswordType: sbwcf.PasswordType,
-		Password:     sbwcf.Password,
-		Expire:       sbwcf.Expire,
-	}
-}
-
 type AddressBookCollectionQuery struct {
 	UserId int `form:"user_id"`
 	IsMy   int `form:"is_my"`
@@ -125,11 +108,11 @@ type AddressBookCollectionRuleQuery struct {
 
 type BatchCreateFromPeersForm struct {
 	CollectionId uint     `json:"collection_id"`
-	PeerIds      []uint   `json:"peer_ids"`
-	Tags         []string `json:"tags"`
+	PeerIds      []uint   `json:"peer_ids" binding:"required,max=1000,dive,gt=0"`
+	Tags         []string `json:"tags" binding:"max=100,dive,max=128"`
 	UserId       uint     `json:"user_id"`
 }
 type BatchUpdateTagsForm struct {
-	RowIds []uint   `json:"row_ids"`
-	Tags   []string `json:"tags"`
+	RowIds []uint   `json:"row_ids" binding:"required,max=1000,dive,gt=0"`
+	Tags   []string `json:"tags" binding:"max=100,dive,max=128"`
 }

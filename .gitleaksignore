@@ -1,0 +1,22 @@
+# Reviewed legacy-history baseline. These commits predate the Kessoku fork.
+# resources/web is excluded from every Kessoku runtime artifact; the README
+# values are documentation examples; lib/jwt/jwt_test.go was a test fixture.
+# New findings are not allowed. Do not broaden this file with paths or rules.
+3d4e06826692a73bf5d766d1ab9767a21f8bb2b7:README.md:generic-api-key:320
+3d4e06826692a73bf5d766d1ab9767a21f8bb2b7:README.md:generic-api-key:336
+3d4e06826692a73bf5d766d1ab9767a21f8bb2b7:README_EN.md:generic-api-key:323
+3d4e06826692a73bf5d766d1ab9767a21f8bb2b7:README_EN.md:generic-api-key:339
+497a24ebd9098f0ec0efd0033e57eeb78cd22d51:resources/web/flutter_service_worker.js:generic-api-key:154
+497a24ebd9098f0ec0efd0033e57eeb78cd22d51:resources/web/flutter_service_worker.js:generic-api-key:385
+497a24ebd9098f0ec0efd0033e57eeb78cd22d51:resources/web/flutter_service_worker.js:generic-api-key:562
+497a24ebd9098f0ec0efd0033e57eeb78cd22d51:resources/web/flutter_service_worker.js:generic-api-key:579
+497a24ebd9098f0ec0efd0033e57eeb78cd22d51:resources/web/index.html:gcp-api-key:192
+497a24ebd9098f0ec0efd0033e57eeb78cd22d51:resources/web/index.html:generic-api-key:47
+497a24ebd9098f0ec0efd0033e57eeb78cd22d51:resources/web/js/dist/vendor.js:generic-api-key:1
+497a24ebd9098f0ec0efd0033e57eeb78cd22d51:resources/web/main.dart.js:gcp-api-key:24291
+8b266d4fee02c1a4d208b10f0482c17e95f562d0:resources/web/index.html:gcp-api-key:173
+c53df223d1232f548f449d230b5c3b2970c7e6f2:lib/jwt/jwt_test.go:private-key:9
+c5b43fae08db41dbcd15ccfa68b2b5a2f9563551:README.md:generic-api-key:309
+c5b43fae08db41dbcd15ccfa68b2b5a2f9563551:README.md:generic-api-key:325
+c5b43fae08db41dbcd15ccfa68b2b5a2f9563551:README_EN.md:generic-api-key:317
+c5b43fae08db41dbcd15ccfa68b2b5a2f9563551:README_EN.md:generic-api-key:333

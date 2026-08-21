@@ -1,15 +1,21 @@
 package service
 
 import (
+	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
-	"math/rand"
+	"fmt"
+	mathrand "math/rand"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/lejianwen/rustdesk-api/v2/model"
-	"github.com/lejianwen/rustdesk-api/v2/utils"
+	"github.com/google/uuid"
+	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v2/internal/auth"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/utils"
 	"gorm.io/gorm"
 )
 
@@ -70,42 +76,188 @@ func (us *UserService) InfoByUsernamePassword(username, password string) *model.
 	return u
 }
 
-// InfoByAccesstoken 根据accesstoken取用户信息
+var ErrAuthentication = errors.New("authentication failed")
+
+// InfoByAccessToken validates the API audience and then checks authoritative
+// database revocation state. Callers intentionally receive no detailed reason.
 func (us *UserService) InfoByAccessToken(token string) (*model.User, *model.UserToken) {
-	u := &model.User{}
-	ut := &model.UserToken{}
-	DB.Where("token = ?", token).First(ut)
-	if ut.Id == 0 {
-		return u, ut
+	return us.InfoByAccessTokenContext(context.Background(), token)
+}
+
+func (us *UserService) InfoByAccessTokenContext(ctx context.Context, token string) (*model.User, *model.UserToken) {
+	u, ut, _, err := us.AuthenticateAccessTokenContext(ctx, token, internalAuth.APIAudience, "")
+	if err != nil {
+		return &model.User{}, &model.UserToken{}
 	}
-	if ut.ExpiredAt < time.Now().Unix() {
-		return u, ut
-	}
-	DB.Where("id = ?", ut.UserId).First(u)
 	return u, ut
 }
 
-// GenerateToken 生成token
-func (us *UserService) GenerateToken(u *model.User) string {
-	if len(Jwt.Key) > 0 {
-		return Jwt.GenerateToken(u.Id)
+func (us *UserService) AuthenticateAccessToken(token, audience, requiredScope string) (*model.User, *model.UserToken, *internalAuth.AccessClaims, error) {
+	return us.AuthenticateAccessTokenContext(context.Background(), token, audience, requiredScope)
+}
+
+func (us *UserService) AuthenticateAccessTokenContext(ctx context.Context, token, audience, requiredScope string) (*model.User, *model.UserToken, *internalAuth.AccessClaims, error) {
+	u := &model.User{}
+	ut := &model.UserToken{}
+	if token == "" || len(token) > Config.Auth.EffectiveMaxTokenBytes() {
+		return u, ut, nil, ErrAuthentication
 	}
-	return utils.Md5(u.Username + time.Now().String())
+	var claims *internalAuth.AccessClaims
+	strictVerificationFailed := false
+	if Auth != nil {
+		verified, err := Auth.VerifyAccessToken(token, internalAuth.VerifyOptions{
+			Audience:      audience,
+			RequiredScope: requiredScope,
+		})
+		if err != nil {
+			if !Config.Auth.LegacyTokenReadEnabled {
+				return u, ut, nil, ErrAuthentication
+			}
+			strictVerificationFailed = true
+		} else {
+			claims = verified
+		}
+	}
+
+	hash := internalAuth.TokenHashHex(token)
+	database := DB.WithContext(ctx)
+	database.Where("token_hash = ?", hash).First(ut)
+	if ut.Id == 0 && Config.Auth.LegacyTokenReadEnabled {
+		database.Where("token = ?", token).First(ut)
+	}
+	if ut.Id == 0 {
+		return u, ut, claims, ErrAuthentication
+	}
+	// Compatibility fallback is limited to credentials issued before the
+	// EdDSA profile. A database row with a key ID is a strict JWT row; accepting
+	// it after signature/kid/claims verification failed would make key removal
+	// ineffective during the legacy overlap.
+	if strictVerificationFailed && ut.Kid != "" {
+		return u, ut, nil, ErrAuthentication
+	}
+	if ut.TokenHash != nil && !internalAuth.ConstantTimeHashEqual(token, *ut.TokenHash) {
+		return u, ut, claims, ErrAuthentication
+	}
+	if ut.RevokedAt != nil || ut.ExpiredAt <= time.Now().Unix() {
+		return u, ut, claims, ErrAuthentication
+	}
+	if claims != nil {
+		if claims.UserID != uint64(ut.UserId) || ut.JTI == nil || claims.ID != *ut.JTI || claims.AuthVersion != ut.AuthVersion {
+			return u, ut, claims, ErrAuthentication
+		}
+	}
+	database.Where("id = ?", ut.UserId).First(u)
+	if u.Id == 0 || !us.CheckUserEnable(u) || u.AuthVersion == 0 || ut.AuthVersion != u.AuthVersion {
+		return &model.User{}, ut, claims, ErrAuthentication
+	}
+	return u, ut, claims, nil
+}
+
+// GenerateToken creates an EdDSA JWT when the signer is configured. The
+// disabled-profile fallback is a cryptographically random opaque token, never
+// the historical predictable MD5 construction.
+func (us *UserService) GenerateToken(u *model.User) (internalAuth.IssuedToken, error) {
+	if u == nil || u.Id == 0 {
+		return internalAuth.IssuedToken{}, errors.New("cannot issue token for empty user")
+	}
+	if u.AuthVersion == 0 {
+		u.AuthVersion = 1
+		if err := DB.Model(u).Update("auth_version", u.AuthVersion).Error; err != nil {
+			return internalAuth.IssuedToken{}, err
+		}
+	}
+	if Auth != nil {
+		return Auth.IssueAccessToken(u.Id, u.AuthVersion)
+	}
+	random := make([]byte, 32)
+	if _, err := rand.Read(random); err != nil {
+		return internalAuth.IssuedToken{}, fmt.Errorf("generate opaque access token: %w", err)
+	}
+	jti, err := uuid.NewV7()
+	if err != nil {
+		return internalAuth.IssuedToken{}, fmt.Errorf("generate opaque token id: %w", err)
+	}
+	now := time.Now().UTC()
+	return internalAuth.IssuedToken{
+		Token:       base64.RawURLEncoding.EncodeToString(random),
+		JTI:         jti.String(),
+		IssuedAt:    now.Unix(),
+		ExpiresAt:   us.UserTokenExpireTimestamp(),
+		AuthVersion: u.AuthVersion,
+	}, nil
 }
 
 // Login 登录
 func (us *UserService) Login(u *model.User, llog *model.LoginLog) *model.UserToken {
-	token := us.GenerateToken(u)
-	ut := &model.UserToken{
-		UserId:     u.Id,
-		Token:      token,
-		DeviceUuid: llog.Uuid,
-		DeviceId:   llog.DeviceId,
-		ExpiredAt:  us.UserTokenExpireTimestamp(),
+	issued, err := us.GenerateToken(u)
+	if err != nil {
+		Logger.Errorf("issue access token: %v", err)
+		return nil
 	}
-	DB.Create(ut)
-	llog.UserTokenId = ut.UserId
-	DB.Create(llog)
+	return us.persistIssuedToken(u, llog, issued)
+}
+
+// LoginConnection creates a short-lived, rustdesk-connect-only at+jwt and an
+// authoritative hash-only database row. The same persistence and revocation
+// invariants used by normal access tokens therefore apply to browser sessions.
+func (us *UserService) LoginConnection(u *model.User, llog *model.LoginLog, ttl time.Duration) *model.UserToken {
+	if u == nil || u.Id == 0 || Auth == nil {
+		return nil
+	}
+	if u.AuthVersion == 0 {
+		u.AuthVersion = 1
+		if err := DB.Model(u).Update("auth_version", u.AuthVersion).Error; err != nil {
+			Logger.Errorf("initialize auth version for connection token: %v", err)
+			return nil
+		}
+	}
+	issued, err := Auth.IssueConnectionToken(u.Id, u.AuthVersion, ttl)
+	if err != nil {
+		Logger.Errorf("issue connection token: %v", err)
+		return nil
+	}
+	return us.persistIssuedToken(u, llog, issued)
+}
+
+func (us *UserService) persistIssuedToken(u *model.User, llog *model.LoginLog, issued internalAuth.IssuedToken) *model.UserToken {
+	if u == nil || u.Id == 0 || llog == nil || issued.Token == "" || issued.JTI == "" {
+		return nil
+	}
+	hash := internalAuth.TokenHashHex(issued.Token)
+	jti := issued.JTI
+	ut := &model.UserToken{
+		UserId:      u.Id,
+		DeviceUuid:  llog.Uuid,
+		DeviceId:    llog.DeviceId,
+		JTI:         &jti,
+		Kid:         issued.KeyID,
+		TokenHash:   &hash,
+		AuthVersion: issued.AuthVersion,
+		IssuedAt:    issued.IssuedAt,
+		ExpiredAt:   issued.ExpiresAt,
+	}
+	tx := DB.Begin()
+	if tx.Error != nil {
+		Logger.Errorf("begin access token transaction: %v", tx.Error)
+		return nil
+	}
+	if err := tx.Create(ut).Error; err != nil {
+		tx.Rollback()
+		Logger.Errorf("persist token metadata: %v", err)
+		return nil
+	}
+	llog.UserTokenId = ut.Id
+	if err := tx.Create(llog).Error; err != nil {
+		tx.Rollback()
+		Logger.Errorf("persist token login audit: %v", err)
+		return nil
+	}
+	if err := tx.Commit().Error; err != nil {
+		Logger.Errorf("commit token transaction: %v", err)
+		return nil
+	}
+	// Token is returned exactly once and was not present during persistence.
+	ut.Token = issued.Token
 	if llog.Uuid != "" {
 		AllService.PeerService.UuidBindUserId(llog.DeviceId, llog.Uuid, u.Id)
 	}
@@ -183,20 +335,63 @@ func (us *UserService) Create(u *model.User) error {
 	return res
 }
 
+func (us *UserService) CreateContext(ctx context.Context, actorUserID uint, requestID string, u *model.User) (operationErr error) {
+	if u == nil {
+		return errors.New("cannot create empty user")
+	}
+	event, auditErr := beginSecurityAudit(ctx, actorUserID, requestID, "auth.user.created", "user", us.formatUsername(u.Username), map[string]interface{}{
+		"group_id": u.GroupId,
+		"is_admin": us.IsAdmin(u),
+		"status":   u.Status,
+	})
+	if auditErr != nil {
+		return auditErr
+	}
+	defer finalizeSecurityAudit(event, &operationErr, "AUTH_USER_CREATE_FAILED")
+	return us.Create(u)
+}
+
 // GetUuidByToken 根据token和user取uuid
 func (us *UserService) GetUuidByToken(u *model.User, token string) string {
+	return us.getUuidByTokenContext(context.Background(), u, token)
+}
+
+func (us *UserService) getUuidByTokenContext(ctx context.Context, u *model.User, token string) string {
 	ut := &model.UserToken{}
-	err := DB.Where("user_id = ? and token = ?", u.Id, token).First(ut).Error
+	hash := internalAuth.TokenHashHex(token)
+	database := DB.WithContext(ctx)
+	err := database.Where("user_id = ? AND token_hash = ?", u.Id, hash).First(ut).Error
+	if err != nil && Config.Auth.LegacyTokenReadEnabled {
+		err = database.Where("user_id = ? AND token = ?", u.Id, token).First(ut).Error
+	}
 	if err != nil {
 		return ""
 	}
 	return ut.DeviceUuid
 }
 
-// Logout 退出登录 -> 删除token, 解绑uuid
+// Logout revokes one JTI. It does not increment the user-wide auth version.
 func (us *UserService) Logout(u *model.User, token string) error {
-	uuid := us.GetUuidByToken(u, token)
-	err := DB.Where("user_id = ? and token = ?", u.Id, token).Delete(&model.UserToken{}).Error
+	return us.LogoutContext(context.Background(), u, token)
+}
+
+func (us *UserService) LogoutContext(ctx context.Context, u *model.User, token string) error {
+	if u == nil || u.Id == 0 {
+		return nil
+	}
+	uuid := us.getUuidByTokenContext(ctx, u, token)
+	now := time.Now().Unix()
+	hash := internalAuth.TokenHashHex(token)
+	database := DB.WithContext(ctx)
+	tx := database.Model(&model.UserToken{}).
+		Where("user_id = ? AND token_hash = ? AND revoked_at IS NULL", u.Id, hash).
+		Updates(map[string]interface{}{"revoked_at": now, "revoked_reason": "logout"})
+	if tx.Error == nil && tx.RowsAffected == 0 && Config.Auth.LegacyTokenReadEnabled {
+		tx = database.Model(&model.UserToken{}).
+			Where("user_id = ? AND token = ? AND revoked_at IS NULL", u.Id, token).
+			Updates(map[string]interface{}{"revoked_at": now, "revoked_reason": "logout"})
+	}
+	err := tx.Error
 	if err != nil {
 		return err
 	}
@@ -208,39 +403,71 @@ func (us *UserService) Logout(u *model.User, token string) error {
 
 // Delete 删除用户和oauth信息
 func (us *UserService) Delete(u *model.User) error {
-	userCount := us.getAdminUserCount()
-	if userCount <= 1 && us.IsAdmin(u) {
-		return errors.New("The last admin user cannot be deleted")
+	return us.DeleteContext(context.Background(), 0, "", u)
+}
+
+func (us *UserService) DeleteContext(ctx context.Context, actorUserID uint, requestID string, u *model.User) (operationErr error) {
+	if u == nil || u.Id == 0 {
+		return errors.New("cannot delete empty user")
 	}
-	tx := DB.Begin()
+	event, auditErr := beginSecurityAudit(ctx, actorUserID, requestID, "auth.user.deleted", "user", strconv.FormatUint(uint64(u.Id), 10), map[string]interface{}{
+		"revocation_reason": "user_deleted",
+	})
+	if auditErr != nil {
+		return auditErr
+	}
+	defer finalizeSecurityAudit(event, &operationErr, "AUTH_USER_DELETE_FAILED")
+
+	tx := DB.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	defer tx.Rollback()
+	if err := us.acquireEnabledAdminInvariant(tx); err != nil {
+		return err
+	}
+	currentUser := &model.User{}
+	if err := tx.First(currentUser, u.Id).Error; err != nil {
+		return err
+	}
+	userCount, err := us.getAdminUserCountTx(tx)
+	if err != nil {
+		return err
+	}
+	if userCount <= 1 && us.IsAdmin(currentUser) && currentUser.Status == model.COMMON_STATUS_ENABLE {
+		return errors.New("The last enabled admin user cannot be deleted")
+	}
+	if err := us.revokeUserTokens(tx, currentUser.Id, "user_deleted", time.Now().Unix()); err != nil {
+		return err
+	}
 	// 删除用户
-	if err := tx.Delete(u).Error; err != nil {
-		tx.Rollback()
+	if err := tx.Delete(currentUser).Error; err != nil {
 		return err
 	}
 	// 删除关联的 OAuth 信息
-	if err := tx.Where("user_id = ?", u.Id).Delete(&model.UserThird{}).Error; err != nil {
-		tx.Rollback()
+	if err := tx.Where("user_id = ?", currentUser.Id).Delete(&model.UserThird{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Where("user_id = ?", currentUser.Id).Delete(&model.LdapIdentity{}).Error; err != nil {
 		return err
 	}
 	//  删除关联的ab
-	if err := tx.Where("user_id = ?", u.Id).Delete(&model.AddressBook{}).Error; err != nil {
-		tx.Rollback()
+	if err := tx.Where("user_id = ?", currentUser.Id).Delete(&model.AddressBook{}).Error; err != nil {
 		return err
 	}
 	//  删除关联的abc
-	if err := tx.Where("user_id = ?", u.Id).Delete(&model.AddressBookCollection{}).Error; err != nil {
-		tx.Rollback()
+	if err := tx.Where("user_id = ?", currentUser.Id).Delete(&model.AddressBookCollection{}).Error; err != nil {
 		return err
 	}
 	//  删除关联的abcr
-	if err := tx.Where("user_id = ?", u.Id).Delete(&model.AddressBookCollectionRule{}).Error; err != nil {
-		tx.Rollback()
+	if err := tx.Where("user_id = ?", currentUser.Id).Delete(&model.AddressBookCollectionRule{}).Error; err != nil {
 		return err
 	}
-	tx.Commit()
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
 	// 删除关联的peer
-	if err := AllService.PeerService.EraseUserId(u.Id); err != nil {
+	if err := AllService.PeerService.EraseUserId(currentUser.Id); err != nil {
 		Logger.Warn("User deleted successfully, but failed to unlink peer.")
 		return nil
 	}
@@ -249,51 +476,202 @@ func (us *UserService) Delete(u *model.User) error {
 
 // Update 更新
 func (us *UserService) Update(u *model.User) error {
-	currentUser := us.InfoById(u.Id)
-	// 如果当前用户是管理员并且 IsAdmin 不为空，进行检查
-	if us.IsAdmin(currentUser) {
-		adminCount := us.getAdminUserCount()
-		// 如果这是唯一的管理员，确保不能禁用或取消管理员权限
-		if adminCount <= 1 && (!us.IsAdmin(u) || u.Status == model.COMMON_STATUS_DISABLED) {
-			return errors.New("The last admin user cannot be disabled or demoted")
+	return us.UpdateContext(context.Background(), 0, "", u)
+}
+
+func (us *UserService) UpdateContext(ctx context.Context, actorUserID uint, requestID string, u *model.User) (operationErr error) {
+	if u == nil || u.Id == 0 {
+		return errors.New("cannot update empty user")
+	}
+	if u.Status != model.COMMON_STATUS_ENABLE && u.Status != model.COMMON_STATUS_DISABLED {
+		return errors.New("invalid user status")
+	}
+	event, auditErr := beginSecurityAudit(ctx, actorUserID, requestID, "auth.user.update_requested", "user", strconv.FormatUint(uint64(u.Id), 10), map[string]interface{}{
+		"requested_is_admin": u.IsAdmin,
+		"requested_status":   u.Status,
+	})
+	if auditErr != nil {
+		return auditErr
+	}
+	failureCode := "AUTH_USER_UPDATE_FAILED"
+	defer func() { finalizeSecurityAudit(event, &operationErr, failureCode) }()
+	tx := DB.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	defer tx.Rollback()
+	if err := us.acquireEnabledAdminInvariant(tx); err != nil {
+		return err
+	}
+	currentUser := &model.User{}
+	if err := tx.First(currentUser, u.Id).Error; err != nil {
+		return err
+	}
+	currentIsAdmin := us.IsAdmin(currentUser)
+	requestedIsAdmin := currentIsAdmin
+	if u.IsAdmin != nil {
+		requestedIsAdmin = *u.IsAdmin
+	}
+	roleChanged := currentIsAdmin != requestedIsAdmin
+	statusChanged := currentUser.Status != u.Status
+	willDisable := currentUser.Status == model.COMMON_STATUS_ENABLE && u.Status == model.COMMON_STATUS_DISABLED
+	action := "auth.user.updated"
+	if statusChanged {
+		action = "auth.user.status_changed"
+		failureCode = "AUTH_USER_STATUS_CHANGE_FAILED"
+	}
+	if willDisable && !roleChanged {
+		action = "auth.user.disabled"
+		failureCode = "AUTH_USER_DISABLE_FAILED"
+	} else if roleChanged {
+		action = "auth.user.role_changed"
+		failureCode = "AUTH_USER_ROLE_CHANGE_FAILED"
+	}
+	if err := rewriteSecurityAuditIntent(tx, event, action, map[string]interface{}{
+		"from_is_admin": currentIsAdmin,
+		"to_is_admin":   requestedIsAdmin,
+		"from_status":   currentUser.Status,
+		"to_status":     u.Status,
+	}); err != nil {
+		return err
+	}
+	removesEnabledAdmin := currentIsAdmin && currentUser.Status == model.COMMON_STATUS_ENABLE && (!requestedIsAdmin || u.Status == model.COMMON_STATUS_DISABLED)
+	if removesEnabledAdmin {
+		adminCount, err := us.getAdminUserCountTx(tx)
+		if err != nil {
+			return err
+		}
+		if adminCount <= 1 {
+			return errors.New("The last enabled admin user cannot be disabled or demoted")
 		}
 	}
-	return DB.Model(u).Updates(u).Error
+	if err := tx.Model(&model.User{}).Where("id = ?", u.Id).Updates(u).Error; err != nil {
+		return err
+	}
+	if willDisable || roleChanged {
+		reason := "user_disabled"
+		if roleChanged {
+			reason = "authorization_changed"
+		}
+		if err := us.bumpAuthVersionAndRevoke(tx, u.Id, reason); err != nil {
+			return err
+		}
+	}
+	return tx.Commit().Error
 }
 
-// FlushToken 清空token
+// FlushToken invalidates every session using one atomic auth-version bump.
 func (us *UserService) FlushToken(u *model.User) error {
-	return DB.Where("user_id = ?", u.Id).Delete(&model.UserToken{}).Error
+	return us.FlushTokenContext(context.Background(), 0, "", u)
 }
 
-// FlushTokenByUuid 清空token
+func (us *UserService) FlushTokenContext(ctx context.Context, actorUserID uint, requestID string, u *model.User) (operationErr error) {
+	if u == nil || u.Id == 0 {
+		return nil
+	}
+	event, auditErr := beginSecurityAudit(ctx, actorUserID, requestID, "auth.sessions.global_revoked", "user", strconv.FormatUint(uint64(u.Id), 10), map[string]interface{}{
+		"revocation_reason": "global_logout",
+	})
+	if auditErr != nil {
+		return auditErr
+	}
+	defer finalizeSecurityAudit(event, &operationErr, "AUTH_GLOBAL_REVOCATION_FAILED")
+	tx := DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	if err := us.bumpAuthVersionAndRevoke(tx, u.Id, "global_logout"); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+	u.AuthVersion++
+	return nil
+}
+
+// FlushTokenByUuid revokes only the sessions for one device.
 func (us *UserService) FlushTokenByUuid(uuid string) error {
-	return DB.Where("device_uuid = ?", uuid).Delete(&model.UserToken{}).Error
+	now := time.Now().Unix()
+	return DB.Model(&model.UserToken{}).Where("device_uuid = ? AND revoked_at IS NULL", uuid).
+		Updates(map[string]interface{}{"revoked_at": now, "revoked_reason": "device_removed"}).Error
 }
 
 // FlushTokenByUuids 清空token
 func (us *UserService) FlushTokenByUuids(uuids []string) error {
-	return DB.Where("device_uuid in (?)", uuids).Delete(&model.UserToken{}).Error
+	if len(uuids) == 0 {
+		return nil
+	}
+	now := time.Now().Unix()
+	return DB.Model(&model.UserToken{}).Where("device_uuid IN ? AND revoked_at IS NULL", uuids).
+		Updates(map[string]interface{}{"revoked_at": now, "revoked_reason": "device_removed"}).Error
 }
 
 // UpdatePassword 更新密码
 func (us *UserService) UpdatePassword(u *model.User, password string) error {
+	return us.UpdatePasswordContext(context.Background(), 0, "", u, password)
+}
+
+func (us *UserService) UpdatePasswordContext(ctx context.Context, actorUserID uint, requestID string, u *model.User, password string) (operationErr error) {
+	if u == nil || u.Id == 0 {
+		return errors.New("cannot update password for empty user")
+	}
+	if len(password) < 12 || len(password) > 128 {
+		return errors.New("password must contain 12 to 128 bytes")
+	}
+	event, auditErr := beginSecurityAudit(ctx, actorUserID, requestID, "auth.password.changed", "user", strconv.FormatUint(uint64(u.Id), 10), map[string]interface{}{
+		"revocation_reason": "password_changed",
+	})
+	if auditErr != nil {
+		return auditErr
+	}
+	defer finalizeSecurityAudit(event, &operationErr, "AUTH_PASSWORD_CHANGE_FAILED")
+
 	var err error
 	u.Password, err = utils.EncryptPassword(password)
 	if err != nil {
 		return err
 	}
-	err = DB.Model(u).Update("password", u.Password).Error
-	if err != nil {
+	tx := DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	if err = tx.Model(u).Update("password", u.Password).Error; err != nil {
+		tx.Rollback()
 		return err
 	}
-	err = us.FlushToken(u)
-	return err
+	if err = us.bumpAuthVersionAndRevoke(tx, u.Id, "password_changed"); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err = tx.Commit().Error; err != nil {
+		return err
+	}
+	u.AuthVersion++
+	return nil
+}
+
+func (us *UserService) bumpAuthVersionAndRevoke(tx *gorm.DB, userID uint, reason string) error {
+	result := tx.Model(&model.User{}).Where("id = ?", userID).
+		UpdateColumn("auth_version", gorm.Expr("auth_version + ?", 1))
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return errors.New("user not found while revoking sessions")
+	}
+	return us.revokeUserTokens(tx, userID, reason, time.Now().Unix())
+}
+
+func (us *UserService) revokeUserTokens(tx *gorm.DB, userID uint, reason string, now int64) error {
+	return tx.Model(&model.UserToken{}).Where("user_id = ? AND revoked_at IS NULL", userID).
+		Updates(map[string]interface{}{"revoked_at": now, "revoked_reason": reason}).Error
 }
 
 // IsAdmin 是否管理员
 func (us *UserService) IsAdmin(u *model.User) bool {
-	return u != nil && *u.IsAdmin
+	return u != nil && u.IsAdmin != nil && *u.IsAdmin
 }
 
 // RouteNames
@@ -331,8 +709,9 @@ func (us *UserService) RegisterByOauth(oauthUser *model.OauthUser, op string) (e
 	}
 	//check if this email has been registered
 	email := oauthUser.Email
-	// only email is not empty
-	if email != "" {
+	// Existing local or LDAP identities may only be linked by an email
+	// address that the upstream provider explicitly verified.
+	if email != "" && oauthUser.VerifiedEmail {
 		email = strings.ToLower(email)
 		// update email to oauthUser, in case it contain upper case
 		oauthUser.Email = email
@@ -348,12 +727,17 @@ func (us *UserService) RegisterByOauth(oauthUser *model.OauthUser, op string) (e
 		}
 		if user.Id != 0 {
 			ut.FromOauthUser(user.Id, oauthUser, oauthType, op)
-			DB.Create(ut)
+			if err := DB.Create(ut).Error; err != nil {
+				return err, nil
+			}
 			return nil, user
 		}
 	}
 
 	tx := DB.Begin()
+	if tx.Error != nil {
+		return tx.Error, nil
+	}
 	ut = &model.UserThird{}
 	ut.FromOauthUser(0, oauthUser, oauthType, op)
 	// The initial username should be formatted
@@ -364,21 +748,28 @@ func (us *UserService) RegisterByOauth(oauthUser *model.OauthUser, op string) (e
 		GroupId:  1,
 	}
 	oauthUser.ToUser(user, false)
-	tx.Create(user)
-	if user.Id == 0 {
+	if err := tx.Create(user).Error; err != nil || user.Id == 0 {
 		tx.Rollback()
+		if err != nil {
+			return errors.Join(errors.New("OauthRegisterFailed"), err), user
+		}
 		return errors.New("OauthRegisterFailed"), user
 	}
 	ut.UserId = user.Id
-	tx.Create(ut)
-	tx.Commit()
+	if err := tx.Create(ut).Error; err != nil {
+		tx.Rollback()
+		return errors.Join(errors.New("OauthRegisterFailed"), err), user
+	}
+	if err := tx.Commit().Error; err != nil {
+		return errors.Join(errors.New("OauthRegisterFailed"), err), user
+	}
 	return nil, user
 }
 
 // GenerateUsernameByOauth 生成用户名
 func (us *UserService) GenerateUsernameByOauth(name string) string {
 	for us.IsUsernameExists(name) {
-		name += strconv.Itoa(rand.Intn(10)) // Append a random digit (0-9)
+		name += strconv.Itoa(mathrand.Intn(10)) // Append a random digit (0-9)
 	}
 	return name
 }
@@ -427,6 +818,9 @@ func (us *UserService) IsPasswordEmptyByUser(u *model.User) bool {
 
 // Register 注册, 如果用户名已存在则返回nil
 func (us *UserService) Register(username string, email string, password string, status model.StatusCode) *model.User {
+	if len(username) < 2 || len(username) > 32 || len(email) > 254 || len(password) < 12 || len(password) > 128 {
+		return nil
+	}
 	u := &model.User{
 		Username: username,
 		Email:    email,
@@ -462,7 +856,23 @@ func (us *UserService) TokenInfoById(id uint) *model.UserToken {
 }
 
 func (us *UserService) DeleteToken(l *model.UserToken) error {
-	return DB.Delete(l).Error
+	return us.DeleteTokenContext(context.Background(), 0, "", l)
+}
+
+func (us *UserService) DeleteTokenContext(ctx context.Context, actorUserID uint, requestID string, l *model.UserToken) (operationErr error) {
+	if l == nil || l.Id == 0 {
+		return nil
+	}
+	event, auditErr := beginSecurityAudit(ctx, actorUserID, requestID, "auth.session.admin_revoked", "user_token", strconv.FormatUint(uint64(l.Id), 10), map[string]interface{}{
+		"user_id": l.UserId,
+	})
+	if auditErr != nil {
+		return auditErr
+	}
+	defer finalizeSecurityAudit(event, &operationErr, "AUTH_SESSION_REVOCATION_FAILED")
+	now := time.Now().Unix()
+	return DB.Model(&model.UserToken{}).Where("id = ? AND revoked_at IS NULL", l.Id).
+		Updates(map[string]interface{}{"revoked_at": now, "revoked_reason": "admin_revoked"}).Error
 }
 
 // Helper functions, used for formatting username
@@ -481,9 +891,27 @@ func (us *UserService) getUserCount() int64 {
 
 // helper functions, getAdminUserCount
 func (us *UserService) getAdminUserCount() int64 {
-	var count int64
-	DB.Model(&model.User{}).Where("is_admin = ?", true).Count(&count)
+	count, _ := us.getAdminUserCountTx(DB)
 	return count
+}
+
+func (us *UserService) getAdminUserCountTx(tx *gorm.DB) (int64, error) {
+	var count int64
+	err := tx.Model(&model.User{}).Where("is_admin = ? AND status = ?", true, model.COMMON_STATUS_ENABLE).Count(&count).Error
+	return count, err
+}
+
+func (us *UserService) acquireEnabledAdminInvariant(tx *gorm.DB) error {
+	result := tx.Model(&model.SecurityInvariantLock{}).
+		Where("name = ?", "enabled-admin").
+		UpdateColumn("generation", gorm.Expr("generation + ?", 1))
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return errors.New("enabled-administrator invariant lock is unavailable")
+	}
+	return nil
 }
 
 // UserTokenExpireTimestamp 生成用户token过期时间
@@ -491,28 +919,29 @@ func (us *UserService) UserTokenExpireTimestamp() int64 {
 	exp := Config.App.TokenExpire
 	if exp == 0 {
 		//默认七天
-		exp = 604800
+		exp = 7 * 24 * time.Hour
 	}
 	return time.Now().Add(exp).Unix()
 }
 
-func (us *UserService) RefreshAccessToken(ut *model.UserToken) {
-	ut.ExpiredAt = us.UserTokenExpireTimestamp()
-	DB.Model(ut).Update("expired_at", ut.ExpiredAt)
-}
-
-func (us *UserService) AutoRefreshAccessToken(ut *model.UserToken) {
-	if ut.ExpiredAt-time.Now().Unix() < Config.App.TokenExpire.Milliseconds()/3000 {
-		us.RefreshAccessToken(ut)
-	}
-}
-
 func (us *UserService) BatchDeleteUserToken(ids []uint) error {
-	return DB.Where("id in ?", ids).Delete(&model.UserToken{}).Error
+	return us.BatchDeleteUserTokenContext(context.Background(), 0, "", ids)
 }
 
-func (us *UserService) VerifyJWT(token string) (uint, error) {
-	return Jwt.ParseToken(token)
+func (us *UserService) BatchDeleteUserTokenContext(ctx context.Context, actorUserID uint, requestID string, ids []uint) (operationErr error) {
+	if len(ids) == 0 {
+		return nil
+	}
+	event, auditErr := beginSecurityAudit(ctx, actorUserID, requestID, "auth.session.batch_admin_revoked", "user_token", "batch", map[string]interface{}{
+		"count": len(ids),
+	})
+	if auditErr != nil {
+		return auditErr
+	}
+	defer finalizeSecurityAudit(event, &operationErr, "AUTH_SESSION_REVOCATION_FAILED")
+	now := time.Now().Unix()
+	return DB.Model(&model.UserToken{}).Where("id IN ? AND revoked_at IS NULL", ids).
+		Updates(map[string]interface{}{"revoked_at": now, "revoked_reason": "admin_revoked"}).Error
 }
 
 // IsUsernameExists 判断用户名是否存在, it will check the internal database and LDAP(if enabled)

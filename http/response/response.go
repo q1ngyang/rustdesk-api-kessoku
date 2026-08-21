@@ -3,8 +3,8 @@ package response
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/lejianwen/rustdesk-api/v2/global"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
 	"net/http"
 )
 
@@ -42,17 +42,16 @@ func Fail(c *gin.Context, code int, message string) {
 	SendResponse(c, code, message, nil)
 }
 
+// FailStatus is used by authentication and authorization middleware where the
+// HTTP status itself is part of the security contract.
+func FailStatus(c *gin.Context, status, code int, message string) {
+	c.JSON(status, Response{Code: code, Message: message, Data: nil})
+}
+
 func Error(c *gin.Context, message string) {
 	c.JSON(http.StatusBadRequest, ErrorResponse{
 		Error: message,
 	})
-}
-
-type ServerConfigResponse struct {
-	IdServer    string `json:"id_server"`
-	Key         string `json:"key"`
-	RelayServer string `json:"relay_server"`
-	ApiServer   string `json:"api_server"`
 }
 
 func TranslateMsg(c *gin.Context, messageId string) string {

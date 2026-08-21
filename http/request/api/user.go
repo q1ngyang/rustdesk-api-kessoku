@@ -23,31 +23,31 @@ package api
 */
 
 type DeviceInfoInLogin struct {
-	Name string `json:"name" label:"name"`
-	Os   string `json:"os" label:"os"`
-	Type string `json:"type" label:"type"`
+	Name string `json:"name" binding:"max=256" label:"name"`
+	Os   string `json:"os" binding:"max=64" label:"os"`
+	Type string `json:"type" binding:"max=64" label:"type"`
 }
 
 type LoginForm struct {
 	AutoLogin  bool              `json:"autoLogin" label:"自动登录"`
 	DeviceInfo DeviceInfoInLogin `json:"deviceInfo" label:"设备信息"`
-	Id         string            `json:"id"  label:"id"`
-	Type       string            `json:"type"  label:"type"`
-	Uuid       string            `json:"uuid"  label:"uuid"`
+	Id         string            `json:"id" binding:"max=128" label:"id"`
+	Type       string            `json:"type" binding:"max=64" label:"type"`
+	Uuid       string            `json:"uuid" binding:"max=256" label:"uuid"`
 	Username   string            `json:"username" validate:"required,gte=2,lte=32" label:"用户名"`
-	Password   string            `json:"password,omitempty" validate:"gte=4,lte=32" label:"密码"`
+	Password   string            `json:"password,omitempty" validate:"gte=4,lte=128" label:"密码"`
 }
 
 type UserListQuery struct {
 	Page       uint   `json:"page" form:"page" validate:"required" label:"页码"`
-	PageSize   uint   `json:"pageSize" form:"pageSize" validate:"required" label:"每页数量"`
+	PageSize   uint   `json:"pageSize" form:"pageSize" binding:"omitempty,lte=1000" validate:"required" label:"每页数量"`
 	Status     int    `json:"status" form:"status" label:"状态"`
 	Accessible string `json:"accessible" form:"accessible"`
 }
 
 type PeerListQuery struct {
 	Page       uint   `json:"page" form:"page" validate:"required" label:"页码"`
-	PageSize   uint   `json:"pageSize" form:"pageSize" validate:"required" label:"每页数量"`
+	PageSize   uint   `json:"pageSize" form:"pageSize" binding:"omitempty,lte=1000" validate:"required" label:"每页数量"`
 	Status     int    `json:"status" form:"status" label:"状态"`
 	Accessible string `json:"accessible" form:"accessible"`
 }

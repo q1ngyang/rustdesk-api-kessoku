@@ -1,13 +1,16 @@
-Source: rustdesk-api-server
+Source: rustdesk-api-kessoku
 Section: net
 Priority: optional
-Maintainer: ymwl <ymwlpoolc@qq.com>
+Maintainer: q1ngyang <q1ngyang@users.noreply.github.com>
 Build-Depends: debhelper (>= 10), pkg-config
 Standards-Version: 4.5.0
-Homepage: https://github.com/lejianwen/rustdesk-api/
+Homepage: https://github.com/q1ngyang/rustdesk-api-kessoku/
 
-Package: rustdesk-api-server
+Package: kessoku-api
 Architecture: {{ ARCH }}
-Depends: systemd ${misc:Depends}
-Description: RustDesk api server
- RustDesk api server, it is free and open source.
+Depends: adduser, systemd, ${misc:Depends}
+Conflicts: rustdesk-api-server
+Description: Kessoku account, control plane, and browser client for RustDesk
+ Kessoku provides accounts, EdDSA token lifecycle, and a typed Starry control
+ API. It includes the repository-owned Relay-only browser client and does not
+ expose arbitrary server commands.

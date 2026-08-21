@@ -2,10 +2,10 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
-	_ "github.com/lejianwen/rustdesk-api/v2/docs/api"
-	"github.com/lejianwen/rustdesk-api/v2/global"
-	"github.com/lejianwen/rustdesk-api/v2/http/controller/api"
-	"github.com/lejianwen/rustdesk-api/v2/http/middleware"
+	_ "github.com/q1ngyang/rustdesk-api-kessoku/v2/docs/api"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/controller/api"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/middleware"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"net/http"
@@ -22,6 +22,7 @@ func ApiInit(g *gin.Engine) {
 	g.LoadHTMLGlob("resources/templates/*")
 
 	frg := g.Group("/api")
+	frg.Use(middleware.RequestBodyLimit(2 << 20))
 
 	{
 		i := &api.Index{}
@@ -61,16 +62,15 @@ func ApiInit(g *gin.Engine) {
 		frg.POST("/sysinfo_ver", pe.SysInfoVer)
 	}
 
-	if global.Config.App.WebClient == 1 {
-		WebClientRoutes(frg)
-	}
-
 	{
 		au := &api.Audit{}
 		//[method:POST] [uri:/api/audit/conn]
 		frg.POST("/audit/conn", au.AuditConn)
 		//[method:POST] [uri:/api/audit/file]
 		frg.POST("/audit/file", au.AuditFile)
+	}
+	if global.Config.WebClient.Enabled() {
+		WebClientAPIBind(frg)
 	}
 
 	frg.Use(middleware.RustAuth())
@@ -104,6 +104,17 @@ func ApiInit(g *gin.Engine) {
 	g.StaticFS("/upload", http.Dir(global.Config.Gin.ResourcesPath+"/public/upload"))
 }
 
+func WebClientAPIBind(rg *gin.RouterGroup) {
+	controller := &api.WebClient{}
+	group := rg.Group("/web-client/v1").Use(middleware.WebClientCORS())
+	group.OPTIONS("/login", func(c *gin.Context) {})
+	group.OPTIONS("/grants", func(c *gin.Context) {})
+	group.OPTIONS("/logout", func(c *gin.Context) {})
+	group.POST("/login", controller.Login)
+	group.POST("/grants", middleware.RustAuth(), controller.Grant)
+	group.POST("/logout", middleware.WebClientConnectionAuth(), controller.Logout)
+}
+
 func PersonalRoutes(frg *gin.RouterGroup) {
 	{
 		ab := &api.Ab{}
@@ -131,18 +142,6 @@ func PersonalRoutes(frg *gin.RouterGroup) {
 		//[method:DELETE] [uri:/api/ab/tag/1]
 		frg.DELETE("/ab/tag/:guid", ab.TagDel)
 
-	}
-
-}
-
-func WebClientRoutes(frg *gin.RouterGroup) {
-	w := &api.WebClient{}
-	{
-		frg.POST("/shared-peer", w.SharedPeer)
-	}
-	{
-		frg.POST("/server-config", middleware.RustAuth(), w.ServerConfig)
-		frg.POST("/server-config-v2", middleware.RustAuth(), w.ServerConfigV2)
 	}
 
 }

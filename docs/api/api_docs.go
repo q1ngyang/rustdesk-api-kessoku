@@ -927,6 +927,11 @@ const docTemplateapi = `{
         },
         "/logout": {
             "post": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
                 "description": "登出",
                 "consumes": [
                     "application/json"
@@ -1090,103 +1095,6 @@ const docTemplateapi = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/response.DataResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/server-config": {
-            "get": {
-                "security": [
-                    {
-                        "token": []
-                    }
-                ],
-                "description": "服务配置,给webclient提供api-server",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "WEBCLIENT"
-                ],
-                "summary": "服务配置",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/server-config-v2": {
-            "get": {
-                "security": [
-                    {
-                        "token": []
-                    }
-                ],
-                "description": "服务配置,给webclient提供api-server",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "WEBCLIENT_V2"
-                ],
-                "summary": "服务配置",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/shared-peer": {
-            "post": {
-                "description": "分享的peer",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "WEBCLIENT"
-                ],
-                "summary": "分享的peer",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
                         }
                     },
                     "500": {
@@ -1444,13 +1352,16 @@ const docTemplateapi = `{
             "type": "object",
             "properties": {
                 "name": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 256
                 },
                 "os": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 64
                 },
                 "type": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 64
                 }
             }
         },
@@ -1467,15 +1378,17 @@ const docTemplateapi = `{
                     "$ref": "#/definitions/api.DeviceInfoInLogin"
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 128
                 },
                 "password": {
                     "type": "string",
-                    "maxLength": 32,
+                    "maxLength": 128,
                     "minLength": 4
                 },
                 "type": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 64
                 },
                 "username": {
                     "type": "string",
@@ -1483,7 +1396,8 @@ const docTemplateapi = `{
                     "minLength": 2
                 },
                 "uuid": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 256
                 }
             }
         },
