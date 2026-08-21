@@ -166,9 +166,13 @@ jobs:
         run: |
           set -euo pipefail
           test "$(go version | awk '{print $3}')" = "go${GO_VERSION}"
+          test -s go.mod
+          test -s go.sum
+          mod_before="$(sha256sum go.mod)"
+          sum_before="$(sha256sum go.sum)"
           go mod download
           go mod verify
-          git diff --exit-code -- go.mod go.sum
+          printf '%s\n' "$mod_before" "$sum_before" | sha256sum --check
           test -z "$(git ls-files -z -- '*.go' | xargs -0 -r gofmt -l)"
           go vet ./...
           go test -timeout=8m ./...
