@@ -2,7 +2,7 @@
 
 [English](WEB-CLIENT.md) | **简体中文**
 
-Kessoku v2.8.0 内置仓库自有、MIT 许可的浏览器远控 MVP。已审核 TypeScript 源码位于
+Kessoku v2.8.1 内置仓库自有、MIT 许可的浏览器远控 MVP。已审核 TypeScript 源码位于
 `web-client/`，release 只把可复现生产产物放入 `resources/client`。实现不使用历史
 `resources/web`、`resources/web2`、托管 WebClient2/V2、Flutter Web 输出、外部构建
 JavaScript 或下载的 WASM。
@@ -15,7 +15,7 @@ JavaScript 或下载的 WASM。
 - 通过浏览器 WebCodecs 解码 VP9，并用 Canvas 2D 渲染；
 - 有界鼠标与基本键盘输入。
 
-v2.8.0 MVP 不包含 direct/P2P TCP/UDP、被控/host 模式、文件传输、剪贴板、音频、终端、
+v2.8.1 MVP 不包含 direct/P2P TCP/UDP、被控/host 模式、文件传输、剪贴板、音频、终端、
 端口转发、打印、显示器切换、移动触摸、IME、H.264/H.265/AV1 或软件解码。
 
 ## Origin 与令牌边界

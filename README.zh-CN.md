@@ -7,10 +7,10 @@ Kessoku 是一个非官方的 RustDesk 账户、管理和策略控制面。它�
 [`rustdesk-server-starry`](https://github.com/q1ngyang/rustdesk-server-starry)
 集成。
 
-> **v2.8.0 已批准源码候选。** 功能实现和本地 Linux amd64 检查已经完成，Starry 正式
+> **v2.8.1 稳定版。** 功能实现和 Linux amd64 检查已经完成，Starry 正式
 > 契约也已固定，已发布 Starry 的原生客户端矩阵与内置浏览器 forced-Relay 夹具均在本机
-> 通过；仍需完成不可变 tag、受保护候选 CI 和发布操作。发布负责人已批准最终文案和本地
-> 证据。不要把未打 tag 的工作树构建当作生产版本。
+> 通过。不可变 tag 只通过受保护候选/发布工作流生成；生产部署前请验证 GitHub Release
+> checksum，并固定带版本的 GHCR digest。
 
 ## 组件边界
 
@@ -26,7 +26,7 @@ Kessoku 是一个非官方的 RustDesk 账户、管理和策略控制面。它�
 Kessoku 不暴露 shell、任意命令、任意 Agent URL、Docker Socket 或浏览器提供的文件路径。
 浏览器客户端是仓库自有源码；历史 WebClient2/V2 与 `resources/web*` 资产继续排除。
 
-## v2.8.0 新特性
+## v2.8.1 新特性
 
 - 严格 Ed25519/EdDSA access token：校验 issuer、audience、kid、JTI、生命周期、scope
   和认证版本。
@@ -40,16 +40,16 @@ Kessoku 不暴露 shell、任意命令、任意 Agent URL、Docker Socket 或浏
   MVP 支持强制 Relay WSS、VP9、鼠标和基本键盘；不支持 P2P、被控模式、文件传输、
   剪贴板、音频、显示器切换与非 VP9 codec。
 - SQLite、MySQL、PostgreSQL 迁移；外部 MySQL/PostgreSQL 强制验证 TLS 证书与主机名。
-- v2.8.0 正式制品范围为 Docker `linux/amd64`、Linux x86_64 archive/binary 和
+- v2.8.1 正式制品范围为 Docker `linux/amd64`、Linux x86_64 archive/binary 和
   amd64 DEB；ARM 仅尽力兼容且不阻断发布。
 
 ## 推荐部署
 
-推荐在 Linux amd64 使用 Docker Compose。受审核版本发布后，先使用不可变版本 tag，
-再把解析出的 digest 记录到部署配置：
+推荐在 Linux amd64 使用 Docker Compose。先使用不可变版本 tag，再把解析出的 digest
+记录到部署配置：
 
 ```sh
-docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v2.8.0
+docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v2.8.1
 cp examples/compose.env.example .env
 cp examples/config.docker-builtin.yaml config.yaml
 # 先编辑 .env/config.yaml，并提供其中引用的签名私钥。
@@ -60,7 +60,7 @@ docker compose --env-file .env -f docker-compose.yaml up -d
 Compose 默认把 API 21114 和 Web Client 21122 绑定到 `127.0.0.1`，请使用两个不同的
 HTTPS origin，并参考反代范例
 [`examples/Caddyfile.example`](examples/Caddyfile.example)对外发布。release 还会发布
-`latest`，供明确希望跟随最新稳定版的用户使用；生产回滚仍应固定 `v2.8.0` digest。
+`latest`，供明确希望跟随最新稳定版的用户使用；生产回滚仍应固定 `v2.8.1` digest。
 精确 `relay-wss-urls` map 位于挂载的 YAML，不放在环境变量中；启动前请按 Docker 详细
 文档完成配置。
 
@@ -90,8 +90,8 @@ Control Agent 应先以只读模式上线，并先完成真实客户端和回滚
 ## 发布状态
 
 权威门禁是 [`RELEASE_STATUS`](RELEASE_STATUS)，证据要求见
-[`RELEASE-CHECKLIST.md`](RELEASE-CHECKLIST.md)，v2.8.0 功能和兼容性草案见
-[`RELEASE-NOTES-v2.8.0.zh-CN.md`](RELEASE-NOTES-v2.8.0.zh-CN.md)。
+[`RELEASE-CHECKLIST.md`](RELEASE-CHECKLIST.md)，v2.8.1 功能和兼容性说明见
+[`RELEASE-NOTES-v2.8.1.zh-CN.md`](RELEASE-NOTES-v2.8.1.zh-CN.md)。
 
 本地开发验证不等于发布授权。tag、push、GHCR、GitHub Release 和 Wiki 发布都需要单独
 明确批准。

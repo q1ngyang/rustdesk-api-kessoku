@@ -118,7 +118,7 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 		`candidate/release-assets/GO-BUILD-INFO.txt`,
 		`vcs.revision='"${GITHUB_SHA}"`,
 		`vcs.modified=false`,
-		`test "$release_tag" = v2.8.0`,
+		`test "$release_tag" = v2.8.1`,
 	} {
 		if !strings.Contains(workflow, required) {
 			t.Fatalf("publication workflow is missing fail-closed control %q", required)
@@ -131,7 +131,7 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(status), "status: APPROVED") || !strings.Contains(string(status), "release_tag: v2.8.0") {
+	if !strings.Contains(string(status), "status: APPROVED") || !strings.Contains(string(status), "release_tag: v2.8.1") {
 		t.Fatal("release source must name the explicitly approved immutable tag")
 	}
 }
@@ -155,6 +155,8 @@ func TestCompilerFrontendAndVulnerabilityScannerArePinned(t *testing.T) {
 			"GO_VERSION: 1.26.6",
 			"NODE_VERSION: 24.15.0",
 			"NPM_VERSION: 11.12.1",
+			"shell: bash",
+			`printf '%s\n' "$mod_before" "$sum_before" | sha256sum --check`,
 			"npm sbom --omit=dev --sbom-format cyclonedx",
 			"npm audit signatures",
 			`diff -u "${RUNNER_TEMP}/admin-web-dist-1.sha256"`,

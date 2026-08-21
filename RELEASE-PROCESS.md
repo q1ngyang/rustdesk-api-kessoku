@@ -3,8 +3,13 @@
 This procedure is fail-closed. The candidate workflow never publishes, and the
 publication workflow accepts only a successful candidate from the exact tag
 commit. The reviewed source candidate sets `RELEASE_STATUS` to `APPROVED` and
-names `release_tag: v2.8.0`; this permits the protected sequence below but does
+names `release_tag: v2.8.1`; this permits the protected sequence below but does
 not claim that its tag or any public artifact already exists.
+
+The earlier `v2.8.0` tag is an unpublished tombstone: its candidate workflow
+failed before build because the container used `/bin/sh` for a Bash-only
+`pipefail` script. It has no Release, package, image, or assets and must never
+be moved or reused. The reviewed replacement release is v2.8.1.
 
 ## Approval prerequisites
 
@@ -24,16 +29,19 @@ the rollout go/no-go decision. In particular:
   deployment RTO/RPO is not a software-publication requirement; and
 - the release owner must approve the final repository/image name, concise
   bilingual README, bilingual release/container notes, paired Wiki source,
-  Docker examples, GHCR description, deployment links, and v2.8.0 feature and
+  Docker examples, GHCR description, deployment links, and v2.8.1 feature and
   compatibility wording; and
-- the GitHub `kessoku-release` environment must require independent reviewers
-  and allow only the intended protected tag.
+- the GitHub `kessoku-release` environment must require an explicit release-
+  owner review and allow only the intended protected tag. Repositories with an
+  additional qualified maintainer must enable prevention of self-review; this
+  personal repository currently has one administrator, so the same account
+  records the already-granted owner approval at the environment gate.
 
 The final reviewed source change sets:
 
 ```text
 status: APPROVED
-release_tag: v2.8.0
+release_tag: v2.8.1
 ```
 
 Do not approve a floating branch, unpublished Starry contract, externally
@@ -55,7 +63,7 @@ the protected candidate workflow below.
    scans, both embedded-frontend checks, Web Client grant/origin/browser
    acceptance, Docker linux/amd64 smoke, Linux x86_64
    archive, and real amd64 DEB installation passed. ARM and Windows are not
-   v2.8.0 publication gates.
+   v2.8.1 publication gates.
 4. Download `kessoku-release-candidate-<commit>` and independently verify
    `SHA256SUMS`, `BUILD-INPUTS.txt`, `RELEASE_STATUS`, and `CONTRACT_VERSION`.
 5. Inspect the archive, DEB, Docker context, all three SPDX SBOMs, and separate
@@ -100,4 +108,4 @@ configuration, access-key material, and Control Agent key material available
 for the entire observation window. Trigger `ROLLBACK-RUNBOOK.md` on migration,
 authentication, control-plane, client-compatibility, or audit regressions.
 
-正式发布同样遵循上述顺序：先完成清单与独立审批，再从目标 tag 运行不发布的候选流程，最后让受保护的发布流程按 run ID 消费同一提交的候选。不可变版本 tag 不得移动；`latest` 只能由成功的稳定版发布流程更新，并必须与该版本 tag 指向相同 digest。不得跳过两个前端的审计、可复现与许可证门禁；只允许仓库自有 `resources/client`，不能加入历史 WebClient2/V2 资产。
+正式发布同样遵循上述顺序：先完成清单与明确的发布负责人审批，再从目标 tag 运行不发布的候选流程，最后让受保护的发布流程按 run ID 消费同一提交的候选。有额外合格维护者时必须禁止自审；当前个人仓库只有一位管理员，因此由同一账号在环境门禁记录已获批准。不可变版本 tag 不得移动；`latest` 只能由成功的稳定版发布流程更新，并必须与该版本 tag 指向相同 digest。不得跳过两个前端的审计、可复现与许可证门禁；只允许仓库自有 `resources/client`，不能加入历史 WebClient2/V2 资产。
