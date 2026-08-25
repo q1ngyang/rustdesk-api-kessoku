@@ -1,4 +1,4 @@
-rustdesk-api-kessoku (3.0.0-1) UNRELEASED; urgency=medium
+rustdesk-api-kessoku (3.0.1-1) UNRELEASED; urgency=medium
 
   * Add the responsive Kessoku administration interface.
   * Add scoped enterprise administrators and database version 302.

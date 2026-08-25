@@ -5,7 +5,7 @@
 本文是从 GHCR package 页面进入项目时使用的版本化入口。推荐在 Linux amd64 上使用
 Docker Compose 部署。
 
-> 在受保护发布流程完成前，本文中的 `v3.0.0` 镜像仍只是发布目标。正式发布的 `latest`
+> 在受保护发布流程完成前，本文中的 `v3.0.1` 镜像仍只是发布目标。正式发布的 `latest`
 > 将指向最新成功发布的稳定版；不要用本地工作树镜像替代。
 
 部署链接：
@@ -22,7 +22,7 @@ Docker Compose 部署。
 
 ## 镜像范围
 
-v3.0.0 镜像包含一个非特权 `kessoku-api` 进程、从同一源码提交构建的已审核管理前端与
+v3.0.1 镜像包含一个非特权 `kessoku-api` 进程、从同一源码提交构建的已审核管理前端与
 Web Client、API 文档和运行配置模板。该镜像：
 
 - 目标平台为 `linux/amd64`；
@@ -42,18 +42,18 @@ Kessoku 不是 HBBS/HBBR。请独立部署配套 Starry HBBS 和官方 HBBR。
 发布后执行：
 
 ```sh
-docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.0
+docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.1
 docker image inspect \
-  ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.0 \
+  ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.1 \
   --format '{{json .RepoDigests}}'
 ```
 
-发布 workflow 会把不可变 `v3.0.0` 与移动的 `latest` 推送为同一镜像。只有在明确希望跟随
+发布 workflow 会把不可变 `v3.0.1` 与移动的 `latest` 推送为同一镜像。只有在明确希望跟随
 最新稳定版时才使用 `latest`；生产变更控制与回滚应解析并固定版本 tag 的 digest。
 
 ## Compose 快速开始
 
-在 v3.0.0 源码或下载的部署文件目录中：
+在 v3.0.1 源码或下载的部署文件目录中：
 
 ```sh
 cp examples/compose.env.example .env

@@ -22,7 +22,7 @@
       </article>
     </section>
 
-    <footer class="about-footer"><span>Version</span><strong>3.0.0</strong></footer>
+    <footer class="about-footer"><span>Version</span><strong>3.0.1</strong></footer>
   </div>
 </template>
 

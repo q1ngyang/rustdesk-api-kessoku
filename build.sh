@@ -95,9 +95,9 @@ sh scripts/copy-runtime-resources.sh release/resources resources require-admin r
 cp -ar docs release/
 cp -ar conf release/
 cp README.md README.zh-CN.md README_EN.md CONTAINER.md CONTAINER.zh-CN.md \
-  RELEASE-NOTES-v3.0.0.md RELEASE-NOTES-v3.0.0.zh-CN.md \
-  SECURITY-MODEL.md MIGRATION.md MIGRATION-v3.0.0.md \
-  MIGRATION-v3.0.0.zh-CN.md OPERATOR-RUNBOOK.md ROLLBACK-RUNBOOK.md \
+  RELEASE-NOTES-v3.0.1.md RELEASE-NOTES-v3.0.1.zh-CN.md \
+  SECURITY-MODEL.md MIGRATION.md MIGRATION-v3.0.1.md \
+  MIGRATION-v3.0.1.zh-CN.md OPERATOR-RUNBOOK.md ROLLBACK-RUNBOOK.md \
   WEB-CLIENT.md WEB-CLIENT.zh-CN.md ADMIN-WEB-PROVENANCE.md RELEASE-CHECKLIST.md \
   RELEASE-PROCESS.md RELEASE_STATUS LICENSE release/
 cp admin-web/LICENSE release/ADMIN-WEB-LICENSE

@@ -1,8 +1,8 @@
 # Database and Authentication Migration Guide
 
-This guide documents the version 301 authentication foundation. Kessoku v3.0.0
+This guide documents the version 301 authentication foundation. Kessoku v3.0.1
 then upgrades it to database version 302 for enterprise roles and scoped
-administration. Follow [`MIGRATION-v3.0.0.md`](MIGRATION-v3.0.0.md) after the
+administration. Follow [`MIGRATION-v3.0.1.md`](MIGRATION-v3.0.1.md) after the
 version 301 preflight, and rehearse every step against a restored production
 backup before a maintenance window.
 

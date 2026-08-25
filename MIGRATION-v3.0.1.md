@@ -1,6 +1,6 @@
-# RustDesk API Kessoku v3.0.0 database migration and rollback
+# RustDesk API Kessoku v3.0.1 database migration and rollback
 
-v3.0.0 moves the database from version 301 to 302. The migration is additive,
+v3.0.1 moves the database from version 301 to 302. The migration is additive,
 but the privilege model changes; rehearse the upgrade and rollback against a
 restored production backup.
 
@@ -16,7 +16,7 @@ authorization uses only `role`.
 
 1. Stop writes, record the current database version and administrators, and
    create a verified backup.
-2. Start v3.0.0 against a restored copy and verify database version 302.
+2. Start v3.0.1 against a restored copy and verify database version 302.
 3. Confirm every former administrator is `super_admin` and at least one
    enabled super administrator remains.
 4. Test an `admin` first with no grants, then with each of the four scope types;
@@ -46,4 +46,4 @@ UPDATE users SET is_admin = FALSE WHERE role = 'admin';
 Only then start v2.8.x. Never allow v2 and v3 to write the same database at the
 same time. Back up again and verify every `role` before returning to v3.
 
-[简体中文](MIGRATION-v3.0.0.zh-CN.md)
+[简体中文](MIGRATION-v3.0.1.zh-CN.md)

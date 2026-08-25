@@ -24,7 +24,7 @@ SAN，并运行 [`MIGRATION.md`](../../MIGRATION.md)中的 OAuth 身份重复/�
 
 ## 升级顺序
 
-1. 部署 Kessoku v3.0.0，认证关闭且控制只读。
+1. 部署 Kessoku v3.0.1，认证关闭且控制只读。
 2. 验证数据库版本 302、原管理员均为 `super_admin`、至少保留一个启用超管，以及版本
    301 的 OAuth/token 不变量。
 3. 验证空范围 `admin` 看不到企业资源，再依次测试用户组、用户、公共地址簿与 ID 设备授权。
@@ -42,10 +42,10 @@ SAN，并运行 [`MIGRATION.md`](../../MIGRATION.md)中的 OAuth 身份重复/�
 
 版本 302 为兼容数据库保留范围管理员和超管的 `is_admin=true` 镜像，因此 v2 可能把范围
 管理员提升为无限制管理员。首选恢复完整的升级前备份；如必须原地回退 v2，应先按
-[`MIGRATION-v3.0.0.zh-CN.md`](../../MIGRATION-v3.0.0.zh-CN.md)预处理，且禁止 v2/v3
+[`MIGRATION-v3.0.1.zh-CN.md`](../../MIGRATION-v3.0.1.zh-CN.md)预处理，且禁止 v2/v3
 同时写入。
 
-v3.0.0 新凭据不会填写历史明文 token 列。旧应用无法重建或认证它们。v3.0.0 一旦签发
+v3.0.1 新凭据不会填写历史明文 token 列。旧应用无法重建或认证它们。v3.0.1 一旦签发
 token，回滚旧应用必须使用匹配且经过验证的升级前数据库备份；备份之后创建的会话需要
 重新登录。
 
@@ -60,6 +60,6 @@ token，回滚旧应用必须使用匹配且经过验证的升级前数据库备
 6. 把批准的数据库备份恢复到隔离目标，验证后再切换旧应用。
 7. 验证管理/API 登录、token 失效、native/WSS audit、数据库行数以及不存在通用命令路由。
 
-详细流程见 [`MIGRATION-v3.0.0.zh-CN.md`](../../MIGRATION-v3.0.0.zh-CN.md)、
+详细流程见 [`MIGRATION-v3.0.1.zh-CN.md`](../../MIGRATION-v3.0.1.zh-CN.md)、
 [`MIGRATION.md`](../../MIGRATION.md)和
 [`ROLLBACK-RUNBOOK.md`](../../ROLLBACK-RUNBOOK.md)。
