@@ -471,7 +471,10 @@ func Migrate(version uint) error {
 	if err := global.DB.Exec("UPDATE users SET role = ? WHERE role IS NULL OR role = '' OR role NOT IN (?, ?, ?)", model.UserRoleUser, model.UserRoleUser, model.UserRoleAdmin, model.UserRoleSuperAdmin).Error; err != nil {
 		return fmt.Errorf("normalize invalid user roles: %w", err)
 	}
-	if err := global.DB.Exec("UPDATE users SET is_admin = CASE WHEN role IN (?, ?) THEN ? ELSE ? END", model.UserRoleAdmin, model.UserRoleSuperAdmin, true, false).Error; err != nil {
+	// Let each supported database evaluate the role predicate as its native
+	// boolean type. Boolean placeholders inside CASE are inferred as text by
+	// PostgreSQL when GORM prepares this cross-database statement.
+	if err := global.DB.Exec("UPDATE users SET is_admin = (role IN (?, ?))", model.UserRoleAdmin, model.UserRoleSuperAdmin).Error; err != nil {
 		return fmt.Errorf("synchronize legacy administrator flag: %w", err)
 	}
 	var legacyTokens []model.UserToken
