@@ -2,11 +2,11 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
-	_ "github.com/q1ngyang/rustdesk-api-kessoku/v2/docs/admin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/controller/admin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/controller/admin/my"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/middleware"
+	_ "github.com/q1ngyang/rustdesk-api-kessoku/v3/docs/admin"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/controller/admin"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/controller/admin/my"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/middleware"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
@@ -30,6 +30,7 @@ func Init(g *gin.Engine) {
 	AuthenticatedLoginBind(adg)
 	//FileBind(adg)
 	UserBind(adg)
+	AdminScopeBind(adg)
 	GroupBind(adg)
 	TagBind(adg)
 	AddressBookBind(adg)
@@ -59,7 +60,7 @@ func Init(g *gin.Engine) {
 
 func ServerControlBind(adg *gin.RouterGroup) {
 	controller := &admin.StarryControl{}
-	group := adg.Group("/server-control/v1").Use(middleware.AdminPrivilege())
+	group := adg.Group("/server-control/v1").Use(middleware.SuperAdminPrivilege())
 	group.GET("/instances", controller.Instances)
 	group.GET("/instances/:id/capabilities", controller.Capabilities)
 	group.GET("/instances/:id/status", controller.Status)
@@ -82,7 +83,7 @@ func RustdeskCmdBind(adg *gin.RouterGroup) {
 		return
 	}
 	cont := &admin.Rustdesk{}
-	rg := adg.Group("/rustdesk").Use(middleware.AdminPrivilege())
+	rg := adg.Group("/rustdesk").Use(middleware.SuperAdminPrivilege())
 	rg.POST("/sendCmd", cont.SendCmd)
 	rg.GET("/cmdList", cont.CmdList)
 	rg.POST("/cmdDelete", cont.CmdDelete)
@@ -121,10 +122,18 @@ func UserBind(rg *gin.RouterGroup) {
 		aRP.GET("/detail/:id", cont.Detail)
 		aRP.POST("/create", cont.Create)
 		aRP.POST("/update", cont.Update)
-		aRP.POST("/delete", cont.Delete)
 		aRP.POST("/changePwd", cont.UpdatePassword)
 		aRP.POST("/revokeSessions", cont.RevokeSessions)
 	}
+	rg.Group("/user").Use(middleware.SuperAdminPrivilege()).POST("/delete", (&admin.User{}).Delete)
+}
+
+func AdminScopeBind(rg *gin.RouterGroup) {
+	aR := rg.Group("/admin_scope").Use(middleware.SuperAdminPrivilege())
+	cont := &admin.AdminScope{}
+	aR.GET("/detail/:id", cont.Detail)
+	aR.GET("/options", cont.Options)
+	aR.POST("/update", cont.Update)
 }
 
 func GroupBind(rg *gin.RouterGroup) {
@@ -133,14 +142,15 @@ func GroupBind(rg *gin.RouterGroup) {
 		cont := &admin.Group{}
 		aR.GET("/list", cont.List)
 		aR.GET("/detail/:id", cont.Detail)
-		aR.POST("/create", cont.Create)
 		aR.POST("/update", cont.Update)
-		aR.POST("/delete", cont.Delete)
 	}
+	super := rg.Group("/group").Use(middleware.SuperAdminPrivilege())
+	super.POST("/create", (&admin.Group{}).Create)
+	super.POST("/delete", (&admin.Group{}).Delete)
 }
 
 func DeviceGroupBind(rg *gin.RouterGroup) {
-	aR := rg.Group("/device_group").Use(middleware.AdminPrivilege())
+	aR := rg.Group("/device_group").Use(middleware.SuperAdminPrivilege())
 	{
 		cont := &admin.DeviceGroup{}
 		aR.GET("/list", cont.List)
@@ -186,11 +196,11 @@ func PeerBind(rg *gin.RouterGroup) {
 		cont := &admin.Peer{}
 		aR.GET("/list", cont.List)
 		aR.GET("/detail/:id", cont.Detail)
-		aR.POST("/create", cont.Create)
 		aR.POST("/update", cont.Update)
 		aR.POST("/delete", cont.Delete)
 		aR.POST("/batchDelete", cont.BatchDelete)
 	}
+	rg.Group("/peer").Use(middleware.SuperAdminPrivilege()).POST("/create", (&admin.Peer{}).Create)
 }
 
 func OauthBind(rg *gin.RouterGroup) {
@@ -203,7 +213,7 @@ func OauthBind(rg *gin.RouterGroup) {
 		aR.POST("/unbind", cont.Unbind)
 		aR.GET("/info", cont.Info)
 	}
-	arp := aR.Use(middleware.AdminPrivilege())
+	arp := aR.Use(middleware.SuperAdminPrivilege())
 	{
 		cont := &admin.Oauth{}
 		arp.GET("/list", cont.List)
@@ -217,18 +227,18 @@ func OauthBind(rg *gin.RouterGroup) {
 }
 func LoginLogBind(rg *gin.RouterGroup) {
 	cont := &admin.LoginLog{}
-	aR := rg.Group("/login_log").Use(middleware.AdminPrivilege())
+	aR := rg.Group("/login_log").Use(middleware.SuperAdminPrivilege())
 	aR.GET("/list", cont.List)
 	aR.POST("/delete", cont.Delete)
 	aR.POST("/batchDelete", cont.BatchDelete)
 }
 func AuditBind(rg *gin.RouterGroup) {
 	cont := &admin.Audit{}
-	aR := rg.Group("/audit_conn").Use(middleware.AdminPrivilege())
+	aR := rg.Group("/audit_conn").Use(middleware.SuperAdminPrivilege())
 	aR.GET("/list", cont.ConnList)
 	aR.POST("/delete", cont.ConnDelete)
 	aR.POST("/batchDelete", cont.BatchConnDelete)
-	afR := rg.Group("/audit_file").Use(middleware.AdminPrivilege())
+	afR := rg.Group("/audit_file").Use(middleware.SuperAdminPrivilege())
 	afR.GET("/list", cont.FileList)
 	afR.POST("/delete", cont.FileDelete)
 	afR.POST("/batchDelete", cont.BatchFileDelete)
@@ -239,10 +249,11 @@ func AddressBookCollectionBind(rg *gin.RouterGroup) {
 		cont := &admin.AddressBookCollection{}
 		aR.GET("/list", cont.List)
 		aR.GET("/detail/:id", cont.Detail)
-		aR.POST("/create", cont.Create)
 		aR.POST("/update", cont.Update)
-		aR.POST("/delete", cont.Delete)
 	}
+	super := rg.Group("/address_book_collection").Use(middleware.SuperAdminPrivilege())
+	super.POST("/create", (&admin.AddressBookCollection{}).Create)
+	super.POST("/delete", (&admin.AddressBookCollection{}).Delete)
 
 }
 func AddressBookCollectionRuleBind(rg *gin.RouterGroup) {
@@ -257,7 +268,7 @@ func AddressBookCollectionRuleBind(rg *gin.RouterGroup) {
 	}
 }
 func UserTokenBind(rg *gin.RouterGroup) {
-	aR := rg.Group("/user_token").Use(middleware.AdminPrivilege())
+	aR := rg.Group("/user_token").Use(middleware.SuperAdminPrivilege())
 	cont := &admin.UserToken{}
 	aR.GET("/list", cont.List)
 	aR.POST("/delete", cont.Delete)
@@ -343,7 +354,7 @@ func MyBind(rg *gin.RouterGroup) {
 }
 
 func ShareRecordBind(rg *gin.RouterGroup) {
-	aR := rg.Group("/share_record").Use(middleware.AdminPrivilege())
+	aR := rg.Group("/share_record").Use(middleware.SuperAdminPrivilege())
 	{
 		cont := &admin.ShareRecord{}
 		aR.GET("/list", cont.List)

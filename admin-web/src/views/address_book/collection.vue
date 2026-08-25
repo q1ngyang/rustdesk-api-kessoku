@@ -2,7 +2,7 @@
   <div>
     <el-card class="list-query" shadow="hover">
       <el-form inline label-width="80px">
-        <el-form-item :label="T('Owner')">
+        <el-form-item v-if="isSuperAdmin" :label="T('Owner')">
           <el-select v-model="listQuery.user_id" clearable>
             <el-option
                 v-for="item in allUsers"
@@ -14,7 +14,7 @@
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handlerQuery">{{ T('Filter') }}</el-button>
-          <el-button type="danger" @click="toAdd">{{ T('Add') }}</el-button>
+          <el-button v-if="isSuperAdmin" type="danger" @click="toAdd">{{ T('Add') }}</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -23,7 +23,7 @@
         <el-table-column prop="id" label="ID" align="center"/>
         <el-table-column prop="user_id" :label="T('Owner')" align="center">
           <template #default="{row}">
-            <span v-if="row.user_id"> <el-tag>{{ allUsers?.find(u => u.id === row.user_id)?.username }}</el-tag> </span>
+            <span v-if="row.user_id"> <el-tag>{{ allUsers?.find(u => u.id === row.user_id)?.username || `#${row.user_id}` }}</el-tag> </span>
           </template>
         </el-table-column>
         <el-table-column prop="name" :label="T('AddressBook')" align="center"/>
@@ -33,7 +33,7 @@
           <template #default="{row}">
             <el-button type="primary" @click="showRules(row)">{{ T('ShareRules') }}</el-button>
             <el-button @click="toEdit(row)">{{ T('Edit') }}</el-button>
-            <el-button type="danger" @click="del(row)">{{ T('Delete') }}</el-button>
+            <el-button v-if="isSuperAdmin" type="danger" @click="del(row)">{{ T('Delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -50,7 +50,7 @@
     <el-dialog v-model="formVisible" width="800" :title="!formData.id?T('Create') :T('Update') ">
       <el-form class="dialog-form" ref="form" :model="formData" label-width="120px">
         <el-form-item :label="T('Owner')" prop="user_id" required>
-          <el-select v-model="formData.user_id">
+          <el-select v-if="isSuperAdmin" v-model="formData.user_id">
             <el-option
                 v-for="item in allUsers"
                 :key="item.id"
@@ -58,6 +58,7 @@
                 :value="item.id"
             ></el-option>
           </el-select>
+          <span v-else>{{ allUsers?.find(u => u.id === formData.user_id)?.username || `#${formData.user_id}` }}</span>
         </el-form-item>
         <el-form-item :label="T('Name')" prop="name" required>
           <el-input v-model="formData.name"></el-input>
@@ -77,11 +78,15 @@
 
 <script setup>
   import { T } from '@/utils/i18n'
-  import { ref } from 'vue'
+  import { computed, ref } from 'vue'
   import { useRepositories } from '@/views/address_book/collection'
   import { onActivated, onMounted, watch } from 'vue'
   import Rule from '@/views/address_book/rule.vue'
   import { loadAllUsers } from '@/global'
+  import { useUserStore } from '@/store/user'
+
+  const userStore = useUserStore()
+  const isSuperAdmin = computed(() => userStore.role === 'super_admin')
 
   const { allUsers, getAllUsers } = loadAllUsers()
   getAllUsers()

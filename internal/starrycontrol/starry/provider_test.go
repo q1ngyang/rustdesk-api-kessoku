@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/internal/starrycontrol"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/internal/starrycontrol/clientgen"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/starrycontrol"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/starrycontrol/clientgen"
 )
 
 func TestTypedProviderSimulationAndConfigTransactions(t *testing.T) {

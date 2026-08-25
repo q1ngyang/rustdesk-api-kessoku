@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/middleware"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/router"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/middleware"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/router"
 )
 
 func StartInternalAuthServer() error {

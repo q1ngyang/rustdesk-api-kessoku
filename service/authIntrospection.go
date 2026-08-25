@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strconv"
 
-	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v2/internal/auth"
+	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/auth"
 )
 
 type AuthIntrospectionService struct{}

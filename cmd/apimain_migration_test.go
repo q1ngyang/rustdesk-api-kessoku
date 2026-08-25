@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
-	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v2/internal/auth"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/global"
+	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/auth"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -36,6 +36,7 @@ func (pre245OauthBinding) TableName() string { return "user_thirds" }
 type legacyMigrationUser struct {
 	ID       uint   `gorm:"column:id;primaryKey"`
 	Username string `gorm:"column:username"`
+	IsAdmin  bool   `gorm:"column:is_admin"`
 }
 
 func (legacyMigrationUser) TableName() string { return "users" }
@@ -159,6 +160,41 @@ func TestPre245OauthIdentityMigrationBackfillsBeforeUniqueIndexes(t *testing.T) 
 	}
 }
 
+func TestMigrateRecoversLegacyAdminAfterPartialRoleColumnAddition(t *testing.T) {
+	database, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "partial-role.db")), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(&model.Version{}, &legacyMigrationUser{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Create(&model.Version{Version: DatabaseVersion - 1}).Error; err != nil {
+		t.Fatal(err)
+	}
+	legacyAdmin := &legacyMigrationUser{Username: "partial-admin", IsAdmin: true}
+	if err := database.Create(legacyAdmin).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Exec("ALTER TABLE users ADD COLUMN role text NOT NULL DEFAULT 'user'").Error; err != nil {
+		t.Fatal(err)
+	}
+
+	oldDB, oldLogger := global.DB, global.Logger
+	t.Cleanup(func() { global.DB, global.Logger = oldDB, oldLogger })
+	global.DB = database
+	global.Logger = logrus.New()
+	if err := Migrate(DatabaseVersion); err != nil {
+		t.Fatal(err)
+	}
+	migrated := &model.User{}
+	if err := database.First(migrated, legacyAdmin.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if migrated.Role != model.UserRoleSuperAdmin {
+		t.Fatalf("partially migrated legacy administrator role = %q, want %q", migrated.Role, model.UserRoleSuperAdmin)
+	}
+}
+
 func assertRestoredMigrationFixture(t *testing.T, database *gorm.DB) {
 	t.Helper()
 	version := &model.Version{}
@@ -195,7 +231,7 @@ func testMigrationFixture(t *testing.T, database *gorm.DB) {
 	if err := database.Create(&model.Version{Version: DatabaseVersion - 1}).Error; err != nil {
 		t.Fatal(err)
 	}
-	user := legacyMigrationUser{Username: "legacy-user"}
+	user := legacyMigrationUser{Username: "legacy-admin", IsAdmin: true}
 	if err := database.Create(&user).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -225,6 +261,9 @@ func testMigrationFixture(t *testing.T, database *gorm.DB) {
 	}
 	if migratedUser.AuthVersion != 1 {
 		t.Fatalf("auth_version = %d, want 1", migratedUser.AuthVersion)
+	}
+	if migratedUser.Role != model.UserRoleSuperAdmin || migratedUser.IsAdmin == nil || !*migratedUser.IsAdmin {
+		t.Fatalf("legacy administrator role was not preserved as super administrator: %+v", migratedUser)
 	}
 	migratedToken := &model.UserToken{}
 	if err := database.First(migratedToken, legacyToken.ID).Error; err != nil {

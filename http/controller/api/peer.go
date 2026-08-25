@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
-	requstform "github.com/q1ngyang/rustdesk-api-kessoku/v2/http/request/api"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
+	requstform "github.com/q1ngyang/rustdesk-api-kessoku/v3/http/request/api"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/response"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
 	"net/http"
 	"strings"
 )

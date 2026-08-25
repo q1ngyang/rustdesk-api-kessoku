@@ -2,11 +2,11 @@ package admin
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/request/admin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/request/admin"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/response"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
 	"gorm.io/gorm"
 	"strconv"
 )
@@ -37,6 +37,8 @@ func (abcr *AddressBookCollectionRule) List(c *gin.Context) {
 	}
 
 	res := service.AllService.AddressBookService.ListRules(query.Page, query.PageSize, func(tx *gorm.DB) {
+		actor := service.AllService.UserService.CurUser(c)
+		service.AllService.AdminScopeService.ApplyRuleScope(tx, actor)
 		if query.UserId > 0 {
 			tx.Where("user_id = ?", query.UserId)
 		}
@@ -63,6 +65,11 @@ func (abcr *AddressBookCollectionRule) Detail(c *gin.Context) {
 	iid, _ := strconv.Atoi(id)
 	t := service.AllService.AddressBookService.RuleInfoById(uint(iid))
 	if t.Id > 0 {
+		actor := service.AllService.UserService.CurUser(c)
+		if !service.AllService.AdminScopeService.CanManageRule(actor, t) {
+			denyScopedAccess(c, "address_book_collection_rule", t.Id)
+			return
+		}
 		response.Success(c, t)
 		return
 	}
@@ -96,6 +103,20 @@ func (abcr *AddressBookCollectionRule) Create(c *gin.Context) {
 		return
 	}
 	t := f
+	actor := service.AllService.UserService.CurUser(c)
+	if !service.AllService.UserService.IsSuperAdmin(actor) {
+		if !service.AllService.AdminScopeService.CanManageCollection(actor, t.CollectionId) {
+			denyScopedAccess(c, "address_book_collection", t.CollectionId)
+			return
+		}
+		collection := service.AllService.AddressBookService.CollectionInfoById(t.CollectionId)
+		t.UserId = collection.UserId
+		if (t.Type == model.ShareAddressBookRuleTypePersonal && !service.AllService.AdminScopeService.CanShareWithUser(actor, t.ToId)) ||
+			(t.Type == model.ShareAddressBookRuleTypeGroup && !service.AllService.AdminScopeService.CanShareWithGroup(actor, t.ToId)) {
+			denyScopedAccess(c, "address_book_share_target", t.ToId)
+			return
+		}
+	}
 	msg, res := abcr.CheckForm(t)
 	if !res {
 		response.Fail(c, 101, response.TranslateMsg(c, msg))
@@ -171,7 +192,26 @@ func (abcr *AddressBookCollectionRule) Update(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
 		return
 	}
+	current := service.AllService.AddressBookService.RuleInfoById(f.Id)
+	if current.Id == 0 {
+		response.Fail(c, 101, response.TranslateMsg(c, "ItemNotFound"))
+		return
+	}
+	actor := service.AllService.UserService.CurUser(c)
+	if !service.AllService.AdminScopeService.CanManageRule(actor, current) {
+		denyScopedAccess(c, "address_book_collection_rule", current.Id)
+		return
+	}
 	t := f
+	if !service.AllService.UserService.IsSuperAdmin(actor) {
+		t.CollectionId = current.CollectionId
+		t.UserId = current.UserId
+		if (t.Type == model.ShareAddressBookRuleTypePersonal && !service.AllService.AdminScopeService.CanShareWithUser(actor, t.ToId)) ||
+			(t.Type == model.ShareAddressBookRuleTypeGroup && !service.AllService.AdminScopeService.CanShareWithGroup(actor, t.ToId)) {
+			denyScopedAccess(c, "address_book_share_target", t.ToId)
+			return
+		}
+	}
 	msg, res := abcr.CheckForm(t)
 	if !res {
 		response.Fail(c, 101, response.TranslateMsg(c, msg))
@@ -211,6 +251,11 @@ func (abcr *AddressBookCollectionRule) Delete(c *gin.Context) {
 	ex := service.AllService.AddressBookService.RuleInfoById(f.Id)
 	if ex.Id == 0 {
 		response.Fail(c, 101, response.TranslateMsg(c, "ItemNotFound"))
+		return
+	}
+	actor := service.AllService.UserService.CurUser(c)
+	if !service.AllService.AdminScopeService.CanManageRule(actor, ex) {
+		denyScopedAccess(c, "address_book_collection_rule", ex.Id)
 		return
 	}
 	err := service.AllService.AddressBookService.DeleteRule(ex)

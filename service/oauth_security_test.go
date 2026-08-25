@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/config"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/config"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
 )
 
 func TestOauthStateIsBoundedToInitiatingDeviceAndConsumedOnce(t *testing.T) {

@@ -16,7 +16,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/config"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/config"
 )
 
 func TestAccessTokenStrictProfile(t *testing.T) {

@@ -1,6 +1,22 @@
 <template>
   <div class="server-control">
+    <div class="page-heading">
+      <div class="page-heading__starry">
+        <StarryLogo class="page-heading__starry-logo" width="176"/>
+        <div>
+          <h2>{{ T('ServerControl') }}</h2>
+          <p>{{ T('ServerControlDescription') }}</p>
+        </div>
+      </div>
+      <div v-if="selectedInstance" class="page-heading__actions">
+        <el-tag :type="selectedInstance.available ? 'success' : 'danger'" effect="light">
+          {{ selectedInstance.available ? T('Available') : selectedInstance.error_code || T('NotAvailable') }}
+        </el-tag>
+        <el-tag v-if="selectedInstance.read_only" type="warning" effect="light">{{ T('ReadOnlyMode') }}</el-tag>
+      </div>
+    </div>
     <el-alert
+      class="policy-alert"
       title="Typed Starry Control API"
       description="This page sends only versioned DTOs to deployment-owned instances. It has no shell, arbitrary command, URL, path, or Docker-socket input."
       type="info"
@@ -9,8 +25,12 @@
     />
 
     <el-card class="toolbar" shadow="never">
-      <el-space wrap>
-        <el-select v-model="selectedID" placeholder="Select a Starry instance" style="width: 360px" @change="loadSelected">
+      <div class="instance-toolbar">
+        <div class="instance-toolbar__copy">
+          <small>{{ T('ManagedInstance') }}</small>
+          <strong>{{ selectedInstance?.name || T('SelectInstance') }}</strong>
+        </div>
+        <el-select v-model="selectedID" :placeholder="T('SelectInstance')" style="width: 360px" @change="loadSelected">
           <el-option
             v-for="item in instances"
             :key="item.id"
@@ -19,12 +39,8 @@
             :disabled="!item.enabled || !item.available"
           />
         </el-select>
-        <el-button :loading="loading.instances" @click="loadInstances">Refresh instances</el-button>
-        <el-tag v-if="selectedInstance" :type="selectedInstance.available ? 'success' : 'danger'">
-          {{ selectedInstance.available ? 'available' : selectedInstance.error_code || 'unavailable' }}
-        </el-tag>
-        <el-tag v-if="selectedInstance?.read_only" type="warning">read only</el-tag>
-      </el-space>
+        <el-button :loading="loading.instances" @click="loadInstances">{{ T('Refresh') }}</el-button>
+      </div>
     </el-card>
 
     <el-empty v-if="!selectedID" description="No available Starry instance is configured" />
@@ -33,9 +49,9 @@
       <el-tab-pane label="Status" name="status">
         <el-row :gutter="16">
           <el-col :xs="24" :lg="12">
-            <el-card shadow="never" v-loading="loading.status">
+            <el-card class="status-card" shadow="never" v-loading="loading.status">
               <template #header>Runtime</template>
-              <el-descriptions :column="2" border>
+              <el-descriptions :column="detailColumns" border>
                 <el-descriptions-item label="Ready">{{ status.ready }}</el-descriptions-item>
                 <el-descriptions-item label="State">{{ status.config?.status || '-' }}</el-descriptions-item>
                 <el-descriptions-item label="Generation">{{ status.config?.generation ?? '-' }}</el-descriptions-item>
@@ -46,9 +62,9 @@
             </el-card>
           </el-col>
           <el-col :xs="24" :lg="12">
-            <el-card shadow="never" v-loading="loading.capabilities">
+            <el-card class="status-card" shadow="never" v-loading="loading.capabilities">
               <template #header>Contract and authentication</template>
-              <el-descriptions :column="2" border>
+              <el-descriptions :column="detailColumns" border>
                 <el-descriptions-item label="Protocol">{{ capabilities.protocol?.version || '-' }}</el-descriptions-item>
                 <el-descriptions-item label="Starry">{{ capabilities.instance?.starry_version || '-' }}</el-descriptions-item>
                 <el-descriptions-item label="Configured auth">{{ status.auth?.configured_mode || '-' }}</el-descriptions-item>
@@ -62,7 +78,7 @@
         </el-row>
         <el-card class="section" shadow="never">
           <template #header>Authentication metrics</template>
-          <el-descriptions :column="4" border>
+          <el-descriptions :column="metricColumns" border>
             <el-descriptions-item v-for="(value, name) in status.auth?.metrics || {}" :key="name" :label="name">
               {{ value }}
             </el-descriptions-item>
@@ -109,7 +125,7 @@
             <el-form-item><el-button type="primary" @click="simulate">Simulate</el-button></el-form-item>
           </el-form>
           <template v-if="simulationResult">
-            <el-descriptions :column="3" border>
+            <el-descriptions :column="wideColumns" border>
               <el-descriptions-item label="Rule">{{ simulationResult.matched_rule?.name || 'official fallback' }}</el-descriptions-item>
               <el-descriptions-item label="Selection">{{ simulationResult.selection?.kind }}</el-descriptions-item>
               <el-descriptions-item label="Relay">{{ simulationResult.selection?.relay_id || '-' }}</el-descriptions-item>
@@ -139,7 +155,7 @@
               </el-space>
             </div>
           </template>
-          <el-descriptions :column="3" border>
+          <el-descriptions :column="wideColumns" border>
             <el-descriptions-item label="ETag" :span="2"><code>{{ configDocument.etag || '-' }}</code></el-descriptions-item>
             <el-descriptions-item label="Generation">{{ configDocument.generation ?? '-' }}</el-descriptions-item>
             <el-descriptions-item label="Schema digest" :span="3"><code>{{ schemaBundle.digest || '-' }}</code></el-descriptions-item>
@@ -183,7 +199,7 @@
               <el-tag :type="riskTagType">risk: {{ plan.impact?.risk || 'unknown' }}</el-tag>
             </div>
           </template>
-          <el-descriptions :column="2" border>
+          <el-descriptions :column="detailColumns" border>
             <el-descriptions-item label="Plan ID"><code>{{ plan.plan_id }}</code></el-descriptions-item>
             <el-descriptions-item label="Expires">{{ formatTime(plan.expires_at) }}</el-descriptions-item>
             <el-descriptions-item label="Base generation">{{ plan.base_generation }}</el-descriptions-item>
@@ -203,7 +219,7 @@
 
         <el-card v-if="operation" class="section" shadow="never">
           <template #header>Operation {{ operation.id }}</template>
-          <el-descriptions :column="2" border>
+          <el-descriptions :column="detailColumns" border>
             <el-descriptions-item label="Kind">{{ operation.kind }}</el-descriptions-item>
             <el-descriptions-item label="State"><el-tag :type="operationTagType">{{ operation.state }}</el-tag></el-descriptions-item>
             <el-descriptions-item label="Generation">{{ operation.activation_ack?.generation ?? '-' }}</el-descriptions-item>
@@ -258,6 +274,9 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { parseDocument, stringify as stringifyYAML } from 'yaml'
 import SchemaField from '@/components/schema/SchemaField.vue'
+import StarryLogo from '@/components/brand/StarryLogo.vue'
+import { useAppStore } from '@/store/app'
+import { T } from '@/utils/i18n'
 import {
   applyConfig,
   getCapabilities,
@@ -278,6 +297,7 @@ import {
 } from '@/api/server_control'
 
 const instances = ref([])
+const appStore = useAppStore()
 const selectedID = ref('')
 const capabilities = ref({})
 const status = ref({})
@@ -320,6 +340,9 @@ const canWrite = computed(() => Boolean(
 ))
 const riskTagType = computed(() => ({ high: 'danger', medium: 'warning', low: 'success' }[plan.value?.impact?.risk] || 'info'))
 const operationTagType = computed(() => ({ succeeded: 'success', failed: 'danger', running: 'warning', pending: 'info' }[operation.value?.state] || 'info'))
+const detailColumns = computed(() => appStore.setting.viewportWidth < 720 ? 1 : 2)
+const metricColumns = computed(() => appStore.setting.viewportWidth < 720 ? 1 : appStore.setting.viewportWidth < 1100 ? 2 : 4)
+const wideColumns = computed(() => appStore.setting.viewportWidth < 720 ? 1 : 3)
 
 async function withLoading (name, action) {
   loading[name] = true
@@ -531,11 +554,55 @@ onMounted(loadInstances)
 </script>
 
 <style scoped lang="scss">
-.server-control { padding: 16px; }
-.toolbar, .control-tabs, .section { margin-top: 16px; }
-.card-header { align-items: center; display: flex; justify-content: space-between; gap: 16px; }
+.page-heading__starry { display: flex; min-width: 0; align-items: center; gap: 20px; }
+.page-heading__starry > div { min-width: 0; }
+.page-heading__starry-logo { padding-right: 20px; border-right: 1px solid var(--border-subtle); }
+.policy-alert { margin-bottom: 14px; border: 1px solid var(--primary-border); border-radius: 14px; background: color-mix(in srgb, var(--primary-soft) 72%, var(--surface-1)); }
+.toolbar { margin-bottom: 16px; }
+.toolbar :deep(.el-card__body) { padding: 14px 17px; }
+.instance-toolbar { display: flex; min-width: 0; align-items: center; gap: 12px; }
+.instance-toolbar__copy { display: flex; min-width: 150px; flex: 1; flex-direction: column; }
+.instance-toolbar__copy small { color: var(--text-tertiary); font-size: 10px; }
+.instance-toolbar__copy strong { margin-top: 2px; color: var(--text-primary); font-size: 13px; }
+.control-tabs :deep(.el-tabs__header) { margin: 0 0 16px; padding: 5px 8px; border: 1px solid var(--border-subtle); border-radius: 14px; background: var(--surface-1); box-shadow: var(--shadow-sm); }
+.control-tabs :deep(.el-tabs__nav-wrap::after) { display: none; }
+.control-tabs :deep(.el-tabs__item) { height: 38px; padding: 0 16px; color: var(--text-secondary); font-size: 12px; font-weight: 700; }
+.control-tabs :deep(.el-tabs__item.is-active) { color: var(--primary); }
+.control-tabs :deep(.el-tabs__active-bar) { height: 3px; border-radius: 999px; background: var(--primary); }
+.status-card { height: 100%; }
+.section { margin-top: 14px; }
+.card-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.card-header > span { color: var(--text-primary); font-size: 13px; font-weight: 740; }
 .editor-tabs { margin-top: 16px; }
-.apply-button { margin-top: 16px; }
-code { overflow-wrap: anywhere; white-space: normal; }
-:deep(.el-textarea__inner) { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.apply-button { width: 100%; margin-top: 16px; }
+code { overflow-wrap: anywhere; color: var(--text-secondary); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; white-space: normal; }
+:deep(.el-descriptions__label) { color: var(--text-tertiary) !important; font-size: 10px; font-weight: 700; }
+:deep(.el-descriptions__content) { color: var(--text-primary) !important; font-size: 11px; }
+:deep(.el-textarea__inner) { padding: 14px; border-radius: 12px; background: #171b24; color: #dfe5f1; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; line-height: 1.65; tab-size: 2; }
+:deep(.el-pagination) { margin-top: 14px; }
+
+@media (max-width: 767px) {
+  .page-heading__starry { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .page-heading__starry-logo { width: 148px !important; padding: 0; border: 0; }
+  .policy-alert :deep(.el-alert__description) { font-size: 10px; line-height: 1.55; }
+  .instance-toolbar { align-items: stretch; flex-direction: column; }
+  .instance-toolbar .el-select { width: 100% !important; }
+  .control-tabs :deep(.el-tabs__header) { overflow: hidden; padding-inline: 5px; }
+  .control-tabs :deep(.el-tabs__nav-wrap) { overflow-x: auto; scrollbar-width: none; }
+  .control-tabs :deep(.el-tabs__nav-scroll) { overflow: visible; }
+  .control-tabs :deep(.el-tabs__nav) { float: none; width: max-content; }
+  .control-tabs :deep(.el-tabs__item) { padding: 0 13px; }
+  .control-tabs :deep(.el-row) { row-gap: 12px; }
+  .control-tabs :deep(.el-card__header) { padding: 15px; }
+  .control-tabs :deep(.el-card__body) { overflow-x: auto; padding: 13px; }
+  .control-tabs :deep(.el-table) { min-width: 720px; }
+  .card-header { align-items: stretch; flex-direction: column; }
+  .card-header :deep(.el-space) { display: flex; width: 100%; flex-wrap: wrap; }
+  .card-header :deep(.el-space__item) { flex: 1 1 calc(50% - 8px); }
+  .card-header :deep(.el-button) { width: 100%; margin: 0; }
+  .control-tabs :deep(.el-form--inline) { display: grid; grid-template-columns: 1fr; }
+  .control-tabs :deep(.el-form--inline .el-form-item) { width: 100%; margin-right: 0; }
+  .control-tabs :deep(.el-form--inline .el-input),.control-tabs :deep(.el-form--inline .el-select) { width: 100% !important; }
+  :deep(.el-textarea__inner) { min-height: 430px !important; }
+}
 </style>

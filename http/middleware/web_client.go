@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
-	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v2/internal/auth"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/global"
+	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/auth"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
 )
 
 // WebClientCORS permits only the configured, independently hosted client

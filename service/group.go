@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
 	"gorm.io/gorm"
 )
 
@@ -35,7 +35,18 @@ func (us *GroupService) Create(u *model.Group) error {
 	return res
 }
 func (us *GroupService) Delete(u *model.Group) error {
-	return DB.Delete(u).Error
+	tx := DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	defer tx.Rollback()
+	if err := AllService.AdminScopeService.RemoveResourceScopes(tx, model.AdminScopeTypeGroup, []uint{u.Id}); err != nil {
+		return err
+	}
+	if err := tx.Delete(u).Error; err != nil {
+		return err
+	}
+	return tx.Commit().Error
 }
 
 // Update 更新

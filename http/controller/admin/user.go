@@ -2,13 +2,13 @@ package admin
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/request/admin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response"
-	adResp "github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response/admin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/utils"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/request/admin"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/response"
+	adResp "github.com/q1ngyang/rustdesk-api-kessoku/v3/http/response/admin"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/utils"
 	"gorm.io/gorm"
 	"net/http"
 	"strconv"
@@ -35,6 +35,11 @@ func (ct *User) Detail(c *gin.Context) {
 	iid, _ := strconv.Atoi(id)
 	u := service.AllService.UserService.InfoById(uint(iid))
 	if u.Id > 0 {
+		actor := service.AllService.UserService.CurUser(c)
+		if !service.AllService.AdminScopeService.CanManageUser(actor, u) {
+			denyScopedAccess(c, "user", u.Id)
+			return
+		}
 		response.Success(c, u)
 		return
 	}
@@ -66,6 +71,14 @@ func (ct *User) Create(c *gin.Context) {
 	}
 	u := f.ToUser()
 	actor := service.AllService.UserService.CurUser(c)
+	if !service.AllService.UserService.IsSuperAdmin(actor) {
+		if !service.AllService.AdminScopeService.CanManageGroup(actor, u.GroupId) {
+			denyScopedAccess(c, "group", u.GroupId)
+			return
+		}
+		u.Role = model.UserRoleUser
+		u.NormalizeRole()
+	}
 	err := service.AllService.UserService.CreateContext(c.Request.Context(), actor.Id, controlRequestID(c), u)
 	if err != nil {
 		response.Fail(c, 101, response.TranslateMsg(c, "OperationFailed")+err.Error())
@@ -93,7 +106,9 @@ func (ct *User) List(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
+	actor := service.AllService.UserService.CurUser(c)
 	res := service.AllService.UserService.List(query.Page, query.PageSize, func(tx *gorm.DB) {
+		service.AllService.AdminScopeService.ApplyUserScope(tx, actor)
 		if query.Username != "" {
 			tx.Where("username like ?", "%"+query.Username+"%")
 		}
@@ -127,8 +142,25 @@ func (ct *User) Update(c *gin.Context) {
 		response.Fail(c, 101, errList[0])
 		return
 	}
-	u := f.ToUser()
 	actor := service.AllService.UserService.CurUser(c)
+	current := service.AllService.UserService.InfoById(f.Id)
+	if current.Id == 0 {
+		response.Fail(c, 101, response.TranslateMsg(c, "ItemNotFound"))
+		return
+	}
+	if !service.AllService.AdminScopeService.CanManageUser(actor, current) {
+		denyScopedAccess(c, "user", current.Id)
+		return
+	}
+	u := f.ToUser()
+	if !service.AllService.UserService.IsSuperAdmin(actor) {
+		u.Role = model.UserRoleUser
+		u.NormalizeRole()
+		if u.GroupId != current.GroupId && !service.AllService.AdminScopeService.CanManageGroup(actor, u.GroupId) {
+			denyScopedAccess(c, "group", u.GroupId)
+			return
+		}
+	}
 	err := service.AllService.UserService.UpdateContext(c.Request.Context(), actor.Id, controlRequestID(c), u)
 	if err != nil {
 		response.Fail(c, 101, response.TranslateMsg(c, "OperationFailed")+err.Error())
@@ -202,6 +234,10 @@ func (ct *User) UpdatePassword(c *gin.Context) {
 		return
 	}
 	actor := service.AllService.UserService.CurUser(c)
+	if !service.AllService.AdminScopeService.CanManageUser(actor, u) {
+		denyScopedAccess(c, "user", u.Id)
+		return
+	}
 	err := service.AllService.UserService.UpdatePasswordContext(c.Request.Context(), actor.Id, controlRequestID(c), u, f.Password)
 	if err != nil {
 		response.Fail(c, 101, response.TranslateMsg(c, "OperationFailed")+err.Error())
@@ -238,6 +274,10 @@ func (ct *User) RevokeSessions(c *gin.Context) {
 		return
 	}
 	actor := service.AllService.UserService.CurUser(c)
+	if !service.AllService.AdminScopeService.CanManageUser(actor, u) {
+		denyScopedAccess(c, "user", u.Id)
+		return
+	}
 	if err := service.AllService.UserService.FlushTokenContext(c.Request.Context(), actor.Id, controlRequestID(c), u); err != nil {
 		response.Fail(c, 101, response.TranslateMsg(c, "OperationFailed"))
 		return
@@ -338,8 +378,15 @@ func (ct *User) MyOauth(c *gin.Context) {
 
 // groupUsers
 func (ct *User) GroupUsers(c *gin.Context) {
-	aG := service.AllService.GroupService.List(1, 999, nil)
-	aU := service.AllService.UserService.List(1, 9999, nil)
+	actor := service.AllService.UserService.CurUser(c)
+	groupFilter := func(tx *gorm.DB) {}
+	userFilter := func(tx *gorm.DB) {}
+	if service.AllService.UserService.Role(actor) == model.UserRoleAdmin {
+		groupFilter = func(tx *gorm.DB) { service.AllService.AdminScopeService.ApplyGroupScope(tx, actor) }
+		userFilter = func(tx *gorm.DB) { service.AllService.AdminScopeService.ApplyUserScope(tx, actor) }
+	}
+	aG := service.AllService.GroupService.List(1, 999, groupFilter)
+	aU := service.AllService.UserService.List(1, 9999, userFilter)
 	groups := make([]adResp.GroupDirectoryGroup, 0, len(aG.Groups))
 	for _, group := range aG.Groups {
 		groups = append(groups, adResp.GroupDirectoryGroup{Id: group.Id, Name: group.Name})

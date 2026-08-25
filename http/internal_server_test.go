@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/config"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/config"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/global"
 )
 
 func TestInternalAuthServerRequiresEd25519Profile(t *testing.T) {

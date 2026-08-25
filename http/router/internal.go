@@ -2,7 +2,7 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
-	internalController "github.com/q1ngyang/rustdesk-api-kessoku/v2/http/controller/internalapi"
+	internalController "github.com/q1ngyang/rustdesk-api-kessoku/v3/http/controller/internalapi"
 )
 
 func InternalAuthInit(g *gin.Engine) {

@@ -17,14 +17,17 @@
               :key="item.id"
               :label="item.name"
               :value="item.id"
+              :disabled="item.disabled"
           ></el-option>
         </el-select>
       </el-form-item>
-      <el-form-item :label="T('IsAdmin')" prop="is_admin">
-        <el-switch v-model="form.is_admin"
-                   :active-value="true"
-                   :inactive-value="false"
-        ></el-switch>
+      <el-form-item :label="T('Role')" prop="role">
+        <el-select v-if="isSuperAdmin" v-model="form.role">
+          <el-option value="user" :label="T('OrdinaryUser')"/>
+          <el-option value="admin" :label="T('ScopedAdministrator')"/>
+          <el-option value="super_admin" :label="T('SuperAdministrator')"/>
+        </el-select>
+        <el-tag v-else>{{ T('OrdinaryUser') }}</el-tag>
       </el-form-item>
       <el-form-item :label="T('Status')" prop="status">
         <el-switch v-model="form.status"
@@ -44,12 +47,16 @@
 </template>
 
 <script setup>
+  import { computed } from 'vue'
   import { useRoute } from 'vue-router'
   import { useGetDetail, useSubmit } from '@/views/user/composables/edit'
   import { ENABLE_STATUS, DISABLE_STATUS } from '@/utils/common_options'
   import { T } from '@/utils/i18n'
+  import { useUserStore } from '@/store/user'
 
   const route = useRoute()
+  const userStore = useUserStore()
+  const isSuperAdmin = computed(() => userStore.role === 'super_admin')
   const { form, item, getDetail, groupsList } = useGetDetail(route.params.id)
 
   const { root, rules, validate, submit, cancel } = useSubmit(form, route.params.id)

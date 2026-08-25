@@ -1,6 +1,6 @@
 package api
 
-import "github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
+import "github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
 
 /*
 	pub enum UserStatus {
@@ -30,7 +30,8 @@ type UserPayload struct {
 func (up *UserPayload) FromUser(user *model.User) *UserPayload {
 	up.Name = user.Username
 	up.Email = user.Email
-	up.IsAdmin = user.IsAdmin
+	isSuperAdmin := user.EffectiveRole() == model.UserRoleSuperAdmin
+	up.IsAdmin = &isSuperAdmin
 	up.Status = int(user.Status)
 	up.Info = map[string]interface{}{}
 	return up

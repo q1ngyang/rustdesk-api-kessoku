@@ -27,9 +27,9 @@
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handlerQuery">{{ T('Filter') }}</el-button>
-          <el-button type="danger" @click="toAdd">{{ T('Add') }}</el-button>
+          <el-button v-if="isSuperAdmin" type="danger" @click="toAdd">{{ T('Add') }}</el-button>
           <el-button type="success" @click="toExport">{{ T('Export') }}</el-button>
-          <el-popover :visible="showImport" placement="bottom" :width="600">
+          <el-popover v-if="isSuperAdmin" :visible="showImport" placement="bottom" :width="600">
             <el-upload
                 class="upload-demo"
                 drag
@@ -57,7 +57,7 @@
             </template>
           </el-popover>
           <el-button type="danger" @click="toBatchDelete">{{ T('BatchDelete') }}</el-button>
-          <el-button type="primary" @click="toBatchAddToAB">{{ T('BatchAddToAB') }}</el-button>
+          <el-button type="primary" @click="openBatchAddToAB">{{ T('BatchAddToAB') }}</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -89,7 +89,7 @@
           <el-table-column v-if="c.name==='username'" prop="username" :label="T('Username')" align="center" width="120"/>
           <el-table-column v-if="c.name==='group_id'" prop="group_id" :label="T('Group')" align="center" width="120">
             <template #default="{row}">
-              <span v-if="row.group_id"> <el-tag>{{ groupListRes.list?.find(g => g.id === row.group_id)?.name }} </el-tag> </span>
+              <span v-if="row.group_id"> <el-tag>{{ groupListRes.list?.find(g => g.id === row.group_id)?.name || `#${row.group_id}` }} </el-tag> </span>
               <span v-else> - </span>
             </template>
           </el-table-column>
@@ -124,7 +124,7 @@
         <el-form-item label="ID" prop="id" required>
           <el-input v-model="formData.id"></el-input>
         </el-form-item>
-        <el-form-item :label="T('Group')" prop="group_id">
+        <el-form-item v-if="isSuperAdmin" :label="T('Group')" prop="group_id">
           <el-select v-model="formData.group_id">
             <el-option
                 v-for="item in groupListRes.list"
@@ -171,7 +171,7 @@
 
     <el-dialog v-model="batchABFormVisible" width="800" :title="T('Create')">
       <el-form class="dialog-form" ref="form" :model="batchABFormData" label-width="120px">
-        <el-form-item :label="T('Owner')" prop="user_id" required>
+        <el-form-item v-if="isSuperAdmin" :label="T('Owner')" prop="user_id" required>
           <el-select v-model="batchABFormData.user_id" @change="changeUserForBatchCreateAB">
             <el-option
                 v-for="item in allUsers"
@@ -182,8 +182,8 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="T('AddressBookName')" required prop="collection_id">
-          <el-select v-model="batchABFormData.collection_id" clearable>
-            <el-option :value="0" :label="T('MyAddressBook')"></el-option>
+          <el-select v-model="batchABFormData.collection_id" clearable @change="handleBatchCollectionChange">
+            <el-option v-if="isSuperAdmin" :value="0" :label="T('MyAddressBook')"></el-option>
             <el-option v-for="c in collectionListResForBatchCreateAB.list" :key="c.id" :label="c.name" :value="c.id"></el-option>
           </el-select>
         </el-form-item>
@@ -243,6 +243,10 @@
   import { batchCreateFromPeers } from '@/api/address_book'
   import { useRepositories as useCollectionRepositories } from '@/views/address_book/collection'
   import createABForm from '@/views/peer/createABForm.vue'
+  import { useUserStore } from '@/store/user'
+
+  const userStore = useUserStore()
+  const isSuperAdmin = computed(() => userStore.role === 'super_admin')
 
   //group
   const groupListRes = reactive({
@@ -261,7 +265,7 @@
       groupListRes.total = res.data.total
     }
   }
-  onMounted(getGroupList)
+  onMounted(() => { if (isSuperAdmin.value) getGroupList() })
   //
 
   const listRes = reactive({
@@ -487,15 +491,30 @@
     getCollectionListForBatchCreateAB()
   }
   const batchABFormVisible = ref(false)
-  const toBatchAddToAB = () => {
-    batchABFormVisible.value = true
-  }
   const batchABFormData = ref({
-    collection_id: 0,
+    collection_id: null,
     tags: [],
     peer_ids: [],
     user_id: null,
   })
+  const openBatchAddToAB = () => {
+    if (!multipleSelection.value.length) {
+      ElMessage.warning(T('PleaseSelectData'))
+      return
+    }
+    batchABFormData.value = { collection_id: null, tags: [], peer_ids: [], user_id: null }
+    collectionListResForBatchCreateAB.list = []
+    if (!isSuperAdmin.value) {
+      collectionListQueryForBatchCreateAB.user_id = null
+      getCollectionListForBatchCreateAB()
+    }
+    batchABFormVisible.value = true
+  }
+  const handleBatchCollectionChange = value => {
+    if (isSuperAdmin.value) return
+    const collection = collectionListResForBatchCreateAB.list.find(item => item.id === value)
+    batchABFormData.value.user_id = collection?.user_id || null
+  }
   const submitBatchAddToAB = async () => {
     if (multipleSelection.value.length === 0) {
       ElMessage.warning(T('PleaseSelectData'))
@@ -504,6 +523,10 @@
     batchABFormData.value.peer_ids = multipleSelection.value.map(i => i.row_id)
     if (!batchABFormData.value.peer_ids.length) {
       ElMessage.warning(T('PleaseSelectData'))
+      return false
+    }
+    if (!batchABFormData.value.user_id || (!isSuperAdmin.value && !batchABFormData.value.collection_id)) {
+      ElMessage.warning(T('ParamRequired', { param: T('AddressBookName') }))
       return false
     }
 

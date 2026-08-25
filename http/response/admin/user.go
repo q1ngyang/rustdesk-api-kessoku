@@ -1,14 +1,15 @@
 package admin
 
-import "github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
+import "github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
 
 type LoginPayload struct {
-	Username   string   `json:"username"`
-	Email      string   `json:"email"`
-	Avatar     string   `json:"avatar"`
-	Token      string   `json:"token"`
-	RouteNames []string `json:"route_names"`
-	Nickname   string   `json:"nickname"`
+	Username   string         `json:"username"`
+	Email      string         `json:"email"`
+	Avatar     string         `json:"avatar"`
+	Token      string         `json:"token"`
+	RouteNames []string       `json:"route_names"`
+	Nickname   string         `json:"nickname"`
+	Role       model.UserRole `json:"role"`
 }
 
 func (lp *LoginPayload) FromUser(user *model.User) {
@@ -16,6 +17,7 @@ func (lp *LoginPayload) FromUser(user *model.User) {
 	lp.Email = user.Email
 	lp.Avatar = user.Avatar
 	lp.Nickname = user.Nickname
+	lp.Role = user.EffectiveRole()
 }
 
 type UserOauthItem struct {

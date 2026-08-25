@@ -3,7 +3,7 @@ package service
 import (
 	"testing"
 
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
 )
 
 func TestAddressBookSyncDoesNotCrossTenantPeerMetadataOrTrustRowIDs(t *testing.T) {

@@ -15,7 +15,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v2/internal/auth"
+	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/auth"
 )
 
 const (

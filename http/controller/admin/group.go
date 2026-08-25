@@ -2,10 +2,11 @@ package admin
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/request/admin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/request/admin"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/response"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
+	"gorm.io/gorm"
 	"strconv"
 )
 
@@ -28,6 +29,11 @@ func (ct *Group) Detail(c *gin.Context) {
 	iid, _ := strconv.Atoi(id)
 	u := service.AllService.GroupService.InfoById(uint(iid))
 	if u.Id > 0 {
+		actor := service.AllService.UserService.CurUser(c)
+		if !service.AllService.AdminScopeService.CanManageGroup(actor, u.Id) {
+			denyScopedAccess(c, "group", u.Id)
+			return
+		}
 		response.Success(c, u)
 		return
 	}
@@ -84,7 +90,10 @@ func (ct *Group) List(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
-	res := service.AllService.GroupService.List(query.Page, query.PageSize, nil)
+	actor := service.AllService.UserService.CurUser(c)
+	res := service.AllService.GroupService.List(query.Page, query.PageSize, func(tx *gorm.DB) {
+		service.AllService.AdminScopeService.ApplyGroupScope(tx, actor)
+	})
 	response.Success(c, res)
 }
 
@@ -114,7 +123,20 @@ func (ct *Group) Update(c *gin.Context) {
 		response.Fail(c, 101, errList[0])
 		return
 	}
+	current := service.AllService.GroupService.InfoById(f.Id)
+	if current.Id == 0 {
+		response.Fail(c, 101, response.TranslateMsg(c, "ItemNotFound"))
+		return
+	}
+	actor := service.AllService.UserService.CurUser(c)
+	if !service.AllService.AdminScopeService.CanManageGroup(actor, current.Id) {
+		denyScopedAccess(c, "group", current.Id)
+		return
+	}
 	u := f.ToGroup()
+	if !service.AllService.UserService.IsSuperAdmin(actor) {
+		u.Type = current.Type
+	}
 	err := service.AllService.GroupService.Update(u)
 	if err != nil {
 		response.Fail(c, 101, response.TranslateMsg(c, "OperationFailed")+err.Error())

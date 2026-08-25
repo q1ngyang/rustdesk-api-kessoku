@@ -2,7 +2,7 @@ package service
 
 import (
 	"encoding/json"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"strings"
@@ -295,9 +295,25 @@ func (s *AddressBookService) UpdateCollection(t *model.AddressBookCollection) er
 func (s *AddressBookService) DeleteCollection(t *model.AddressBookCollection) error {
 	//删除集合下的所有规则、地址簿，再删除集合
 	tx := DB.Begin()
-	tx.Where("collection_id = ?", t.Id).Delete(&model.AddressBookCollectionRule{})
-	tx.Where("collection_id = ?", t.Id).Delete(&model.AddressBook{})
-	tx.Delete(t)
+	if tx.Error != nil {
+		return tx.Error
+	}
+	defer tx.Rollback()
+	if err := tx.Where("collection_id = ?", t.Id).Delete(&model.AddressBookCollectionRule{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Where("collection_id = ?", t.Id).Delete(&model.AddressBook{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Where("collection_id = ?", t.Id).Delete(&model.Tag{}).Error; err != nil {
+		return err
+	}
+	if err := AllService.AdminScopeService.RemoveResourceScopes(tx, model.AdminScopeTypeCollection, []uint{t.Id}); err != nil {
+		return err
+	}
+	if err := tx.Delete(t).Error; err != nil {
+		return err
+	}
 	return tx.Commit().Error
 }
 

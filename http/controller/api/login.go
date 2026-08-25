@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/request/api"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response"
-	apiResp "github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response/api"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/request/api"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/response"
+	apiResp "github.com/q1ngyang/rustdesk-api-kessoku/v3/http/response/api"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
 	"net/http"
 )
 

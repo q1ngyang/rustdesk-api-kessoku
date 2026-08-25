@@ -2,10 +2,10 @@ package admin
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/request/admin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/request/admin"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/response"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
 	"gorm.io/gorm"
 	"strconv"
 	"time"
@@ -30,6 +30,11 @@ func (ct *Peer) Detail(c *gin.Context) {
 	iid, _ := strconv.Atoi(id)
 	u := service.AllService.PeerService.InfoByRowId(uint(iid))
 	if u.RowId > 0 {
+		actor := service.AllService.UserService.CurUser(c)
+		if !service.AllService.AdminScopeService.CanManagePeer(actor, u.RowId) {
+			denyScopedAccess(c, "peer", u.RowId)
+			return
+		}
 		response.Success(c, u)
 		return
 	}
@@ -91,6 +96,8 @@ func (ct *Peer) List(c *gin.Context) {
 		return
 	}
 	res := service.AllService.PeerService.List(query.Page, query.PageSize, func(tx *gorm.DB) {
+		actor := service.AllService.UserService.CurUser(c)
+		service.AllService.AdminScopeService.ApplyPeerScope(tx, actor)
 		if query.TimeAgo > 0 {
 			lt := time.Now().Unix() - int64(query.TimeAgo)
 			tx.Where("last_online_time < ?", lt)
@@ -147,7 +154,20 @@ func (ct *Peer) Update(c *gin.Context) {
 		response.Fail(c, 101, errList[0])
 		return
 	}
+	current := service.AllService.PeerService.InfoByRowId(f.RowId)
+	if current.RowId == 0 {
+		response.Fail(c, 101, response.TranslateMsg(c, "ItemNotFound"))
+		return
+	}
+	actor := service.AllService.UserService.CurUser(c)
+	if !service.AllService.AdminScopeService.CanManagePeer(actor, current.RowId) {
+		denyScopedAccess(c, "peer", current.RowId)
+		return
+	}
 	u := f.ToPeer()
+	if !service.AllService.UserService.IsSuperAdmin(actor) {
+		u.GroupId = current.GroupId
+	}
 	err := service.AllService.PeerService.Update(u)
 	if err != nil {
 		response.Fail(c, 101, response.TranslateMsg(c, "OperationFailed")+err.Error())
@@ -181,6 +201,11 @@ func (ct *Peer) Delete(c *gin.Context) {
 	}
 	u := service.AllService.PeerService.InfoByRowId(f.RowId)
 	if u.RowId > 0 {
+		actor := service.AllService.UserService.CurUser(c)
+		if !service.AllService.AdminScopeService.CanManagePeer(actor, u.RowId) {
+			denyScopedAccess(c, "peer", u.RowId)
+			return
+		}
 		err := service.AllService.PeerService.Delete(u)
 		if err == nil {
 			response.Success(c, nil)
@@ -211,6 +236,11 @@ func (ct *Peer) BatchDelete(c *gin.Context) {
 	}
 	if len(f.RowIds) == 0 {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
+		return
+	}
+	actor := service.AllService.UserService.CurUser(c)
+	if !service.AllService.AdminScopeService.AllPeersManageable(actor, f.RowIds) {
+		denyScopedAccess(c, "peer", 0)
 		return
 	}
 	err := service.AllService.PeerService.BatchDelete(f.RowIds)

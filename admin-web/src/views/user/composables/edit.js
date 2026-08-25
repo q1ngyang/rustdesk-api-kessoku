@@ -7,12 +7,19 @@ import { T } from '@/utils/i18n'
 
 export function useGetDetail (id) {
   let item = ref({})  //保留原始值
-  let form = ref({})
+  let form = ref({ role: 'user', status: 1, is_admin: false })
   const groupsList = ref([])
+  const ensureCurrentGroup = () => {
+    const groupId = form.value.group_id
+    if (groupId && !groupsList.value.some(group => group.id === groupId)) {
+      groupsList.value.unshift({ id: groupId, name: `${T('CurrentGroupRetained')} · #${groupId}`, disabled: true })
+    }
+  }
   const getDetail = async (id) => {
     const res = await detail(id)
     item.value = { ...res.data }
-    form.value = { ...res.data }
+    form.value = { role: 'user', ...res.data }
+    ensureCurrentGroup()
   }
   if (id > 0) {
     onMounted(_ => {getDetail(id)})
@@ -22,6 +29,7 @@ export function useGetDetail (id) {
     const res = await groups({ page_size: 9999 }).catch(_ => false)
     if (res) {
       groupsList.value = res.data.list
+      ensureCurrentGroup()
     }
   }
   onMounted(getGroups)
@@ -42,6 +50,7 @@ export function useSubmit (form, id) {
     group_id: [{ required: true, message: T('ParamRequired', { param: T('Group') }) }],
     // nickname: [{ required: true, message: '昵称是必须的' }],
     status: [{ required: true, message: T('ParamRequired', { param: T('Status') }) }],
+    role: [{ required: true, message: T('ParamRequired', { param: T('Role') }) }],
   })
 
   const validate = async () => {
@@ -50,12 +59,16 @@ export function useSubmit (form, id) {
   }
 
   const submitCreate = async () => {
-    const res = await create(form.value).catch(_ => false)
+    const payload = { ...form.value }
+    delete payload.is_admin
+    const res = await create(payload).catch(_ => false)
     return res.code === 0
   }
 
   const submitUpdate = async () => {
-    const res = await update(form.value).catch(_ => false)
+    const payload = { ...form.value }
+    delete payload.is_admin
+    const res = await update(payload).catch(_ => false)
     return res.code === 0
   }
   const submitFunc = id > 0 ? submitUpdate : submitCreate

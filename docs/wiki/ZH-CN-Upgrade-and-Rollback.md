@@ -24,21 +24,28 @@ SAN，并运行 [`MIGRATION.md`](../../MIGRATION.md)中的 OAuth 身份重复/�
 
 ## 升级顺序
 
-1. 部署 Kessoku v2.8.3，认证关闭且控制只读。
-2. 验证数据库版本 301、OAuth 身份索引、最后管理员不变量与旧 token 迁移。
-3. 开启 EdDSA 签发；需要时使用有界兼容重叠期。
-4. 上线内部 mTLS JWKS/introspection。
-5. 升级 Starry，连接认证先 `off`，再 `audit`。
-6. Control Agent 先只读上线。
-7. 完成真实客户端 audit 和 staging 回滚测试。
-8. 在独立 HTTPS origin 上上线 Web Client，验证公共 profile、ready/grant/ack 交接、
+1. 部署 Kessoku v3.0.0，认证关闭且控制只读。
+2. 验证数据库版本 302、原管理员均为 `super_admin`、至少保留一个启用超管，以及版本
+   301 的 OAuth/token 不变量。
+3. 验证空范围 `admin` 看不到企业资源，再依次测试用户组、用户、公共地址簿与 ID 设备授权。
+4. 确认角色或范围变化会撤销管理员现有会话。
+5. 开启 EdDSA 签发；需要时使用有界兼容重叠期。
+6. 上线内部 mTLS JWKS/introspection。
+7. 升级 Starry，连接认证先 `off`，再 `audit`，Control Agent 先只读上线。
+8. 完成真实客户端 audit 和 staging 回滚测试。
+9. 在独立 HTTPS origin 上上线 Web Client，验证公共 profile、ready/grant/ack 交接、
    forced-Relay VP9 会话、grant 到期与 logout；任一失败都保持
    `web-client.mode: disabled`。
-9. 小范围开启 `enforce`；配置写入只能在单独批准窗口开启。
+10. 小范围开启 `enforce`；配置写入只能在单独批准窗口开启。
 
 ## 回滚警告
 
-v2.8.3 新凭据不会填写历史明文 token 列。旧应用无法重建或认证它们。v2.8.3 一旦签发
+版本 302 为兼容数据库保留范围管理员和超管的 `is_admin=true` 镜像，因此 v2 可能把范围
+管理员提升为无限制管理员。首选恢复完整的升级前备份；如必须原地回退 v2，应先按
+[`MIGRATION-v3.0.0.zh-CN.md`](../../MIGRATION-v3.0.0.zh-CN.md)预处理，且禁止 v2/v3
+同时写入。
+
+v3.0.0 新凭据不会填写历史明文 token 列。旧应用无法重建或认证它们。v3.0.0 一旦签发
 token，回滚旧应用必须使用匹配且经过验证的升级前数据库备份；备份之后创建的会话需要
 重新登录。
 
@@ -53,5 +60,6 @@ token，回滚旧应用必须使用匹配且经过验证的升级前数据库备
 6. 把批准的数据库备份恢复到隔离目标，验证后再切换旧应用。
 7. 验证管理/API 登录、token 失效、native/WSS audit、数据库行数以及不存在通用命令路由。
 
-详细流程见 [`MIGRATION.md`](../../MIGRATION.md)和
+详细流程见 [`MIGRATION-v3.0.0.zh-CN.md`](../../MIGRATION-v3.0.0.zh-CN.md)、
+[`MIGRATION.md`](../../MIGRATION.md)和
 [`ROLLBACK-RUNBOOK.md`](../../ROLLBACK-RUNBOOK.md)。

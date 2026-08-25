@@ -30,6 +30,20 @@ const constantRoutes = [
     component: () => import('@/views/oauth/bind.vue'),
     hidden: true,
   },
+  {
+    path: '/about',
+    name: 'AboutRoot',
+    component: () => import('@/layout/index.vue'),
+    meta: { hide: true },
+    children: [
+      {
+        path: '',
+        name: 'About',
+        meta: { title: 'About', hide: true },
+        component: () => import('@/views/about/index.vue'),
+      },
+    ],
+  },
 ]
 export const asyncRoutes = [
   // {
@@ -52,13 +66,13 @@ export const asyncRoutes = [
     path: '/my',
     name: 'My',
     redirect: '/',
-    meta: { title: 'My', icon: 'UserFilled' },
+    meta: { title: 'Workspace', icon: 'UserFilled' },
     component: () => import('@/layout/index.vue'),
     children: [
       {
         path: '/',
         name: 'MyInfo',
-        meta: { title: 'Userinfo', icon: 'User' /*keepAlive: true*/ },
+        meta: { title: 'Overview', icon: 'User' /*keepAlive: true*/ },
         component: () => import('@/views/my/info.vue'),
       },
       {
@@ -141,6 +155,12 @@ export const asyncRoutes = [
         name: 'UserEdit',
         meta: { title: 'UserEdit', hide: true },
         component: () => import('@/views/user/edit.vue'),
+      },
+      {
+        path: 'access/:id',
+        name: 'AdminAccess',
+        meta: { title: 'AdminAccessScope', hide: true },
+        component: () => import('@/views/user/access.vue'),
       },
       {
         path: 'addressBookName',

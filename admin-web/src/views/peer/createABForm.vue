@@ -1,7 +1,7 @@
 <template>
 
   <el-form class="dialog-form" ref="form" :model="ABFormData" label-width="120px">
-    <el-form-item :label="T('Owner')" prop="user_ids" required>
+    <el-form-item v-if="isSuperAdmin" :label="T('Owner')" prop="user_ids" required>
       <el-select v-model="ABFormData.user_ids" multiple @change="changeUser">
         <el-option
             v-for="item in allUsers"
@@ -11,9 +11,9 @@
         ></el-option>
       </el-select>
     </el-form-item>
-    <el-form-item :label="T('AddressBookName')" v-if="ABFormData.user_ids.length<=1" required prop="collection_id">
-      <el-select v-model="ABFormData.collection_id" clearable @change="changeCollectionForUpdate">
-        <el-option :value="0" :label="T('MyAddressBook')"></el-option>
+    <el-form-item :label="T('AddressBookName')" v-if="!isSuperAdmin || ABFormData.user_ids.length<=1" required prop="collection_id">
+      <el-select v-model="ABFormData.collection_id" clearable @change="handleCollectionChange">
+        <el-option v-if="isSuperAdmin" :value="0" :label="T('MyAddressBook')"></el-option>
         <el-option v-for="c in collectionListResForUpdate.list" :key="c.id" :label="c.name" :value="c.id"></el-option>
       </el-select>
     </el-form-item>
@@ -40,7 +40,7 @@
       </el-select>
     </el-form-item>
 
-    <el-form-item :label="T('Tags')" prop="tags" v-if="ABFormData.user_ids.length<=1">
+    <el-form-item :label="T('Tags')" prop="tags" v-if="!isSuperAdmin || ABFormData.user_ids.length<=1">
       <el-select v-model="ABFormData.tags" multiple>
         <el-option
             v-for="item in tagListRes.list"
@@ -60,10 +60,14 @@
 
   import { T } from '@/utils/i18n'
   import { loadAllUsers } from '@/global'
-  import { onMounted, defineProps, defineEmits, onActivated } from 'vue'
+  import { computed, onMounted } from 'vue'
   import { useRepositories as useABRepositories } from '@/views/address_book'
   import { batchCreate } from '@/api/address_book'
   import { ElMessage } from 'element-plus'
+  import { useUserStore } from '@/store/user'
+
+  const userStore = useUserStore()
+  const isSuperAdmin = computed(() => userStore.role === 'super_admin')
 
   const emits = defineEmits(['cancel', 'success'])
   const props = defineProps({
@@ -79,17 +83,24 @@
     formData: ABFormData,
     changeUserForUpdate,
     changeCollectionForUpdate,
+    getCollectionListForUpdate,
+    collectionListQueryForUpdate,
     collectionListResForUpdate,
     tagListRes,
     fromPeer,
   } = useABRepositories('admin')
   onMounted(() => {
     fromPeer(props.peer)
+    if (!isSuperAdmin.value) {
+      collectionListQueryForUpdate.user_id = null
+      getCollectionListForUpdate()
+    }
   })
 
   const changeUser = async (val) => {
     ABFormData.collection_id = 0
     ABFormData.tags = []
+    ABFormData.user_id = val.length === 1 ? val[0] : null
     if (val.length === 1) {
       changeUserForUpdate(val[0])
     }
@@ -98,9 +109,22 @@
     }
   }
 
+  const handleCollectionChange = value => {
+    if (!isSuperAdmin.value) {
+      const collection = collectionListResForUpdate.list.find(item => item.id === value)
+      ABFormData.user_ids = collection ? [collection.user_id] : []
+      ABFormData.user_id = collection?.user_id || null
+    }
+    changeCollectionForUpdate(value)
+  }
+
   const ABSubmit = async () => {
     if (ABFormData.user_ids.length === 0) {
       ElMessage.error(T('ParamRequired', { param: T('Owner') }))
+      return
+    }
+    if (!isSuperAdmin.value && !ABFormData.collection_id) {
+      ElMessage.error(T('ParamRequired', { param: T('AddressBookName') }))
       return
     }
     if (!ABFormData.id) {

@@ -60,6 +60,14 @@ export function changePwd (data) {
   })
 }
 
+export function revokeSessions (data) {
+  return request({
+    url: '/user/revokeSessions',
+    method: 'post',
+    data,
+  })
+}
+
 export function changeCurPwd (data) {
   return request({
     url: '/user/changeCurPwd',

@@ -73,9 +73,8 @@
           </el-radio-group>
         </el-form-item>
         <el-form-item :label="T('ShareTo')" prop="g_id" required>
-          <!--          <el-input-number v-model="formData.to_id"></el-input-number>-->
-          <div style="width: 30%">
-            <el-select v-model="formData.g_id" @change="changeGId">
+          <div v-if="formData.type===TYPE_G" style="width: 100%">
+            <el-select v-model="formData.g_id" @change="changeGId" style="width: 100%">
               <el-option
                   v-for="item in groups"
                   :key="item.id"
@@ -84,10 +83,10 @@
               ></el-option>
             </el-select>
           </div>
-          <div style="width: 30%;margin-left: 20px">
-            <el-select v-model="formData.u_id" v-if="formData.type===TYPE_U">
+          <div v-else style="width: 100%">
+            <el-select v-model="formData.u_id" style="width: 100%">
               <el-option
-                  v-for="item in users.filter(u => u.group_id === formData.g_id)"
+                  v-for="item in users"
                   :key="item.id"
                   :label="item.username"
                   :value="item.id"

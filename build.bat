@@ -33,7 +33,7 @@ for /f %%i in ('git rev-parse HEAD') do set KESSOKU_SOURCE_COMMIT=%%i
 if not defined KESSOKU_SOURCE_COMMIT exit /b 1
 go version -m release\kessoku-api.exe > release\GO-BUILD-INFO.txt
 if errorlevel 1 exit /b 1
-findstr /L /C:"github.com/q1ngyang/rustdesk-api-kessoku/v2/cmd" release\GO-BUILD-INFO.txt >NUL
+findstr /L /C:"github.com/q1ngyang/rustdesk-api-kessoku/v3/cmd" release\GO-BUILD-INFO.txt >NUL
 if errorlevel 1 exit /b 1
 findstr /L /C:"vcs.revision=%KESSOKU_SOURCE_COMMIT%" release\GO-BUILD-INFO.txt >NUL
 if errorlevel 1 exit /b 1
@@ -57,10 +57,12 @@ copy README_EN.md release\README_EN.md
 copy README.zh-CN.md release\README.zh-CN.md
 copy CONTAINER.md release\CONTAINER.md
 copy CONTAINER.zh-CN.md release\CONTAINER.zh-CN.md
-copy RELEASE-NOTES-v2.8.3.md release\RELEASE-NOTES-v2.8.3.md
-copy RELEASE-NOTES-v2.8.3.zh-CN.md release\RELEASE-NOTES-v2.8.3.zh-CN.md
+copy RELEASE-NOTES-v3.0.0.md release\RELEASE-NOTES-v3.0.0.md
+copy RELEASE-NOTES-v3.0.0.zh-CN.md release\RELEASE-NOTES-v3.0.0.zh-CN.md
 copy SECURITY-MODEL.md release\SECURITY-MODEL.md
 copy MIGRATION.md release\MIGRATION.md
+copy MIGRATION-v3.0.0.md release\MIGRATION-v3.0.0.md
+copy MIGRATION-v3.0.0.zh-CN.md release\MIGRATION-v3.0.0.zh-CN.md
 copy OPERATOR-RUNBOOK.md release\OPERATOR-RUNBOOK.md
 copy ROLLBACK-RUNBOOK.md release\ROLLBACK-RUNBOOK.md
 copy WEB-CLIENT.md release\WEB-CLIENT.md
