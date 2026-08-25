@@ -91,14 +91,17 @@ read-only, and complete a real-client and rollback rehearsal first.
 | Topic | Document |
 | --- | --- |
 | First deployment | [Getting started](docs/wiki/Getting-Started.md) |
+| Kessoku + Starry full stack | [Complete deployment](docs/wiki/Complete-Deployment.md) |
+| Remote HBBR-only node | [Relay-only deployment](docs/wiki/Relay-Only-Deployment.md) |
 | GHCR package users | [Container image guide](CONTAINER.md) |
 | Recommended Compose deployment | [Docker deployment](docs/wiki/Docker-Deployment.md) |
+| Nginx and firewall rules | [Reverse proxy and firewall](docs/wiki/Reverse-Proxy-and-Firewall.md) |
 | Configuration | [Configuration reference](docs/wiki/Configuration-Reference.md) |
 | JWT/JWKS/introspection rollout | [Connection authentication](docs/wiki/Connection-Authentication.md) |
 | Starry integration | [Starry control](docs/wiki/Starry-Control.md) |
 | Browser client deployment and exclusions | [Web Client](docs/wiki/Web-Client.md) |
-| Security review and accepted residual | [Security finding closure](docs/wiki/Security-Finding-Closure.md) |
-| Acceptance evidence | [Operations and verification](docs/wiki/Operations-and-Verification.md) |
+| Deployment hardening | [Security configuration](docs/wiki/Security-Finding-Closure.md) |
+| Backups and routine checks | [Operations and verification](docs/wiki/Operations-and-Verification.md) |
 | Upgrade and rollback | [Upgrade and rollback](docs/wiki/Upgrade-and-Rollback.md) |
 | Failure diagnosis | [Troubleshooting](docs/wiki/Troubleshooting.md) |
 | 中文文档 | [中文文档主页](docs/wiki/ZH-CN-Home.md) |

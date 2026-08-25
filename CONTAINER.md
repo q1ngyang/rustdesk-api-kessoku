@@ -63,18 +63,16 @@ From a v3.0.1 source checkout or downloaded deployment files:
 ```sh
 cp examples/compose.env.example .env
 cp examples/config.docker-builtin.yaml config.yaml
-mkdir -p data/kessoku secrets
-chmod 0700 data/kessoku secrets
+sudo install -d -m 0700 -o 65534 -g 65534 data/kessoku secrets
 
 # Create the one-use bootstrap secret without placing it in Compose or shell
 # arguments. UID 65534 is the unprivileged user inside the image.
-umask 077
-openssl rand -base64 24 > secrets/bootstrap-admin-password
-openssl genpkey -algorithm ED25519 \
+openssl rand -base64 24 | sudo tee secrets/bootstrap-admin-password >/dev/null
+sudo openssl genpkey -algorithm ED25519 \
   -out secrets/kessoku-access-ed25519.pem
-chown 65534:65534 secrets/bootstrap-admin-password
-chown 65534:65534 secrets/kessoku-access-ed25519.pem
-chmod 0600 secrets/bootstrap-admin-password secrets/kessoku-access-ed25519.pem
+sudo chown 65534:65534 secrets/bootstrap-admin-password
+sudo chown 65534:65534 secrets/kessoku-access-ed25519.pem
+sudo chmod 0600 secrets/bootstrap-admin-password secrets/kessoku-access-ed25519.pem
 
 # Edit every placeholder before continuing. Keep relay-wss-urls as an exact
 # YAML map in config.yaml rather than trying to encode it in .env.

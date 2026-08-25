@@ -2,80 +2,135 @@
 
 **English** | [简体中文](ZH-CN-Upgrade-and-Rollback.md)
 
-## Before the window
+Back up data and keys before changing an image or schema. Kessoku v3.0.1 uses
+database version `302`; an older image may not understand a database already
+migrated by v3.
 
-Kessoku does not publish one universal RTO or RPO. Before deploying this
-release, the deployment owner must record the responsible people, maintenance
-window, local RTO/RPO, backup retention, rollback authority, and go/no-go
-decision. This is a deployment gate rather than a software-publication gate.
+## Before an upgrade
 
-Record the current Kessoku/Starry image digests, source/contract versions,
-database version, active Starry generation, key IDs, and client matrix. Back up
-and restore-test:
+Record the current state:
 
-- the database;
-- Kessoku access-token current/previous keys;
-- internal mTLS PKI and Control Agent credentials;
-- Kessoku/Starry configuration and audit/provenance records; and
-- the prior images/packages.
+```sh
+cd /opt/rustdesk-stack
+docker compose --env-file .env -f compose.yaml config --quiet
+docker compose --env-file .env -f compose.yaml images
+docker compose --env-file .env -f compose.yaml ps
+docker compose --env-file .env -f compose.yaml logs --tail 120 \
+  hbbs hbbr kessoku-api
+```
 
-Before changing the image, configure external MySQL with `tls: "true"` (and
-`ca-file` for private PKI), or PostgreSQL with `sslmode: "verify-full"` (and
-`ssl-root-cert` when needed). Test the exact database DNS name against its
-certificate SAN. Also run the duplicate/empty OAuth identity queries in
-[`MIGRATION.md`](../../MIGRATION.md); Kessoku stops instead of guessing how to
-merge a conflicting external identity.
+Confirm:
 
-## Upgrade sequence
+- the target image supports `linux/amd64` and is an explicit release tag;
+- release notes do not require new configuration, certificates, or migrations;
+- a current, encrypted backup exists for database, signing keys, Starry
+  identity, configuration, and certificates;
+- free disk space can hold both the backup and new image;
+- the previous image tags or digests are recorded;
+- a maintenance window exists for a real client test and possible rollback.
 
-1. Deploy Kessoku v3.0.1 with authentication disabled and control read-only.
-2. Verify database version 302, every former administrator's `super_admin`
-   role, at least one enabled super administrator, and the OAuth/token
-   invariants from version 301.
-3. Verify that an `admin` with no grants sees no enterprise resources; then
-   test each user-group, user, public-address-book, and ID-device grant.
-4. Confirm that role or scope changes revoke existing administrator sessions.
-5. Enable EdDSA issuance with a bounded compatibility overlap if required.
-6. Bring up internal mTLS JWKS/introspection.
-7. Upgrade Starry with connection authentication `off`, then `audit`, and
-   commission the Control Agent read-only.
-8. Complete real-client audit and staging rollback tests.
-9. Commission the Web Client on its separate HTTPS origin, validate the public
-   profile, ready/grant/ack handoff, forced-Relay VP9 session, grant expiry and
-   logout; keep `web-client.mode: disabled` if any check fails.
-10. Canary `enforce`; open configuration writes only in separate approved
-   windows.
+Do not use `latest` for a production upgrade.
 
-## Rollback warning
+## Back up the combined deployment
 
-Version 302 keeps `is_admin=true` for scoped and super administrators as a
-database compatibility mirror. A v2 binary can therefore grant a scoped
-administrator unrestricted access. Prefer restoring the complete pre-upgrade
-backup. If an in-place v2 rollback is unavoidable, follow
-[`MIGRATION-v3.0.1.md`](../../MIGRATION-v3.0.1.md) before starting v2, and never
-run v2 and v3 writers together.
+At minimum preserve:
 
-New v3.0.1 credentials leave the historical plaintext token column empty.
-Older applications cannot reconstruct or authenticate them. Once v3.0.1 has
-issued tokens, roll back the old application only with its matching verified
-pre-upgrade database backup, and expect sessions created after that backup to
-require re-login.
+```text
+data/kessoku/
+secrets/kessoku/
+data/starry/
+.env
+compose.yaml
+kessoku-config.yaml
+starry-config.yaml
+/etc/nginx/sites-available/rustdesk-stack.conf
+/etc/letsencrypt/
+```
 
-## Ordered rollback
+Obtain a consistent SQLite copy by stopping the service briefly or using a
+SQLite-aware snapshot. Store the backup outside the deployment directory and
+verify that its files can be listed and read before proceeding.
 
-1. Return Starry authentication from `enforce` to `audit` under change control.
-2. Set Kessoku and the Control Agent read-only.
-3. Set `web-client.mode: disabled`, revoke active connection grants, and verify
-   the 21122 public origin no longer serves a client. This does not require
-   restoring historical browser assets.
-4. Restore and verify the last-known-good Starry generation.
-5. Preserve redacted evidence and decide between forward remediation and a
-   matched application/database restore.
-6. Restore the approved database backup to an isolated target, validate it,
-   then switch the older application.
-7. Verify admin/API login, token invalidation, native/WSS audit behavior,
-   database row counts, and the absence of generic command routes.
+## Upgrade Kessoku only
 
-See [`MIGRATION-v3.0.1.md`](../../MIGRATION-v3.0.1.md),
-[`MIGRATION.md`](../../MIGRATION.md), and
-[`ROLLBACK-RUNBOOK.md`](../../ROLLBACK-RUNBOOK.md) for the detailed procedures.
+Edit `KESSOKU_IMAGE` in `.env` to the new explicit tag, then run:
+
+```sh
+docker compose --env-file .env -f compose.yaml config --quiet
+docker compose --env-file .env -f compose.yaml pull kessoku-api
+docker compose --env-file .env -f compose.yaml up -d kessoku-api
+docker compose --env-file .env -f compose.yaml ps
+docker compose --env-file .env -f compose.yaml logs --tail 180 kessoku-api
+```
+
+Do not upgrade Starry in the same step. First verify:
+
+- no configuration or database migration error appears;
+- administrator and ordinary-user login work;
+- address books and device data are present;
+- logout and re-login work;
+- one native and one forced-Relay session work;
+- the built-in browser client works when enabled.
+
+## Upgrade Starry
+
+After Kessoku is stable, change `STARRY_VERSION`, then update HBBS first and
+HBBR second:
+
+```sh
+docker compose --env-file .env -f compose.yaml config --quiet
+docker compose --env-file .env -f compose.yaml pull hbbs hbbr
+docker compose --env-file .env -f compose.yaml up -d hbbs
+docker compose --env-file .env -f compose.yaml logs --tail 180 hbbs
+docker compose --env-file .env -f compose.yaml up -d hbbr
+docker compose --env-file .env -f compose.yaml logs --tail 180 hbbr
+```
+
+Verify that `data/starry/id_ed25519.pub` is unchanged. Test ID registration,
+native peer-to-peer, forced Relay, and WSS. Keep connection authentication in
+`off` or `audit` during a major integration change; re-enable `enforce` only
+after the expected client matrix passes.
+
+## When to roll back
+
+Rollback is appropriate when the new version cannot start, rejects the current
+configuration, loses a required client path, or has an unacceptable functional
+regression that cannot be corrected safely within the maintenance window.
+
+Do not try to fix these conditions by deleting persistent data, regenerating
+`id_ed25519`, disabling TLS verification, or publishing private ports.
+
+## Image-only rollback
+
+An image-only rollback is safe only when the new version did not modify the
+database or persistent configuration in an incompatible way:
+
+1. restore the previous image tag or digest in `.env`;
+2. run `docker compose config --quiet`;
+3. recreate only the affected service;
+4. inspect logs and run real client checks.
+
+```sh
+docker compose --env-file .env -f compose.yaml up -d kessoku-api
+```
+
+## Database rollback
+
+If Kessoku migrated the database, restore the database and its matching signing
+keys/configuration from the pre-upgrade backup before starting the old image.
+Keep the failed database copy for diagnosis rather than overwriting it.
+
+Restoring only `rustdeskapi.db` while keeping unrelated new keys can invalidate
+sessions. Restoring only signing keys without the matching database can also
+produce confusing token behavior. Treat them as one versioned recovery set.
+
+For a rollback from v3 database `302` to a v2 image, assume a database restore
+is required unless the specific release notes explicitly guarantee backward
+compatibility.
+
+## After recovery
+
+Confirm container state, database contents, administrator login, ordinary-user
+login, address books, native sessions, forced Relay, WSS, and browser sessions
+as applicable. Record the restored image versions and backup timestamp, then
+investigate the failed upgrade without changing the recovered production data.

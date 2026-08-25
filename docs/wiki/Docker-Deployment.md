@@ -6,6 +6,10 @@ Docker Compose on Linux amd64 is the recommended Kessoku deployment. The
 repository example runs only Kessoku; Starry HBBS and official HBBR remain
 separate services with independent data and ports.
 
+For a complete centre use [Complete Deployment](Complete-Deployment.md). To
+add a remote HBBR without another API or HBBS, use
+[Relay-Only Deployment](Relay-Only-Deployment.md).
+
 ## Architecture
 
 ```text
@@ -28,13 +32,16 @@ Never route port `21121` or the Control Agent through the public API path.
 - [`examples/compose.env.example`](../../examples/compose.env.example)
 - [`examples/config.docker-builtin.yaml`](../../examples/config.docker-builtin.yaml)
 - [`examples/Caddyfile.example`](../../examples/Caddyfile.example)
+- [`examples/nginx/kessoku.example.conf`](../../examples/nginx/kessoku.example.conf)
+- [`examples/relay/compose.yaml`](../../examples/relay/compose.yaml)
+- [`examples/relay/.env.example`](../../examples/relay/.env.example)
 - [`conf/config.yaml`](../../conf/config.yaml)
 - [`CONTAINER.md`](../../CONTAINER.md)
 
 ## Prepare
 
 ```sh
-install -d -m 0700 /opt/kessoku/data/kessoku /opt/kessoku/secrets
+sudo install -d -m 0750 -o "$(id -u)" -g "$(id -g)" /opt/kessoku
 cd /opt/kessoku
 cp /path/to/repository/docker-compose.yaml .
 cp /path/to/repository/examples/compose.env.example .env
@@ -42,13 +49,14 @@ cp /path/to/repository/examples/config.docker-builtin.yaml config.yaml
 cp /path/to/repository/examples/Caddyfile.example .
 vi .env config.yaml
 
-umask 077
-openssl rand -base64 24 > secrets/bootstrap-admin-password
-openssl genpkey -algorithm ED25519 \
+sudo install -d -m 0700 -o 65534 -g 65534 \
+  /opt/kessoku/data/kessoku /opt/kessoku/secrets
+openssl rand -base64 24 | sudo tee secrets/bootstrap-admin-password >/dev/null
+sudo openssl genpkey -algorithm ED25519 \
   -out secrets/kessoku-access-ed25519.pem
-chown 65534:65534 secrets/bootstrap-admin-password
-chown 65534:65534 secrets/kessoku-access-ed25519.pem
-chmod 0600 secrets/bootstrap-admin-password secrets/kessoku-access-ed25519.pem
+sudo chown 65534:65534 secrets/bootstrap-admin-password
+sudo chown 65534:65534 secrets/kessoku-access-ed25519.pem
+sudo chmod 0600 secrets/bootstrap-admin-password secrets/kessoku-access-ed25519.pem
 ```
 
 Compose mounts `KESSOKU_CONFIG_FILE` read-only at `/app/conf/config.yaml`.

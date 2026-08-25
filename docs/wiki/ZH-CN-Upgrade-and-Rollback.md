@@ -1,65 +1,148 @@
-# 升级与回滚
+# 升级与回退
 
 [English](Upgrade-and-Rollback.md) | **简体中文**
 
-## 维护窗口前
+Kessoku 启动时会自动升级数据库结构。跨数据库版本升级后，直接把镜像改回旧版并继续写入
+可能造成权限错误或旧程序无法识别新会话，因此升级前必须准备匹配的数据库备份。
 
-Kessoku 不承诺统一的 RTO 或 RPO。部署本版本前，部署负责人必须记录责任人、维护窗口、
-本地 RTO/RPO、备份保留期、回滚授权人与 go/no-go 决策。它是部署门禁，而不是软件发布
-门禁。
+## 升级前清单
 
-记录当前 Kessoku/Starry 镜像 digest、source/contract 版本、数据库版本、活动 Starry
-generation、key ID 和客户端矩阵。备份并实际恢复验证：
+记录当前状态：
 
-- 数据库；
-- Kessoku access-token current/previous key；
-- 内部 mTLS PKI 与 Control Agent 凭据；
-- Kessoku/Starry 配置及审计/provenance；
-- 旧镜像/包。
+```sh
+docker compose --env-file .env -f compose.yaml ps
+docker inspect rustdesk-api-kessoku --format '{{.Config.Image}}'
+docker inspect rustdesk-starry-hbbs --format '{{.Config.Image}}' 2>/dev/null
+docker inspect rustdesk-starry-hbbr --format '{{.Config.Image}}' 2>/dev/null
+```
 
-切换镜像前，外部 MySQL 配置 `tls: "true"`（私有 PKI 再配置 `ca-file`），或 PostgreSQL
-配置 `sslmode: "verify-full"`（需要时配置 `ssl-root-cert`）。用精确数据库 DNS 名称检查证书
-SAN，并运行 [`MIGRATION.md`](../../MIGRATION.md)中的 OAuth 身份重复/空值查询。遇到外部
-身份冲突时 Kessoku 会停止，不会猜测合并方式。
+保存：
 
-## 升级顺序
+- 当前 Kessoku 和 Starry 的完整镜像版本/内容摘要；
+- `compose.yaml`、`.env`、Kessoku 和 Starry YAML；
+- Kessoku 数据库或外部数据库一致性备份；
+- Kessoku 当前/上一访问令牌密钥；
+- Starry `id_ed25519`、数据库和 MMDB；
+- 内部认证证书、JWKS 缓存及元数据；
+- 管理代理实例 ID、凭据、状态和配置历史；
+- Nginx 配置与 TLS 证书。
 
-1. 部署 Kessoku v3.0.1，认证关闭且控制只读。
-2. 验证数据库版本 302、原管理员均为 `super_admin`、至少保留一个启用超管，以及版本
-   301 的 OAuth/token 不变量。
-3. 验证空范围 `admin` 看不到企业资源，再依次测试用户组、用户、公共地址簿与 ID 设备授权。
-4. 确认角色或范围变化会撤销管理员现有会话。
-5. 开启 EdDSA 签发；需要时使用有界兼容重叠期。
-6. 上线内部 mTLS JWKS/introspection。
-7. 升级 Starry，连接认证先 `off`，再 `audit`，Control Agent 先只读上线。
-8. 完成真实客户端 audit 和 staging 回滚测试。
-9. 在独立 HTTPS origin 上上线 Web Client，验证公共 profile、ready/grant/ack 交接、
-   forced-Relay VP9 会话、grant 到期与 logout；任一失败都保持
-   `web-client.mode: disabled`。
-10. 小范围开启 `enforce`；配置写入只能在单独批准窗口开启。
+在隔离环境恢复一次备份，确认管理员和普通用户能登录。生产维护窗口开始前完成，而不是
+升级失败后才第一次测试恢复。
 
-## 回滚警告
+## 普通版本更新
 
-版本 302 为兼容数据库保留范围管理员和超管的 `is_admin=true` 镜像，因此 v2 可能把范围
-管理员提升为无限制管理员。首选恢复完整的升级前备份；如必须原地回退 v2，应先按
-[`MIGRATION-v3.0.1.zh-CN.md`](../../MIGRATION-v3.0.1.zh-CN.md)预处理，且禁止 v2/v3
-同时写入。
+1. 阅读目标版本说明；
+2. 保持 Starry 连接认证为 `off` 或 `audit`，管理代理保持只读；
+3. 修改 `.env` 中 Kessoku 的固定版本；
+4. 检查并拉取镜像；
+5. 只重建 Kessoku；
+6. 验证后再决定是否更新 Starry。
 
-v3.0.1 新凭据不会填写历史明文 token 列。旧应用无法重建或认证它们。v3.0.1 一旦签发
-token，回滚旧应用必须使用匹配且经过验证的升级前数据库备份；备份之后创建的会话需要
-重新登录。
+```sh
+docker compose --env-file .env -f compose.yaml config
+docker compose --env-file .env -f compose.yaml config --quiet
+docker compose --env-file .env -f compose.yaml pull kessoku-api
+docker compose --env-file .env -f compose.yaml up -d kessoku-api
+docker compose --env-file .env -f compose.yaml logs --tail 200 kessoku-api
+```
 
-## 有序回滚
+验证：
 
-1. 在变更控制下将 Starry 从 `enforce` 退回 `audit`。
-2. 把 Kessoku 与 Control Agent 设为只读。
-3. 设置 `web-client.mode: disabled`，撤销活动 connection grant，并确认 21122 公共 origin
-   不再提供客户端；无需恢复任何历史浏览器资产。
-4. 恢复并验证 Starry last-known-good generation。
-5. 保留脱敏证据，并决定向前修复还是匹配恢复程序/数据库。
-6. 把批准的数据库备份恢复到隔离目标，验证后再切换旧应用。
-7. 验证管理/API 登录、token 失效、native/WSS audit、数据库行数以及不存在通用命令路由。
+- `https://api.example.com/api/version`；
+- 管理员和普通用户登录/注销；
+- 地址簿、设备和权限范围；
+- 原生点对点、强制中继和 WSS；
+- 浏览器远控登录、画面、鼠标、键盘和退出。
 
-详细流程见 [`MIGRATION-v3.0.1.zh-CN.md`](../../MIGRATION-v3.0.1.zh-CN.md)、
-[`MIGRATION.md`](../../MIGRATION.md)和
-[`ROLLBACK-RUNBOOK.md`](../../ROLLBACK-RUNBOOK.md)。
+更新 Starry 时 HBBS/HBBR 必须同时使用相同 `STARRY_VERSION`，但可以先重建 HBBS、完成
+健康检查后再重建 HBBR。不要把 HBBR 换成独立移动版本的官方镜像。
+
+## 从 v2 升级到 v3.0.1
+
+v3.0.1 把数据库升级到版本 `302`，新增企业角色和管理员资源范围：
+
+- 旧 `is_admin=true` 账户迁移为 `super_admin`，避免原管理员意外失去权限；
+- 普通账户迁移为 `user`；
+- 新的范围管理员角色为 `admin`，只能访问明确授予的资源；
+- 保留 `is_admin` 兼容列，但 v3 权限判断使用新 `role`。
+
+升级步骤：
+
+1. 停止旧 Kessoku 写入并创建完整数据库备份；
+2. 对恢复副本先执行升级，处理 OAuth/OIDC 身份重复或空字段；
+3. 生产环境启动 v3.0.1，检查日志中的数据库迁移；
+4. 确认至少一个启用的 `super_admin`；
+5. 分别测试普通用户、范围管理员和超级管理员；
+6. 测试范围管理员只能看到获授的用户组、用户、公共地址簿和设备；
+7. 确认角色/范围变更会撤销旧管理会话；
+8. 再启用新的 Ed25519 认证、浏览器客户端或 Starry 高级集成。
+
+详细预检和数据库查询见
+[`MIGRATION-v3.0.1.zh-CN.md`](../../MIGRATION-v3.0.1.zh-CN.md)及
+[`MIGRATION.md`](../../MIGRATION.md)。身份冲突必须由管理员明确决定合并或解绑，不能只为
+通过唯一索引而随意删除记录。
+
+## 推荐的高级功能启用顺序
+
+升级 API 后不要一次打开所有新功能：
+
+1. 保持浏览器客户端关闭、Starry 认证 `off`、管理代理只读；
+2. 验证数据库和桌面客户端账户功能；
+3. 启用 Ed25519 访问令牌并验证登录/注销；
+4. 部署独立浏览器域名和 WSS，启用浏览器客户端；
+5. 部署 Kessoku 内部双向 TLS 接口；
+6. Starry 进入 `audit`，覆盖一个完整业务周期；
+7. 只读接入管理代理；
+8. 小范围启用 `enforce`；
+9. 只在单独维护窗口开放管理代理写入。
+
+每次只改变一层，失败时才能明确回退哪一项。
+
+## 何时可以只回退镜像
+
+如果目标版本没有改变数据库结构或凭据格式，并且版本说明明确支持原地回退，可以恢复
+上一固定镜像后重建容器。即便如此，也要先备份当前数据库并验证登录与远控。
+
+## v3 回退到 v2 的重要警告
+
+不要让 v2 与 v3 同时写同一数据库。版本 302 为兼容保留 `is_admin=true`，v2 可能把 v3
+的范围管理员当成无限制管理员。v3 新签发的令牌只在数据库保存摘要，旧程序也无法恢复或
+认证这些新会话。
+
+首选回退方法：
+
+1. 停止 Kessoku；
+2. 把 Starry 从 `enforce` 改回 `audit` 或 `off`；
+3. 恢复升级前的完整数据库备份；
+4. 恢复与该备份匹配的旧配置和旧镜像；
+5. 启动旧版并要求升级后创建/登录的用户重新登录；
+6. 验证管理员权限、普通用户、地址簿和真实远控会话。
+
+只有无法恢复备份且已经阅读迁移文档时，才考虑原地预处理版本 302 数据库。该操作需要先
+处理范围管理员权限，风险高于恢复备份。
+
+## 联合部署的有序回退
+
+1. Starry 连接认证从 `enforce` 降到 `audit`；
+2. Kessoku 与管理代理恢复只读；
+3. 浏览器客户端故障时设置 `web-client.mode: disabled`，不影响桌面客户端；
+4. 恢复 Starry 上一固定版本和上一份已验证配置；
+5. 验证 HBBS 与 HBBR 使用相同镜像版本；
+6. 恢复匹配的 Kessoku 程序/数据库/密钥；
+7. 完成登录、点对点、中继和 WSS 会话；
+8. 故障原因明确前不要重新启用强制认证或管理写入。
+
+不要通过删除 `data/`、重新生成 `id_ed25519`、删除管理代理状态或关闭证书验证来回退。
+
+## 回退后验证
+
+- Kessoku 容器稳定运行，数据库版本与程序匹配；
+- `admin`/超级管理员可登录，普通用户权限正确；
+- 升级后签发的令牌已失效或用户已重新登录；
+- Starry 当前配置与磁盘配置一致；
+- HBBS/HBBR 身份公钥没有变化；
+- API、原生 TCP/UDP、HBBR、WSS 和浏览器客户端均按预期工作；
+- 防火墙和 Nginx 没有因临时排障留下公开后端端口。
+
+更详细的应急流程见 [`ROLLBACK-RUNBOOK.md`](../../ROLLBACK-RUNBOOK.md)。

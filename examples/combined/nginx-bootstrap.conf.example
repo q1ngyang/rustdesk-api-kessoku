@@ -1,0 +1,12 @@
+# Temporary HTTP-only site used to obtain certificates with certbot --nginx.
+# Replace all names before copying this file into /etc/nginx/sites-available/.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name api.example.com client.example.com rustdesk.example.com;
+
+    location / {
+        default_type text/plain;
+        return 200 "certificate bootstrap\n";
+    }
+}

@@ -1,0 +1,12 @@
+# Temporary HTTP-only site for certbot --nginx.
+# Replace relay-1.example.com before installing this file.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name relay-1.example.com;
+
+    location / {
+        default_type text/plain;
+        return 200 "certificate bootstrap\n";
+    }
+}

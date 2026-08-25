@@ -11,7 +11,13 @@ web-client/dist
 web-client/dist-*.sha256
 web-client/web-client.cdx.json
 release
-data/rustdeskapi.db
+data/*
+!data/.gitkeep
+secrets/
+.env
+**/.env
+/config.yaml
+/compose.yaml
 
 # Local development plans and status notes are intentionally not published.
 /.local-notes/

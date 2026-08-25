@@ -1,0 +1,36 @@
+# Relay-only node: run HBBR without Kessoku or HBBS.
+#
+# The recommended image is enabled. It contains the unmodified upstream HBBR
+# built from the same pinned RustDesk Server revision as Starry HBBS.
+# To use the official HBBR instead, comment the first image line and uncomment
+# the second one. Make the matching change in .env as documented in the Wiki.
+
+name: ${RELAY_COMPOSE_PROJECT_NAME:-rustdesk-relay}
+
+services:
+  hbbr:
+    image: ${STARRY_IMAGE:-ghcr.io/q1ngyang/rustdesk-server-starry}:${STARRY_VERSION:-1.1.16-patch-v1.2.0}
+    # image: ${OFFICIAL_HBBR_IMAGE:-rustdesk/rustdesk-server:1.1.16}
+    container_name: ${RELAY_HBBR_CONTAINER_NAME:-rustdesk-relay-hbbr}
+    command:
+      - hbbr
+    environment:
+      KEY: ${RUSTDESK_PUBLIC_KEY:?set RUSTDESK_PUBLIC_KEY in .env}
+      RUST_LOG: ${RUSTDESK_LOG_LEVEL:-info}
+      SINGLE_BANDWIDTH: ${RELAY_SINGLE_BANDWIDTH:-128}
+      TOTAL_BANDWIDTH: ${RELAY_TOTAL_BANDWIDTH:-1024}
+      LIMIT_SPEED: ${RELAY_LIMIT_SPEED:-32}
+      DOWNGRADE_START_CHECK: ${RELAY_DOWNGRADE_START_CHECK:-1800}
+      DOWNGRADE_THRESHOLD: ${RELAY_DOWNGRADE_THRESHOLD:-0.66}
+    volumes:
+      - type: bind
+        source: ${RELAY_DATA_DIR:-./data}
+        target: /root
+    network_mode: host
+    restart: ${RELAY_RESTART_POLICY:-unless-stopped}
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+        max-file: "5"

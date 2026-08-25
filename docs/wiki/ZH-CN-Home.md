@@ -1,48 +1,61 @@
-# rustdesk-api-kessoku 文档
+# rustdesk-api-kessoku 中文文档
 
 [English](Home.md) | **简体中文**
 
-Kessoku 是一个非官方 RustDesk 账户、管理和策略控制面，提供客户端 API 与内置管理前端。
-Starry HBBS 仍是信令、连接授权与 Relay 分配的权威实现。
+Kessoku 是非官方 RustDesk 账户与管理服务，提供客户端登录接口、用户和设备管理、个人及
+公共地址簿、审计记录、分级管理员权限、内置管理后台，以及可选的浏览器远程控制页面。
 
-## 先理解组件边界
+Kessoku **不包含** RustDesk ID 服务器（HBBS）和中继服务器（HBBR）。它可以搭配官方
+HBBS/HBBR 使用；为了获得安全 TCP、按地理位置选择中继服务器、连接令牌校验和管理接口等
+扩展能力，推荐搭配同一开发者维护的
+[`q1ngyang/rustdesk-server-starry`](https://github.com/q1ngyang/rustdesk-server-starry)。
 
-| 组件 | 是否包含 | 作用 |
-| --- | --- | --- |
-| Kessoku API 和管理前端 | 是 | 账户、登录、地址簿、设备、令牌生命周期、审计和类型化管理。 |
-| Starry HBBS | 否 | 信令、严格连接 JWT 强制认证与 Relay 决策。 |
-| Starry Control Agent | 否 | 可选的单 HBBS 最小权限 Relay/配置 API。 |
-| 官方 HBBR | 否 | 承载远控数据的 Relay。 |
-| 内置浏览器远控 MVP | 是 | 仓库自有强制 Relay WSS、VP9、鼠标和基本键盘客户端，使用独立 origin。 |
+## 主要功能
 
-## 选择起点
-
-| 场景 | 文档 |
+| 分类 | 功能 |
 | --- | --- |
-| 首次部署 | [快速开始](ZH-CN-Getting-Started.md) |
-| 从 GHCR 进入项目 | [Docker 镜像使用](ZH-CN-Docker-Image-Usage.md) |
-| 推荐单机 API 部署 | [Docker 部署](ZH-CN-Docker-Deployment.md) |
-| 了解全部配置边界 | [配置参数参考](ZH-CN-Configuration-Reference.md) |
-| 开启连接认证 | [连接认证](ZH-CN-Connection-Authentication.md) |
-| Relay 可观测或配置事务 | [Starry 控制](ZH-CN-Starry-Control.md) |
-| 了解当前浏览器客户端边界 | [Web 客户端](ZH-CN-Web-Client.md) |
-| 收集 release/staging 证据 | [运维与验证](ZH-CN-Operations-and-Verification.md) |
-| 升级或准备回滚 | [升级与回滚](ZH-CN-Upgrade-and-Rollback.md) |
-| 部署出现故障 | [常见问题排查](ZH-CN-Troubleshooting.md) |
+| 账户 | 用户名/密码登录、注册开关、会话注销、密码重置、LDAP 与后台配置的 OAuth/OIDC 登录 |
+| 地址簿 | 个人地址簿、共享地址簿、标签、地址簿集合及匹配规则 |
+| 设备 | 设备上报、在线信息、设备分组和按范围授权 |
+| 管理 | 用户、用户组、设备、登录记录、连接/文件审计、会话撤销 |
+| 权限 | 普通用户、范围管理员、超级管理员 |
+| 浏览器远控 | 独立 HTTPS 域名，强制通过 WSS 中继，支持 VP9 画面、鼠标和基本键盘 |
+| Starry 集成 | 可选连接令牌认证，以及通过私有管理代理查看中继状态和安全修改配置 |
 
-## 安全默认值
+浏览器远控目前不支持点对点直连、被控端模式、文件传输、剪贴板、音频、终端、端口转发、
+多显示器切换、输入法组合输入或 VP9 以外的视频编码。桌面端 RustDesk 不受这些浏览器端
+限制。
 
-- 使用不可变 v3.0.1 镜像 tag，再固定解析出的 digest。
-- 注册、Swagger、内置 Web Client 和旧 token 兼容保持关闭，直到对应部署 profile 经过
-  明确审核；客户端只能在独立 HTTPS origin 上启用。
-- Starry 连接认证必须从 `off` 或 `audit` 开始，不能直接进入 `enforce`。
-- Control Agent 先只读上线，并保持在私有网络。
-- access-token、内部 PKI 与 Control Agent 密钥位于镜像外且彼此独立。
-- 容器健康、HTTP 200 和登录成功都只是部分证据；最终必须完成真实 native/Secure TCP/
-  WSS/P2P/Relay 客户端会话。
+## 从哪里开始
 
-## 发布与法律状态
+| 你的情况 | 建议阅读 |
+| --- | --- |
+| 已有官方或第三方 HBBS/HBBR，只需要增加账户 API | [快速开始：单独部署 Kessoku](ZH-CN-Getting-Started.md) |
+| 从空白服务器搭建 API + HBBS + HBBR | [完整部署：Kessoku + Starry](ZH-CN-Complete-Deployment.md) |
+| 为现有中心增加一台独立 HBBR | [纯中继节点部署](ZH-CN-Relay-Only-Deployment.md) |
+| 需要查询 Compose、目录和更新命令 | [Docker 部署参考](ZH-CN-Docker-Deployment.md) |
+| 需要配置域名、HTTPS、Nginx 或防火墙 | [反向代理与防火墙](ZH-CN-Reverse-Proxy-and-Firewall.md) |
+| 需要查某个 YAML 参数 | [配置参数参考](ZH-CN-Configuration-Reference.md) |
+| 需要配置 RustDesk 客户端或浏览器远控 | [客户端使用方法](ZH-CN-Web-Client.md) |
+| 需要启用 Starry 连接令牌校验 | [连接认证](ZH-CN-Connection-Authentication.md) |
+| 需要在后台查看或修改 Starry 配置 | [Starry 管理](ZH-CN-Starry-Control.md) |
+| 需要备份、巡检、升级或排障 | [日常运维](ZH-CN-Operations-and-Verification.md) · [升级与回退](ZH-CN-Upgrade-and-Rollback.md) · [常见问题](ZH-CN-Troubleshooting.md) |
 
-v3.0.1 是稳定版。生产部署应验证 Release checksum，并固定带版本的 GHCR digest。
-已审核源码使用 MIT 许可证，与 RustDesk 无隶属关系。仓库自有 Web Client 使用 MIT，
-第三方依赖许可证记录在 release SBOM；不包含历史 WebClient2/V2 资产。
+## 推荐部署原则
+
+- 生产环境固定具体镜像版本，不直接使用 `latest`。
+- API 和浏览器远控分别使用两个 HTTPS 域名，例如 `api.example.com` 与
+  `client.example.com`。
+- `21114`（API）和 `21122`（浏览器客户端）只监听宿主机回环地址，由 Nginx 对外提供
+  `443/TCP`。
+- `21121`（Kessoku 内部认证接口）和 `21120`（Starry 管理代理）不得暴露到公网。
+- Kessoku 的 `/app/data`、Starry 的 `/root`、配置、签名密钥和 TLS 证书都要持久保存并
+  定期备份。
+- 首次接入 Starry 时保持连接认证为 `off`；准备好双向 TLS 后先使用 `audit`（只记录不
+  拦截），确认没有误判再改为 `enforce`（强制拦截）。
+
+## 版本与项目关系
+
+本文档随 Kessoku `v3.0.1` 维护，联合部署示例固定 Starry
+`1.1.16-patch-v1.2.0`。示例中的域名、路径和密钥都必须替换后才能使用。Kessoku 与
+RustDesk 官方项目没有隶属关系，项目按 MIT 许可证发布。

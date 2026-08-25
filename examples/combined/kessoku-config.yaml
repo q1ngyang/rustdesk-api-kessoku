@@ -1,6 +1,5 @@
-# Copy this file to ./config.yaml and replace every example hostname and key
-# before starting Compose. The Relay name map must remain YAML; do not try to
-# encode relay-wss-urls in an environment variable.
+# Replace every example.com hostname and the public key before starting
+# kessoku-api. Secrets are referenced as files under /run/secrets.
 lang: "zh-CN"
 
 app:
@@ -20,16 +19,15 @@ web-client:
   public-origin: "https://client.example.com"
   api-origin: "https://api.example.com"
   rendezvous-wss-url: "wss://rustdesk.example.com/ws/id"
-  # Keys are the exact Relay names returned by rendezvous. Values are the only
-  # WSS Relay destinations that the browser is permitted to contact.
+  # The key must exactly match the Relay name returned by Starry HBBS.
   relay-wss-urls:
     "rustdesk.example.com:21117": "wss://rustdesk.example.com/ws/relay"
-  server-public-key: "REPLACE_WITH_BASE64_32_BYTE_ED25519_PUBLIC_KEY"
+  server-public-key: "REPLACE_WITH_DATA_STARRY_ID_ED25519_PUB"
   profile-generation: 1
   connection-token-ttl: 15m
 
 admin:
-  title: "Kessoku Admin"
+  title: "Kessoku 管理后台"
   hello-file: "./conf/admin/hello.html"
   id-server-port: 21116
   relay-server-port: 21117
@@ -46,8 +44,7 @@ gorm:
   max-open-conns: 100
 
 rustdesk:
-  # Compose overrides these scalar values from .env. They remain here so Viper
-  # has explicit typed keys while decoding the mounted configuration.
+  # Compose overrides these four scalar values from .env.
   id-server: "rustdesk.example.com:21116"
   relay-server: "rustdesk.example.com:21117"
   api-server: "https://api.example.com"
@@ -66,9 +63,6 @@ proxy:
 auth:
   enabled: true
   issuer: "https://api.example.com"
-  # RustDesk 1.4.9 keeps one standard login token for both API calls and
-  # signalling. The built-in Web Client never receives that standard token;
-  # login/grant endpoints return a connection-only token instead.
   audiences:
     - "kessoku-api"
     - "rustdesk-connect"
@@ -78,7 +72,7 @@ auth:
   max-token-bytes: 8192
   legacy-token-read-enabled: false
   current-key:
-    id: "kessoku-2026-01"
+    id: "kessoku-main-2026"
     private-key-file: "/run/secrets/kessoku-access-ed25519.pem"
   previous-keys: []
   internal:

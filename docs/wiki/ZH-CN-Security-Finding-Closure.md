@@ -1,82 +1,141 @@
-# 安全发现闭环
+# 安全配置
 
 [English](Security-Finding-Closure.md) | **简体中文**
 
-本文记录 Kessoku v2.8.3 发布决策使用的防御性、纯静态安全审查。它不是渗透测试报告，
-也不包含利用说明。
+本页把安全要求整理成部署者可直接执行的检查项。项目的安全默认值不能替代正确的域名、
+防火墙、权限、证书、备份和账户管理。
 
-## 证据边界
+## 公网暴露面
 
-- Kessoku 封存审查快照为
-  `codex-security-snapshot/v1:sha256:d504807864f052238881f7e0e18548763d8e1b0134567f95ee0d08b497bef68d`，
-  覆盖 27 个 surface、记录 23 项 finding。
-- Starry 封存快照为
-  `codex-security-snapshot/v1:sha256:4b5ffa3ce6bc819a9a72e9f6e9ec7fd9dc63c0aee4c74645b1d67472d5b6aaac`，
-  覆盖 40 个 surface、记录 22 项 finding（6 medium、16 low），没有 high/critical。
-- Codex Security 插件安装已获批准，但最终 Kessoku 候选会话中没有出现可调用的扫描器。
-  因此，封存快照属于历史证据，不能表述成插件已对最终工作树重新扫描。
-- 2026-08-21，发布负责人接受了这一证据边界，并取消“重新运行插件”这一发布前置条件。
-- 精确修复后源码由静态代码复核，以及常规功能、race、迁移、前端、容器、打包和真实
-  客户端兼容性测试覆盖。本证据不包含渗透、利用、fuzz/mutation、压力或公网目标测试。
+公网只开放实际需要的入口：
 
-## Kessoku finding 处置
+- Kessoku 主机：SSH、`80/TCP`、`443/TCP`；
+- 同机 HBBS/HBBR：再开放 `21115/TCP`、`21116/TCP+UDP`、`21117/TCP`；
+- `21114`、`21118`～`21122` 不对公网开放。
 
-| Finding | 处置 | 发布证据 |
-| --- | --- | --- |
-| `KS-ADMIN-LOGOUT-REVOCATION` | 已关闭 | 注销与管理员生命周期变更会撤销数据库会话并轮换认证版本。 |
-| `KS-ANONYMOUS-AUDIT-MUTATION` | 接受残余 | RustDesk 1.4.9 audit/sysinfo 上传没有认证头；保留的有界兼容路由见下文。 |
-| `KS-ANONYMOUS-PEER-STORAGE` | 已关闭 | 请求大小、数量和字段均有上限；请求不能重分配已持久化 peer 身份或所有权。 |
-| `KS-BOOTSTRAP-PASSWORD-LOG` | 已关闭 | 启动时生成不可达随机凭据；运维通过 mode `0600` 文件设置密码，日志不输出可复用密码。 |
-| `KS-CAPTCHA-ALLOCATION` | 已关闭 | CAPTCHA 状态有界，客户端绕过路径已删除。 |
-| `KS-CSV-FORMULA-INJECTION` | 已关闭 | 可能被电子表格解释为公式的导出单元格会被中和。 |
-| `KS-DB-BOOTSTRAP-TLS` | 已关闭 | 外部 MySQL 强制验证 TLS，PostgreSQL 强制 `verify-full`；DSN 能正确保留编码后的凭据。 |
-| `KS-LDAP-FILTER-INJECTION` | 已关闭 | LDAP 查询值在进入 filter 前会转义。 |
-| `KS-LDAP-IDENTITY-COLLISION` | 已关闭 | provider/subject 与 provider/user 身份使用唯一约束。 |
-| `KS-LDAP-INSECURE-TRANSPORT` | 已关闭 | LDAP 要求证书验证 TLS，并拒绝不安全传输配置。 |
-| `KS-OAUTH-BIND-STATE` | 已关闭 | 绑定状态与发起认证的用户绑定，跳转完成前先保存已验证身份。 |
-| `KS-OAUTH-CACHE-AMPLIFICATION` | 已关闭 | OAuth 状态数量/寿命、state/code 长度和 provider 响应体均有界。 |
-| `KS-OIDC-ISSUER-SSRF` | 已关闭 | Provider endpoint 必须为公网 HTTPS，拒绝本地/私网地址和 redirect，并使用有界客户端。 |
-| `KS-OIDC-STATE-TRANSFER` | 已关闭 | Callback state 只能原子 claim 一次，登录结果仍与发起设备 ID/UUID 绑定。 |
-| `KS-OIDC-UNVERIFIED-EMAIL` | 已关闭 | OIDC 身份以必需的 ID-token subject 和完全一致的 UserInfo subject 为准，不依赖未验证邮箱。 |
-| `KS-PEER-IDENTITY-HIJACK` | 已关闭 | 地址簿/peer 元数据读写按认证 owner 隔离，丢弃请求中的 row/user/collection ID。 |
-| `KS-REGISTRATION-STORAGE` | 已关闭 | 注册输入与状态有界，安全默认值关闭公网注册。 |
-| `KS-REQUEST-CARDINALITY` | 已关闭 | 持久化前限制 API body、peer、tag、batch、字段和序列化元数据大小。 |
-| `KS-STARRY-ASYNC-AUDIT` | 已关闭 | Provider 工作前记录控制意图，之后用关联 ID 结束 success/failure。 |
-| `KS-STARRY-OPERATION-BINDING` | 已关闭 | 类型化 DTO 把操作绑定到 deployment、actor、预期 operation/plan、ETag 与幂等信息。 |
-| `KS-STARRY-RELOAD-DIGEST` | 已关闭 | 只有 reload/apply 响应给出非零且符合预期的 generation/digest 才接受成功。 |
-| `KS-TRUSTED-PROXY-DEFAULT` | 已关闭 | 默认不信任代理，部署必须配置精确代理地址。 |
-| `KS-USER-DIRECTORY-OVEREXPOSURE` | 已关闭 | 普通用户/组目录使用最小 DTO，不返回管理或认证字段。 |
+Kessoku Compose 把 API 和浏览器客户端后端绑定到 `127.0.0.1`。不要改成 `0.0.0.0` 后只
+依靠 Nginx 路径“隐藏”端口。云安全组和主机防火墙都要检查。
 
-## 接受的兼容残余
+## HTTPS 与反向代理
 
-RustDesk 1.4.9 的连接审计、文件传输审计和 sysinfo 上传请求不携带认证头；删除这些路由会
-破坏支持客户端的现有行为。Kessoku 因此保留很窄的兼容 surface，并实施：
+- API 和浏览器客户端使用两个不同的 HTTPS 域名；
+- WSS 只使用精确 `/ws/id`、`/ws/relay`；
+- 证书域名必须匹配，自动续期要定期演练；
+- 不使用 `curl -k`、跳过验证或让用户手工忽略证书警告；
+- `gin.trust-proxy` 只信任实际代理地址，不信任整个互联网；
+- 内部 `21121` 和管理代理 `21120` 不经过公网反向代理。
 
-- 64 KiB 请求上限和严格字段限制；
-- 必须精确匹配已持久化的 peer ID 与 UUID；
-- 请求不能修改 owner；
-- 删除已存审计记录时另写独立管理员审计事件。
+参考[反向代理与防火墙](ZH-CN-Reverse-Proxy-and-Firewall.md)。
 
-Peer UUID 不是秘密。已经知道有效 peer ID 与 UUID 的人仍可能提交伪造的兼容审计记录。
-这些记录应视为运维 telemetry，而非不可抵赖证据；需要更强审计保证时，应导出到
-append-only 或不可变存储。v2.8.3 为兼容性接受这一残余；受支持 RustDesk 客户端提供带
-认证的审计上传后必须重新评估。
+## 容器与文件权限
 
-## 已发布 Starry 兼容性证据
+Kessoku 以 UID/GID `65534:65534` 运行。建议保留：
 
-本机发布矩阵使用已发布镜像
-`ghcr.io/q1ngyang/rustdesk-server-starry:1.1.16-patch-v1.2.0`，repository digest 为
-`sha256:3685543aee6e60c27bed5db1df2fa32af83e61a58e9bc4c0ea3464664863811b`，源码 revision
-为 `5e73b3af1423acf5ee20ca32a2d747eef6df3494`。使用前已核对官方 HBBS、HBBR 与
-Control Agent 二进制 hash。
+- 只读根文件系统；
+- 删除全部 capabilities；
+- `no-new-privileges`；
+- 配置和 `/run/secrets` 只读挂载；
+- 数据目录 `0700` 且属于 `65534:65534`；
+- 密钥文件 `0600`；
+- 日志和临时文件位于受限临时目录。
 
-使用 RustDesk 1.4.9，矩阵通过 Starry `audit` native-to-native；再在 `enforce` 下覆盖
-native-to-native、WSS-to-WSS、WSS-to-native、native-to-WSS 控制端/被控端组合。每项都
-打开 Remote Desktop 会话并观察到预期 HBBR Relay 连接。这是正常兼容性验证，不代表进攻
-性安全评估。
+不要使用 root 容器、特权模式、Docker Socket 或 `chmod 777` 解决权限问题。
 
-## 发布决策规则
+## 密钥不得混用
 
-发布负责人必须能看到上述已接受残余、数据库/OAuth 迁移预检、精确制品身份和所有常规
-候选检查。负责人已通过受审核流程批准源码候选；发布仍由 `RELEASE-PROCESS.md` 中的
-不可变 tag 与受保护候选工作流保持 fail-closed。
+至少区分：
+
+| 密钥 | 用途 |
+| --- | --- |
+| Starry `id_ed25519` | HBBS 服务器身份；客户端只取得 `.pub` 公钥 |
+| Kessoku access-token Ed25519 私钥 | 用户 API/连接访问令牌签名 |
+| Kessoku 内部 TLS 服务端私钥 | `21121` 双向 TLS 服务端身份 |
+| Starry HBBS TLS 客户端私钥 | 访问 Kessoku 内部认证接口 |
+| 管理代理 TLS 密钥 | Kessoku 与管理代理双向认证 |
+| 管理代理服务令牌 Ed25519 私钥 | Kessoku 对管理操作授权 |
+
+这些密钥不能复用。私钥不写入 Git、Compose、环境变量、日志、工单或聊天记录。建立到期
+和轮换提醒，并在备份中加密保存。
+
+## 账户与管理员
+
+- 新部署保持 `app.register: false`，由管理员创建用户；确需自助注册时再开启；
+- 设置合理的验证码和临时封禁阈值；
+- 至少保留两个受控的超级管理员，但日常管理使用范围管理员；
+- 禁用/删除离职账户并撤销所有会话；
+- 密码重置后验证旧令牌失效；
+- 公网保持 `app.show-swagger: 0`；
+- 配置 OAuth/OIDC/LDAP 后，验证恢复入口再考虑关闭密码登录。
+
+首次管理员密码不会写入日志，必须通过权限为 `0600` 的文件设置。登录并再次修改密码后
+删除一次性密码文件。
+
+## 数据库
+
+- SQLite：持久化 `/app/data`，使用一致性备份；
+- MySQL：`tls: "true"`，使用证书中的 DNS 名称，私有 CA 只读挂载；
+- PostgreSQL：`sslmode: "verify-full"`；
+- 数据库账户使用最小权限和独立强密码；
+- 升级前在恢复副本上处理 OAuth 身份冲突；
+- 不让新旧 Kessoku 同时写同一数据库。
+
+## LDAP 与 OAuth/OIDC
+
+- LDAP 只允许 `ldaps://` 且 `tls-verify: true`；
+- 绑定账户只授予查询所需权限；
+- OAuth/OIDC 签发者和端点必须使用 HTTPS；
+- 回调地址固定在配置的 Kessoku API 域名；
+- 不启用通用 `proxy.enable` 绕过目标地址校验；
+- 客户端密钥不写入公开配置或日志；
+- 普通用户、绑定已有用户和首次创建用户三条路径都要测试。
+
+## 浏览器客户端
+
+- 使用独立 HTTPS 域名和精确跨域来源；
+- `21122` 只监听宿主机回环地址；
+- 短期连接令牌只保存在内存，不进入 URL 或持久浏览器存储；
+- WSS 中继映射只允许部署者列出的精确地址；
+- 不使用通配跨域、通配消息目标或共享管理 Cookie；
+- 公共 `config/v1.json` 定期检查，确认不含秘密；
+- 浏览器端不支持的功能使用桌面客户端，不用放宽安全策略实现“兼容”。
+
+## Starry 连接认证
+
+- 初次部署为 `off`；
+- 内部接口使用 TLS 1.3、双向证书和精确 SAN；
+- 至少经过一个完整业务周期的 `audit`；
+- 覆盖所有真实客户端版本、原生/WSS/中继组合和账户撤销情况；
+- 只有没有无法解释的 `audit_would_deny` 时才小范围 `enforce`；
+- 强制模式故障时回到 `audit`，不能跳过证书验证或设置自动放行。
+
+## Starry 管理代理
+
+- `21120` 只在本机或私网；
+- Kessoku 和代理首次都只读；
+- 双向 TLS 与短期服务令牌同时验证；
+- 服务令牌签名密钥与用户连接令牌密钥分离；
+- 受管配置和状态目录使用固定非 root UID/GID；
+- 变更必须经过读取、校验、计划、应用、状态确认和真实会话；
+- 写入窗口结束立即恢复只读；
+- 不删除状态目录来清除失败记录。
+
+## 审计记录的边界
+
+兼容 RustDesk 客户端的部分连接、文件和设备信息上报没有认证头。Kessoku 对请求大小、字段
+和已知设备身份作限制，但这些记录仍应视为运维线索，而不是法律意义上的不可抵赖证据。
+需要更高保证时，把日志导出到访问受控、追加写入或不可变的外部存储，并结合网络、HBBS、
+HBBR 和终端日志分析。
+
+## 事件处理
+
+怀疑凭据泄露时：
+
+1. 限制公网入口并保留日志；
+2. 禁用受影响账户、撤销会话或提高用户认证版本；
+3. 按用途轮换相关密钥，不一次更换所有身份；
+4. 连接认证异常时先退回 `audit`；
+5. 管理代理异常时恢复只读或停止代理；
+6. 从已验证备份在隔离环境中恢复并比对；
+7. 完成原生、中继和 WSS 真实会话后再恢复服务。
+
+支持材料必须脱敏，绝不能包含完整访问令牌、私钥、密码、客户端密钥或未脱敏数据库。

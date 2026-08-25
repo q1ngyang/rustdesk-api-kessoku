@@ -1,97 +1,139 @@
-# Security finding closure
+# Security configuration
 
 **English** | [简体中文](ZH-CN-Security-Finding-Closure.md)
 
-This page records the defensive, static-only security review used for the
-Kessoku v2.8.3 release decision. It is not a penetration-test report and does
-not contain exploit instructions.
+Use this page to harden a public Kessoku deployment. The filename is retained
+so existing Wiki links continue to work.
 
-## Evidence boundary
+## Network boundary
 
-- The sealed Kessoku review snapshot is
-  `codex-security-snapshot/v1:sha256:d504807864f052238881f7e0e18548763d8e1b0134567f95ee0d08b497bef68d`
-  and records 23 findings across 27 surfaces.
-- The sealed Starry snapshot is
-  `codex-security-snapshot/v1:sha256:4b5ffa3ce6bc819a9a72e9f6e9ec7fd9dc63c0aee4c74645b1d67472d5b6aaac`
-  and records 22 findings (6 medium and 16 low) across 40 surfaces, with no
-  high or critical result.
-- The Codex Security plugin installation was approved, but its scanner was not
-  callable in the final Kessoku candidate session. The sealed snapshots are
-  therefore historical evidence, not a claim that the exact final tree was
-  freshly rescanned by the plugin.
-- On 2026-08-21 the release owner accepted this evidence boundary and removed
-  a fresh plugin run as a release prerequisite.
-- The exact post-remediation tree is covered by source review and ordinary
-  functional, race, migration, frontend, container, packaging, and real-client
-  compatibility tests. No penetration, exploit, fuzz/mutation, stress, or
-  public-target testing is part of this evidence.
+Expose only the ports required by the selected deployment:
 
-## Kessoku finding disposition
+| Port | Public use |
+| --- | --- |
+| `80/TCP`, `443/TCP` | Nginx, ACME, Kessoku API, browser client, and WSS |
+| `21115/TCP` | HBBS NAT test when HBBS is on this host |
+| `21116/TCP+UDP` | HBBS registration, signalling, and traversal |
+| `21117/TCP` | Native HBBR Relay |
 
-| Finding | Disposition | Release evidence |
-| --- | --- | --- |
-| `KS-ADMIN-LOGOUT-REVOCATION` | Closed | Logout and administrative lifecycle changes revoke stored sessions and rotate authentication versions. |
-| `KS-ANONYMOUS-AUDIT-MUTATION` | Accepted residual | RustDesk 1.4.9 audit/sysinfo uploads have no authorization header; the bounded compatibility route is described below. |
-| `KS-ANONYMOUS-PEER-STORAGE` | Closed | Request size/cardinality and fields are bounded; persisted peer identity and ownership cannot be reassigned by the request. |
-| `KS-BOOTSTRAP-PASSWORD-LOG` | Closed | Startup creates an unreachable random credential; the operator supplies a mode-`0600` password file and no reusable password is logged. |
-| `KS-CAPTCHA-ALLOCATION` | Closed | CAPTCHA state is bounded and the client-facing bypass is removed. |
-| `KS-CSV-FORMULA-INJECTION` | Closed | Spreadsheet-export cells that could be interpreted as formulas are neutralized. |
-| `KS-DB-BOOTSTRAP-TLS` | Closed | External MySQL requires verified TLS and PostgreSQL requires `verify-full`; DSNs preserve encoded credentials. |
-| `KS-LDAP-FILTER-INJECTION` | Closed | LDAP search values are escaped before use in filters. |
-| `KS-LDAP-IDENTITY-COLLISION` | Closed | Provider/subject and provider/user identities are stored with uniqueness constraints. |
-| `KS-LDAP-INSECURE-TRANSPORT` | Closed | LDAP requires certificate-verified TLS and rejects insecure transport profiles. |
-| `KS-OAUTH-BIND-STATE` | Closed | Bind state is bound to the initiating authenticated user and the verified identity is persisted before redirect completion. |
-| `KS-OAUTH-CACHE-AMPLIFICATION` | Closed | OAuth state count, lifetime, state/code length, and provider response bodies are bounded. |
-| `KS-OIDC-ISSUER-SSRF` | Closed | Provider endpoints require public HTTPS destinations, reject local/private addresses and redirects, and use bounded clients. |
-| `KS-OIDC-STATE-TRANSFER` | Closed | Callback state is atomically claimed once and login results remain bound to the initiating device ID/UUID. |
-| `KS-OIDC-UNVERIFIED-EMAIL` | Closed | OIDC identity is keyed by the required ID-token subject and the exact matching UserInfo subject, not an unverified email address. |
-| `KS-PEER-IDENTITY-HIJACK` | Closed | Address-book and peer metadata reads/writes are scoped to the authenticated owner; caller row/user/collection identifiers are discarded. |
-| `KS-REGISTRATION-STORAGE` | Closed | Registration inputs and state are bounded and secure defaults keep public registration disabled. |
-| `KS-REQUEST-CARDINALITY` | Closed | API body, peer, tag, batch, field, and serialized metadata limits are enforced before persistence. |
-| `KS-STARRY-ASYNC-AUDIT` | Closed | Control intent is recorded before provider work and success/failure is finalized with correlated identifiers. |
-| `KS-STARRY-OPERATION-BINDING` | Closed | Typed DTOs bind operations to deployment, actor, expected operation/plan identity, ETag, and idempotency data. |
-| `KS-STARRY-RELOAD-DIGEST` | Closed | Reload/apply responses must report the non-zero expected generation/digest before success is accepted. |
-| `KS-TRUSTED-PROXY-DEFAULT` | Closed | No proxy is trusted by default; deployments must configure exact proxy addresses. |
-| `KS-USER-DIRECTORY-OVEREXPOSURE` | Closed | Ordinary user/group directory responses use a minimal DTO and omit administrative/authentication fields. |
+Keep `21114`, `21118`, `21119`, `21120`, `21121`, and `21122` off the public
+network. Bind Kessoku's proxy backends to `127.0.0.1`; protect Starry's
+host-network listeners with both the host firewall and cloud security group.
+See [Reverse Proxy and Firewall](Reverse-Proxy-and-Firewall.md) for exact rules.
 
-## Accepted compatibility residual
+Configure `gin.trust-proxy` only with the exact proxy source address. Never
+trust `0.0.0.0/0` or `::/0` merely to obtain a client address in logs.
 
-RustDesk 1.4.9 does not send an authentication header on its audit connection,
-file-transfer, and sysinfo upload calls. Removing those routes would break the
-supported client behavior. Kessoku therefore retains a narrow compatibility
-surface with all of these controls:
+## Files, ownership, and secrets
 
-- a 64 KiB request limit and strict field limits;
-- an exact match to an already persisted peer ID and UUID;
-- no request-controlled owner reassignment; and
-- separate administrator audit events when stored audit records are deleted.
+Kessoku runs as UID/GID `65534:65534`. Its data and secret directories should
+be owned by that identity with mode `0700`; private keys and password files
+should use `0600`.
 
-A peer UUID is not a secret. Someone who already knows a valid peer ID and
-UUID may still submit a spoofed compatible audit record. Treat these rows as
-operational telemetry, not non-repudiation evidence, and export them to
-append-only or immutable storage when stronger audit assurance is required.
-This residual is accepted for v2.8.3 compatibility and must be reconsidered
-when supported RustDesk clients provide authenticated audit uploads.
+Keep these secret classes separate:
 
-## Published Starry compatibility evidence
+- the Kessoku Ed25519 access-token signing key;
+- internal mTLS CA, server key, and client certificates;
+- Starry Control Agent service-token key;
+- database, LDAP, and OAuth client credentials;
+- Starry's `id_ed25519` server identity key.
 
-The local release matrix used the published
-`ghcr.io/q1ngyang/rustdesk-server-starry:1.1.16-patch-v1.2.0` image with
-repository digest
-`sha256:3685543aee6e60c27bed5db1df2fa32af83e61a58e9bc4c0ea3464664863811b`
-and source revision `5e73b3af1423acf5ee20ca32a2d747eef6df3494`.
-Official HBBS, HBBR, and Control Agent binary hashes were checked before use.
+Mount secrets read-only from files outside the image. The RustDesk server value
+distributed to clients is `id_ed25519.pub`; never expose `id_ed25519`. Do not
+store real `.env`, `config.yaml`, certificates, or backups in Git.
 
-With RustDesk 1.4.9, the matrix passed Starry `audit` for native-to-native,
-then `enforce` for native-to-native, WSS-to-WSS, WSS-to-native, and
-native-to-WSS controller and target combinations. Every case opened a Remote
-Desktop session and observed the expected HBBR Relay connection. This is normal
-compatibility validation; it does not claim an offensive security assessment.
+## Accounts and public features
 
-## Release decision rule
+Recommended initial settings are:
 
-The accepted residual above, the database/OAuth migration preflight, exact
-artifact identity, and all ordinary candidate checks must be visible to the
-release owner. The owner approved the source candidate through the reviewed
-release process; publication remains fail-closed on the immutable tag and
-protected candidate workflow described in `RELEASE-PROCESS.md`.
+```yaml
+app:
+  register: false
+  captcha-threshold: 3
+  ban-threshold: 10
+  show-swagger: 0
+
+auth:
+  enabled: true
+  legacy-token-read-enabled: false
+```
+
+- replace the initial administrator password immediately and delete its
+  one-time password file after a confirmed login;
+- use an ordinary account for daily RustDesk access;
+- leave public registration disabled, or require administrator approval when
+  self-registration is necessary;
+- revoke sessions after a password reset, account disable, or suspected leak;
+- keep system clocks synchronized because JWT validation depends on time.
+
+## Database transport
+
+SQLite is suitable for a single host when `/app/data` is persistent and
+backed up. For an external database:
+
+- MySQL must use certificate-verified TLS (`tls: true` with `ca-file`);
+- PostgreSQL should use `sslmode: verify-full` with `ssl-root-cert`;
+- the database hostname must match the certificate identity;
+- restrict the database account and network ACL to Kessoku only.
+
+Do not disable certificate verification to make an invalid hostname or CA
+configuration appear to work.
+
+## LDAP and OAuth/OIDC
+
+For LDAP, use verified TLS and a least-privilege bind account. Restrict allowed
+groups and confirm how disabled or removed directory accounts are handled.
+
+For OAuth/OIDC, use exact HTTPS issuer and redirect addresses. Keep the client
+secret in a mounted file where supported, and verify provider subject binding
+with a test account before enabling the provider for all users.
+
+## Built-in browser client
+
+Publish the browser client on a dedicated HTTPS origin, separate from the API:
+
+```yaml
+web-client:
+  mode: "builtin"
+  public-origin: "https://client.example.com"
+  api-origin: "https://api.example.com"
+```
+
+Use exact Starry `/ws/id` and `/ws/relay` WSS addresses, an exact Relay-name
+map, and the HBBS public key. Starry `allowed_origins` should contain only the
+browser-client origin, not `*`. The public `config/v1.json` response must never
+contain credentials, private keys, or access tokens.
+
+## Starry authentication and control
+
+Connection authentication and server control use different mTLS identities and
+keys. Keep ports `21120` and `21121` private.
+
+- move connection authentication from `off` to `audit`, observe normal native
+  and WSS traffic, then use `enforce` only after all required clients pass;
+- start the Control Agent and Kessoku provider in read-only mode;
+- enable configuration writes only after backup and rollback have been tested;
+- do not configure fail-open behavior for authoritative token introspection.
+
+## Logs and audit records
+
+Do not log bearer tokens, cookies, password files, private keys, full OAuth
+responses, or complete configuration documents. Rotate container and Nginx
+logs and restrict their readers.
+
+Some RustDesk client audit and system-information uploads do not carry an
+authorization header. Kessoku bounds and associates these compatibility
+records, but a device UUID is not a secret. Treat them as operational records,
+not cryptographic proof; export important audit data to append-only storage.
+
+## If a credential may be exposed
+
+1. restrict the affected endpoint or account immediately;
+2. preserve redacted logs and timestamps;
+3. rotate the relevant credential without replacing unrelated identities;
+4. revoke affected user sessions and verify old credentials are rejected;
+5. run real login, peer-to-peer, Relay, and WSS sessions after recovery;
+6. verify backups before removing temporary containment rules.
+
+Rotating `id_ed25519` changes the server identity for every client and should
+not be used as a general troubleshooting step.

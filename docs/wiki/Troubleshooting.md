@@ -2,28 +2,161 @@
 
 **English** | [简体中文](ZH-CN-Troubleshooting.md)
 
-| Symptom | Evidence to check | Safe action |
-| --- | --- | --- |
-| Container exits during startup | Configuration validation, key/certificate paths, file permissions, database connectivity | Correct the deployment input; do not disable validation. |
-| Startup rejects MySQL/PostgreSQL transport | MySQL `tls`/`ca-file`, PostgreSQL `sslmode`/`ssl-root-cert`, database DNS name and certificate SAN | Use MySQL `true` or PostgreSQL `verify-full`, mount the reviewed CA read-only, and correct DNS/certificate identity; never use skip-verify. |
-| Migration reports duplicate OAuth identity | Duplicate `(user_id,op)` or `(op,open_id)` rows and empty identity fields in the restored preflight database | Keep the old service stopped, preserve a backup, and have the identity owner explicitly merge/unbind; never delete a row only to satisfy the index. |
-| Admin page is missing | `resources/admin`, reverse-proxy path, CSP/security headers | Verify the exact release image and proxy path; do not substitute external compiled assets. |
-| Web Client page is missing | `resources/client/index.html`, port 21122 bind, dedicated client hostname/proxy, `web-client.mode` | Verify the exact release image and reviewed profile; never restore `resources/web*` or download WebClient2. |
-| Admin Connect popup opens but remains blank | `web_client_public_origin`, popup policy, admin COOP, absent client COOP, strict-origin grant delivery, browser console without secrets | Require admin `same-origin-allow-popups` and no client COOP (`unsafe-none` default); verify ready/grant/accepted and best-effort revoke on timeout. Never use a query-string token or wildcard `postMessage`. |
-| Web Client login/grant is rejected | API/client origins, exact CORS origin, EdDSA auth, token audience/scope/expiry, clock | Correct the fixed origins/auth profile and request a new short-lived grant; do not enable credentials CORS or reuse an admin token in the client. |
-| Browser session cannot select Relay | Rendezvous WSS response and exact `relay-wss-urls` name map | Add only the reviewed exact Relay mapping and increment profile generation; never derive or follow an arbitrary Relay URL. |
-| Browser connects but video/input is unavailable | Forced-Relay WSS, signed key exchange, VP9 WebCodecs support, frame limits, peer password, supported mouse/basic keys | Use a supported browser/VP9 peer and collect redacted state; unsupported codecs, P2P, clipboard/audio and other excluded features have no fallback. |
-| Initial admin password is unknown | Whether the database exists and a mode-`0600` password file is available to the service user | Use `kessoku-api reset-admin-pwd --password-file PATH`; no reusable bootstrap password is logged, and the database must not be recreated. |
-| RustDesk login succeeds but connection is denied | Starry mode, token audience/scope/key ID, JWKS freshness, introspection result | Return to `audit`, classify the reason, and fix the contract/deployment. |
-| Logout does not affect a connection | Token row/JTI, auth version, introspection cache and call evidence | Verify authoritative introspection; never shorten the path by failing open. |
-| Internal API returns TLS error | CA chain, server name, client SAN, TLS 1.3, clock | Repair PKI/DNS/time; never use skip-verify or the public proxy. |
-| Starry instance is unavailable | Fixed origin, Agent identity UUID, CA/client certificate, timeout | Keep control read-only and repair the private management path. |
-| Apply returns ETag/plan error | Current ETag, actor/instance binding, plan expiry, candidate digest | Re-read, merge, validate, and create a new plan; never force overwrite. |
-| Apply returns success but UI is stale | Active Starry generation/digest and operation/audit records | Re-read authoritative state; HTTP success alone is insufficient. |
-| Old binary cannot authenticate new sessions | Whether v3.0.1 issued hash-only tokens | Restore the matching pre-upgrade database backup or remediate forward. |
-| Audit/sysinfo provenance is disputed | Whether the record came from the RustDesk 1.4.9 unauthenticated compatibility route | Treat it as operational telemetry and use append-only/immutable external logs for non-repudiation. |
+Identify the failing layer first: Compose, Kessoku API, account login, HBBS
+signalling, HBBR Relay, WSS, browser client, or advanced authentication. Change
+one item at a time; disabling the firewall, TLS, and authentication together
+hides the original cause.
 
-Before changing behavior, preserve request/operation IDs, image and contract
-digests, redacted logs, database version, and Starry generation. Never collect
-raw bearer tokens, private keys, complete certificates, or complete YAML in a
-support bundle.
+## Collect the basic state
+
+```sh
+docker compose --env-file .env -f compose.yaml config --quiet
+docker compose --env-file .env -f compose.yaml ps
+docker compose --env-file .env -f compose.yaml logs --tail 200
+docker inspect rustdesk-api-kessoku --format '{{.Config.Image}} {{.Config.User}}'
+sudo nginx -t
+sudo ss -lntup | grep -E ':(80|443|2111[4-9]|2112[0-2])\b'
+```
+
+Record the failure time and RustDesk client version. Redact tokens, passwords,
+private keys, database credentials, and full configuration files.
+
+## Compose or container startup
+
+| Symptom | Likely cause | Action |
+| --- | --- | --- |
+| `set ...` or empty-variable error | Required `.env` value is missing | Edit `.env`, then rerun `docker compose config` |
+| Config path became a directory | The host file did not exist when Docker mounted it | Stop the service and create a regular YAML file at that path |
+| Database `permission denied` | Kessoku data is not owned by `65534:65534` | Set owner `65534:65534` and directory mode `0700` |
+| Signing key cannot be read | Secret directory or file permissions are wrong | Owner `65534:65534`; directory `0700`, private file `0600` |
+| `read-only file system` | A writable log/temp path points into the image | Keep `logger.path` under `./runtime` and the Compose tmpfs mount |
+| `app.web-client is removed` | Obsolete nonzero `app.web-client` remains | Set it to `0`; use root-level `web-client.mode` |
+| `web-client-provider is removed` | Removed legacy configuration remains | Delete that section/environment variable |
+| Restart loop | Validation, database, certificate, or key failure | Read the first fatal log and correct its input |
+
+Check for unedited examples before startup:
+
+```sh
+grep -RniE 'example\.com|REPLACE|replace-with' \
+  .env config.yaml kessoku-config.yaml starry-config.yaml 2>/dev/null
+```
+
+In a combined first start, run HBBS/HBBR first. Copy the complete public value
+from `data/starry/id_ed25519.pub` into `.env` and Kessoku's browser-client
+configuration before starting Kessoku.
+
+## Administration UI
+
+| Symptom | Check |
+| --- | --- |
+| `/_admin/` returns 404 | Use the trailing slash; confirm Nginx proxies the whole API site to 21114 |
+| 502 Bad Gateway | Kessoku container, logs, and `127.0.0.1:21114` listener |
+| Administrator password is unknown | Use `reset-admin-pwd --password-file`; do not rebuild the database |
+| Password file is rejected | It must be a regular file readable by UID 65534 with no group/other permissions |
+| Repeated CAPTCHA/ban | Wait for expiry and verify exact trusted-proxy configuration |
+| Password login was disabled too early | Restore `app.disable-pwd-login: false`, then repair OAuth/OIDC |
+
+```sh
+docker compose --env-file .env -f compose.yaml exec kessoku-api \
+  ./kessoku-api reset-admin-pwd \
+  --password-file /run/secrets/bootstrap-admin-password
+```
+
+## RustDesk login fails
+
+Check in this order:
+
+1. API Server is `https://api.example.com`, without `/api` or `/_admin/`;
+2. `/api/version` loads with a valid certificate;
+3. the user is enabled and the credentials are correct;
+4. client and server clocks are synchronized;
+5. Nginx forwards `Host` and `X-Forwarded-Proto`;
+6. LDAP/OAuth identities are not duplicated;
+7. the client signs in again after password reset or session revocation.
+
+An empty address book usually means the client is using another API address,
+`rustdesk.personal` is disabled, or the user is outside the relevant sharing
+rule.
+
+## Login works but remote control fails
+
+This is usually outside the Kessoku API path. Verify both clients use the same
+ID Server and the same `id_ed25519.pub` value, HBBS is reachable on
+`21116/TCP+UDP`, and the target remains registered. When Starry allocates a
+Relay, leave the client Relay field empty.
+
+If peer-to-peer works but forced Relay fails, inspect HBBR and `21117/TCP`.
+Correlate both clients and HBBS/HBBR logs for the same timestamp. Successful
+login does not test signalling or Relay transport.
+
+## Browser client
+
+| Symptom | Check |
+| --- | --- |
+| Client hostname returns 404/502 | `web-client.mode: builtin`, loopback port 21122, Nginx, and Kessoku logs |
+| Public key is invalid | It must be the one-line HBBS Ed25519 public key, decoding to 32 bytes |
+| Origins are reported equal | `public-origin` and `api-origin` must be different canonical HTTPS origins |
+| Browser CORS failure | Both configured origins exactly match the address bar; Starry allows the client origin |
+| Admin popup is blank | Popup blocking, client-site certificate/proxy, and returned client URL |
+| Login expires immediately | Server clocks and configured token lifetimes |
+
+```sh
+curl -fsS https://client.example.com/config/v1.json
+```
+
+That response must not contain a password, private key, or access token.
+
+## WSS or Relay selection
+
+Probe both `/ws/id` and `/ws/relay`:
+
+```sh
+curl --http1.1 --include --max-time 5 \
+  -H 'Connection: Upgrade' \
+  -H 'Upgrade: websocket' \
+  -H 'Sec-WebSocket-Version: 13' \
+  -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' \
+  https://rustdesk.example.com/ws/id
+```
+
+Confirm Nginx sends the paths to ports 21118 and 21119 respectively, the TLS
+chain is valid, Starry WSS is enabled, trusted proxies are exact, and the
+browser origin is allowed. Each `relay_health.endpoints[].relay`, Starry
+`relay_servers` entry, and Kessoku `relay-wss-urls` key must use the same exact
+Relay name. Do not use `curl -k` to hide a certificate failure.
+
+HTTP `101` confirms only the upgrade. If the browser still has no video, check
+the HBBR session, target password, VP9, and browser WebCodecs support.
+
+## External database
+
+- MySQL `tls` must be the string `"true"` and a readable CA file must be
+  mounted;
+- PostgreSQL requires `sslmode: verify-full` and `ssl-root-cert`;
+- connect through a DNS name present in the certificate SAN;
+- resolve OAuth identity collisions on a backup copy rather than deleting rows
+  in production.
+
+Do not fall back to plaintext transport during a database outage.
+
+## Connection authentication rejects valid users
+
+Move Starry from `enforce` back to `audit`, then inspect issuer, the
+`rustdesk-connect` audience, `connect:initiate` permission, key ID, JWKS cache,
+mTLS CA and URI SAN, introspection reachability, account/session state, and
+clocks. Do not expose port 21121 or disable certificate verification.
+
+## Starry control is unavailable
+
+Check the instance is enabled, the Agent address and TLS server name are exact,
+the instance UUID matches, the Kessoku certificate has the required URI SAN,
+and both sides start read-only. For an ETag conflict or expired plan, read the
+current configuration again, merge the intended change, validate it, and
+create a new plan rather than forcing an overwrite.
+
+## Requesting help
+
+Provide image tags, OS/architecture, relevant redacted Compose/YAML sections,
+Nginx validation, time-bounded logs, client version/platform, WebSocket mode,
+and database type. Never provide raw tokens, cookies, passwords,
+`id_ed25519`, signing keys, client private keys, or a complete database.

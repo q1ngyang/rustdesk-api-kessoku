@@ -2,19 +2,62 @@
 
 [English](Docker-Image-Usage.md) | **简体中文**
 
-完整的版本化 package 页面指南见
-[`CONTAINER.zh-CN.md`](../../CONTAINER.zh-CN.md)，其中说明镜像内容、不可变 tag、Compose、
-secret、端口、验收与回滚。
+Kessoku 镜像发布于
+[`ghcr.io/q1ngyang/rustdesk-api-kessoku`](https://github.com/q1ngyang/rustdesk-api-kessoku/pkgs/container/rustdesk-api-kessoku)，
+当前正式支持 `linux/amd64`。
 
-快速链接：
+## 拉取镜像
 
-- [GHCR package](https://github.com/q1ngyang/rustdesk-api-kessoku/pkgs/container/rustdesk-api-kessoku)
-- [Docker 部署](ZH-CN-Docker-Deployment.md)
-- [Compose 范例](../../docker-compose.yaml)
-- [环境变量范例](../../examples/compose.env.example)
-- [Caddy HTTPS 范例](../../examples/Caddyfile.example)
-- [v3.0.1 发布说明](../../RELEASE-NOTES-v3.0.1.zh-CN.md)
+```sh
+docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.1
+docker image inspect ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.1 \
+  --format '{{json .RepoDigests}}'
+```
 
-受支持镜像平台为 `linux/amd64`。发布流程会把不可变 `v3.0.1` 与移动的 `latest` 推送为
-同一镜像。生产部署应检查并固定版本 tag 的 digest；只有在明确跟随最新稳定版且已准备
-回滚时才使用 `latest`。
+生产环境使用具体版本或解析后的内容摘要，不直接跟随 `latest`。`latest` 会随新稳定版移动，
+不适合作为可预测的回退点。
+
+## 镜像内容
+
+- Kessoku API 可执行程序；
+- 内置管理后台；
+- 内置浏览器远控页面；
+- 运行配置模板和语言资源；
+- 公共 API 端口 `21114`；
+- 可选内部认证端口 `21121`；
+- 独立浏览器客户端端口 `21122`。
+
+镜像不包含 HBBS、HBBR、部署私钥、数据库密码或 TLS 证书。HBBS/HBBR 可以使用官方
+RustDesk Server，推荐使用
+[`q1ngyang/rustdesk-server-starry`](https://github.com/q1ngyang/rustdesk-server-starry)。
+
+## 不建议直接 `docker run`
+
+Kessoku 需要持久化数据、只读配置、签名密钥、端口回环绑定和安全限制。推荐使用仓库提供的
+Compose：
+
+- [已有 HBBS/HBBR 的完整教程](ZH-CN-Getting-Started.md)；
+- [Kessoku + Starry 联合教程](ZH-CN-Complete-Deployment.md)；
+- [Docker 部署参考](ZH-CN-Docker-Deployment.md)。
+
+相关文件：
+
+- [`docker-compose.yaml`](../../docker-compose.yaml)
+- [`examples/compose.env.example`](../../examples/compose.env.example)
+- [`examples/config.docker-builtin.yaml`](../../examples/config.docker-builtin.yaml)
+- [`examples/combined/`](../../examples/combined)
+- [`examples/nginx/`](../../examples/nginx)
+
+## 更新镜像
+
+先备份数据库、配置和签名密钥，修改 `.env` 中的固定版本，再执行：
+
+```sh
+docker compose --env-file .env -f compose.yaml config --quiet
+docker compose --env-file .env -f compose.yaml pull kessoku-api
+docker compose --env-file .env -f compose.yaml up -d kessoku-api
+docker compose --env-file .env -f compose.yaml logs --tail 150 kessoku-api
+```
+
+升级跨越 v2/v3 时必须阅读[升级与回退](ZH-CN-Upgrade-and-Rollback.md)，不能只替换镜像后
+在同一数据库上反复切换新旧版本。

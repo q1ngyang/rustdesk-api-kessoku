@@ -27,7 +27,7 @@ v1. The browser talks only to Kessoku; it never talks directly to the Agent.
 There is no raw command, shell, arbitrary URL, Docker socket, generic file API,
 or force-overwrite operation.
 
-## Commissioning
+## Initial setup
 
 1. Pin the exact released Starry Control/Auth contract in
    `internal/starrycontrol/CONTRACT_VERSION`.
@@ -39,6 +39,6 @@ or force-overwrite operation.
    and rehearse rollback.
 6. Restore Kessoku and the Agent to read-only outside change windows.
 
-An HTTP success is not proof that a candidate became active. Always re-read the
+An HTTP success is not proof that the new configuration became active. Always re-read the
 generation/digests and correlate Kessoku intent/result audit with the Agent's
 durable audit.

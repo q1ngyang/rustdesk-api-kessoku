@@ -1,0 +1,11 @@
+# Temporary HTTP-only site used to obtain Kessoku API/client certificates.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name api.example.com client.example.com;
+
+    location / {
+        default_type text/plain;
+        return 200 "certificate bootstrap\n";
+    }
+}
