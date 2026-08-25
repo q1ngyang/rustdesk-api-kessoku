@@ -98,6 +98,7 @@ func TestWorkflowsRunPinnedActionlint(t *testing.T) {
 }
 
 func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
+	legacyModulePath := "github.com/q1ngyang/rustdesk-api-kessoku/" + "v2"
 	contents, err := os.ReadFile(".github/workflows/release.yml")
 	if err != nil {
 		t.Fatal(err)
@@ -116,11 +117,12 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 		`provenance: mode=max`,
 		`sbom: true`,
 		`candidate/release-assets/GO-BUILD-INFO.txt`,
+		`github.com/q1ngyang/rustdesk-api-kessoku/v3/cmd`,
 		`chmod 0755 candidate/docker/release/kessoku-api`,
 		`cmp "$archive_binary" candidate/docker/release/kessoku-api`,
 		`vcs.revision='"${GITHUB_SHA}"`,
 		`vcs.modified=false`,
-		`test "$release_tag" = v3.0.0`,
+		`test "$release_tag" = v3.0.1`,
 	} {
 		if !strings.Contains(workflow, required) {
 			t.Fatalf("publication workflow is missing fail-closed control %q", required)
@@ -129,11 +131,23 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 	if !strings.Contains(workflow, "environment: kessoku-release") {
 		t.Fatal("publication workflow does not require the release environment")
 	}
+	if strings.Contains(workflow, legacyModulePath) {
+		t.Fatal("publication workflow still validates a project-owned /v2 module path")
+	}
+	buildContents, err := os.ReadFile(".github/workflows/build.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	buildWorkflow := string(buildContents)
+	if !strings.Contains(buildWorkflow, "github.com/q1ngyang/rustdesk-api-kessoku/v3/cmd") ||
+		strings.Contains(buildWorkflow, legacyModulePath) {
+		t.Fatal("candidate workflow must validate only the project-owned /v3 build path")
+	}
 	status, err := os.ReadFile("RELEASE_STATUS")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(status), "status: APPROVED") || !strings.Contains(string(status), "release_tag: v3.0.0") {
+	if !strings.Contains(string(status), "status: APPROVED") || !strings.Contains(string(status), "release_tag: v3.0.1") {
 		t.Fatal("release source must name the explicitly approved immutable tag")
 	}
 }

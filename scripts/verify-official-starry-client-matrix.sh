@@ -10,7 +10,7 @@ fi
 
 repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 starry_repo=${STARRY_REPO:-}
-kessoku_image=${KESSOKU_MATRIX_IMAGE:-kessoku-v3.0.0-local-matrix:current}
+kessoku_image=${KESSOKU_MATRIX_IMAGE:-kessoku-v3.0.1-local-matrix:current}
 starry_image=ghcr.io/q1ngyang/rustdesk-server-starry:1.1.16-patch-v1.2.0
 starry_digest=sha256:3685543aee6e60c27bed5db1df2fa32af83e61a58e9bc4c0ea3464664863811b
 client_image=starry-release-client:rustdesk-1.4.9-qa3

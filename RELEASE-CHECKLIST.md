@@ -1,7 +1,7 @@
-# Kessoku v3.0.0 release checklist
+# Kessoku v3.0.1 release checklist
 
 This checklist defines the release gate for the exact source commit named by
-the immutable `v3.0.0` tag. Detailed runtime evidence is retained by the
+the immutable `v3.0.1` tag. Detailed runtime evidence is retained by the
 candidate workflow rather than duplicated here.
 
 ## Source and compatibility
@@ -30,20 +30,24 @@ candidate workflow rather than duplicated here.
 - [x] Secret scanning, dependency vulnerability checks, workflow policy tests,
   and forbidden historical browser-asset checks pass.
 
-These checks passed in PR CI run `32841278259`. The final candidate rebuilds
-and re-verifies them from the immutable tag.
+The release preparation passed PR CI run `32841549238` and master CI run
+`32841809241`. The first `v3.0.0` candidate run `32842075289` then failed closed
+on stale generated Swagger identifiers before final candidate assembly and
+published no artifacts. The generated documentation and `/v3` build-info gates
+are corrected here; the final candidate rebuilds and re-verifies everything
+from the immutable `v3.0.1` tag.
 
 ## Protected publication
 
 The following steps occur after the immutable tag is created and are visible in
 GitHub Actions/Release evidence, not as modifications to the tagged source:
 
-- [ ] Non-publishing candidate workflow on `v3.0.0` succeeds.
+- [ ] Non-publishing candidate workflow on `v3.0.1` succeeds.
 - [ ] Linux amd64 binary, archive, DEB, container smoke, checksum, provenance,
   and SBOM gates pass in that candidate.
 - [ ] Protected release workflow consumes that exact candidate run ID.
 - [ ] GitHub Release assets and `SHA256SUMS` verify.
-- [ ] GHCR `v3.0.0` and `latest` resolve to the same image index digest.
+- [ ] GHCR `v3.0.1` and `latest` resolve to the same image index digest.
 - [ ] The reviewed bilingual Wiki is published and its navigation is verified.
 
 Supported release artifacts are Linux amd64 only. ARM remains best-effort

@@ -28,7 +28,7 @@ merge a conflicting external identity.
 
 ## Upgrade sequence
 
-1. Deploy Kessoku v3.0.0 with authentication disabled and control read-only.
+1. Deploy Kessoku v3.0.1 with authentication disabled and control read-only.
 2. Verify database version 302, every former administrator's `super_admin`
    role, at least one enabled super administrator, and the OAuth/token
    invariants from version 301.
@@ -52,11 +52,11 @@ Version 302 keeps `is_admin=true` for scoped and super administrators as a
 database compatibility mirror. A v2 binary can therefore grant a scoped
 administrator unrestricted access. Prefer restoring the complete pre-upgrade
 backup. If an in-place v2 rollback is unavoidable, follow
-[`MIGRATION-v3.0.0.md`](../../MIGRATION-v3.0.0.md) before starting v2, and never
+[`MIGRATION-v3.0.1.md`](../../MIGRATION-v3.0.1.md) before starting v2, and never
 run v2 and v3 writers together.
 
-New v3.0.0 credentials leave the historical plaintext token column empty.
-Older applications cannot reconstruct or authenticate them. Once v3.0.0 has
+New v3.0.1 credentials leave the historical plaintext token column empty.
+Older applications cannot reconstruct or authenticate them. Once v3.0.1 has
 issued tokens, roll back the old application only with its matching verified
 pre-upgrade database backup, and expect sessions created after that backup to
 require re-login.
@@ -76,6 +76,6 @@ require re-login.
 7. Verify admin/API login, token invalidation, native/WSS audit behavior,
    database row counts, and the absence of generic command routes.
 
-See [`MIGRATION-v3.0.0.md`](../../MIGRATION-v3.0.0.md),
+See [`MIGRATION-v3.0.1.md`](../../MIGRATION-v3.0.1.md),
 [`MIGRATION.md`](../../MIGRATION.md), and
 [`ROLLBACK-RUNBOOK.md`](../../ROLLBACK-RUNBOOK.md) for the detailed procedures.

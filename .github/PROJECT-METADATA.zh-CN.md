@@ -2,7 +2,7 @@
 
 [English](PROJECT-METADATA.md) | **简体中文**
 
-本文记录发布负责人已批准的 v3.0.0 外部 GitHub 元数据；远端变更仍只能按受保护发布流程执行。
+本文记录发布负责人已批准的 v3.0.1 外部 GitHub 元数据；远端变更仍只能按受保护发布流程执行。
 
 ## Repository About
 
@@ -36,7 +36,7 @@ ldap
 
 镜像描述：
 
-> Kessoku v3.0.0 RustDesk account and enterprise administration API with a
+> Kessoku v3.0.1 RustDesk account and enterprise administration API with a
 > responsive UI, scoped administrators, typed Starry control, and a
 > repository-owned Relay-only Web Client; Docker Compose is recommended.
 
@@ -50,7 +50,7 @@ revision、licence 与 description annotation。documentation 指向
 - [Starry 集成](../docs/wiki/ZH-CN-Starry-Control.md)；
 - [内置 Web Client](../docs/wiki/ZH-CN-Web-Client.md)。
 
-发布流程会把不可变 `v3.0.0` 与移动的 `latest` 发布为同一镜像。`latest` 指向最新成功
+发布流程会把不可变 `v3.0.1` 与移动的 `latest` 发布为同一镜像。`latest` 指向最新成功
 发布的稳定版；生产运维人员解析并固定版本 tag 的 digest。
 
 ## Wiki 发布
@@ -63,10 +63,10 @@ revision、licence 与 description annotation。documentation 指向
 
 受保护发布 workflow 已准备：
 
-- 发布精确成功的非发布 v3.0.0 candidate；
+- 发布精确成功的非发布 v3.0.1 candidate；
 - 附加 Compose/环境变量范例与双语容器/发布文档；
 - 从已审核英文 release notes 生成 GitHub Release body，并链接中文说明；
-- 把一个带 OCI provenance 与 SBOM 的 linux/amd64 GHCR 镜像同时发布为 `v3.0.0`
+- 把一个带 OCI provenance 与 SBOM 的 linux/amd64 GHCR 镜像同时发布为 `v3.0.1`
   与 `latest`；
 - 保留 tag、commit、candidate run、contract、checksum、前端源码与发布批准的 fail-closed
   检查。

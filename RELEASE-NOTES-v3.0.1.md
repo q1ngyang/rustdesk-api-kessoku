@@ -1,8 +1,12 @@
-# Kessoku v3.0.0
+# Kessoku v3.0.1
 
-v3.0.0 modernizes the embedded administration experience and adds scoped
+v3.0.1 modernizes the embedded administration experience and adds scoped
 enterprise administration while keeping the existing Kessoku/Starry runtime
 architecture.
+
+The unpublished `v3.0.0` tag remains an immutable failed-candidate record;
+v3.0.1 is the first public v3 release and includes corrected generated API
+documentation.
 
 ## Highlights
 
@@ -33,6 +37,6 @@ architecture.
 
 Back up and rehearse the database upgrade before production. See the
 [upgrade and rollback guide](docs/wiki/Upgrade-and-Rollback.md) and the
-[v3 migration details](MIGRATION-v3.0.0.md).
+[v3 migration details](MIGRATION-v3.0.1.md).
 
-[中文发布说明](RELEASE-NOTES-v3.0.0.zh-CN.md)
+[中文发布说明](RELEASE-NOTES-v3.0.1.zh-CN.md)

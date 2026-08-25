@@ -57,12 +57,12 @@ copy README_EN.md release\README_EN.md
 copy README.zh-CN.md release\README.zh-CN.md
 copy CONTAINER.md release\CONTAINER.md
 copy CONTAINER.zh-CN.md release\CONTAINER.zh-CN.md
-copy RELEASE-NOTES-v3.0.0.md release\RELEASE-NOTES-v3.0.0.md
-copy RELEASE-NOTES-v3.0.0.zh-CN.md release\RELEASE-NOTES-v3.0.0.zh-CN.md
+copy RELEASE-NOTES-v3.0.1.md release\RELEASE-NOTES-v3.0.1.md
+copy RELEASE-NOTES-v3.0.1.zh-CN.md release\RELEASE-NOTES-v3.0.1.zh-CN.md
 copy SECURITY-MODEL.md release\SECURITY-MODEL.md
 copy MIGRATION.md release\MIGRATION.md
-copy MIGRATION-v3.0.0.md release\MIGRATION-v3.0.0.md
-copy MIGRATION-v3.0.0.zh-CN.md release\MIGRATION-v3.0.0.zh-CN.md
+copy MIGRATION-v3.0.1.md release\MIGRATION-v3.0.1.md
+copy MIGRATION-v3.0.1.zh-CN.md release\MIGRATION-v3.0.1.zh-CN.md
 copy OPERATOR-RUNBOOK.md release\OPERATOR-RUNBOOK.md
 copy ROLLBACK-RUNBOOK.md release\ROLLBACK-RUNBOOK.md
 copy WEB-CLIENT.md release\WEB-CLIENT.md

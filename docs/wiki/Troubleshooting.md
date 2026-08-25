@@ -20,7 +20,7 @@
 | Starry instance is unavailable | Fixed origin, Agent identity UUID, CA/client certificate, timeout | Keep control read-only and repair the private management path. |
 | Apply returns ETag/plan error | Current ETag, actor/instance binding, plan expiry, candidate digest | Re-read, merge, validate, and create a new plan; never force overwrite. |
 | Apply returns success but UI is stale | Active Starry generation/digest and operation/audit records | Re-read authoritative state; HTTP success alone is insufficient. |
-| Old binary cannot authenticate new sessions | Whether v3.0.0 issued hash-only tokens | Restore the matching pre-upgrade database backup or remediate forward. |
+| Old binary cannot authenticate new sessions | Whether v3.0.1 issued hash-only tokens | Restore the matching pre-upgrade database backup or remediate forward. |
 | Audit/sysinfo provenance is disputed | Whether the record came from the RustDesk 1.4.9 unauthenticated compatibility route | Treat it as operational telemetry and use append-only/immutable external logs for non-repudiation. |
 
 Before changing behavior, preserve request/operation IDs, image and contract

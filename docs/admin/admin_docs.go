@@ -1973,7 +1973,7 @@ const docTemplateadmin = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_q1ngyang_rustdesk-api-kessoku_v2_http_request_admin.Login"
+                            "$ref": "#/definitions/github_com_q1ngyang_rustdesk-api-kessoku_v3_http_request_admin.Login"
                         }
                     }
                 ],
@@ -6877,6 +6877,9 @@ const docTemplateadmin = `{
                 "nickname": {
                     "type": "string"
                 },
+                "role": {
+                    "$ref": "#/definitions/model.UserRole"
+                },
                 "route_names": {
                     "type": "array",
                     "items": {
@@ -7038,7 +7041,6 @@ const docTemplateadmin = `{
             "type": "object",
             "required": [
                 "group_id",
-                "is_admin",
                 "status",
                 "username"
             ],
@@ -7065,6 +7067,18 @@ const docTemplateadmin = `{
                 },
                 "remark": {
                     "type": "string"
+                },
+                "role": {
+                    "enum": [
+                        "user",
+                        "admin",
+                        "super_admin"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.UserRole"
+                        }
+                    ]
                 },
                 "status": {
                     "enum": [
@@ -7138,7 +7152,7 @@ const docTemplateadmin = `{
                 }
             }
         },
-        "github_com_q1ngyang_rustdesk-api-kessoku_v2_http_request_admin.Login": {
+        "github_com_q1ngyang_rustdesk-api-kessoku_v3_http_request_admin.Login": {
             "type": "object",
             "required": [
                 "password",
@@ -7851,6 +7865,7 @@ const docTemplateadmin = `{
                     "type": "integer"
                 },
                 "is_admin": {
+                    "description": "IsAdmin is retained as a compatibility mirror for v2 clients and data.\nAuthorization decisions use Role after the v3 migration.",
                     "type": "boolean"
                 },
                 "nickname": {
@@ -7858,6 +7873,9 @@ const docTemplateadmin = `{
                 },
                 "remark": {
                     "type": "string"
+                },
+                "role": {
+                    "$ref": "#/definitions/model.UserRole"
                 },
                 "status": {
                     "$ref": "#/definitions/model.StatusCode"
@@ -7889,6 +7907,19 @@ const docTemplateadmin = `{
                     "type": "integer"
                 }
             }
+        },
+        "model.UserRole": {
+            "type": "string",
+            "enum": [
+                "user",
+                "admin",
+                "super_admin"
+            ],
+            "x-enum-varnames": [
+                "UserRoleUser",
+                "UserRoleAdmin",
+                "UserRoleSuperAdmin"
+            ]
         },
         "model.UserToken": {
             "type": "object",

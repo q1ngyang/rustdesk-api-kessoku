@@ -1,7 +1,10 @@
-# Kessoku v3.0.0 发布说明
+# Kessoku v3.0.1 发布说明
 
-v3.0.0 在延续现有 Kessoku/Starry 技术架构的基础上，重构内置管理界面，并加入适合企业
+v3.0.1 在延续现有 Kessoku/Starry 技术架构的基础上，重构内置管理界面，并加入适合企业
 使用的范围管理员权限。
+
+未发布的 `v3.0.0` tag 作为失败候选记录保持不可变；v3.0.1 是首个公开 v3 版本，并包含
+修正后的 API 生成文档。
 
 ## 主要更新
 
@@ -29,6 +32,6 @@ v3.0.0 在延续现有 Kessoku/Starry 技术架构的基础上，重构内置管
 
 生产升级前必须备份数据库并演练。详细步骤见
 [升级与回滚 Wiki](docs/wiki/ZH-CN-Upgrade-and-Rollback.md)和
-[v3 数据库迁移说明](MIGRATION-v3.0.0.zh-CN.md)。
+[v3 数据库迁移说明](MIGRATION-v3.0.1.zh-CN.md)。
 
-[English release notes](RELEASE-NOTES-v3.0.0.md)
+[English release notes](RELEASE-NOTES-v3.0.1.md)

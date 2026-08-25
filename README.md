@@ -8,7 +8,7 @@ open-source browser remote-desktop MVP, and integrates with
 [`rustdesk-server-starry`](https://github.com/q1ngyang/rustdesk-server-starry)
 through a typed, versioned Control API.
 
-> **v3.0.0 stable release.** The implementation and Linux
+> **v3.0.1 stable release.** The implementation and Linux
 > amd64 checks are complete, the official Starry contract is pinned, and both
 > the published Starry native-client matrix and built-in browser forced-Relay
 > fixture pass. The immutable tag is published only through the protected
@@ -31,7 +31,7 @@ Docker socket, or browser-supplied file path. Its browser client is repository-
 owned source; historical WebClient2/V2 and `resources/web*` assets remain
 excluded.
 
-## v3.0.0 highlights
+## v3.0.1 highlights
 
 - Responsive light/dark administration UI redesigned for desktop, tablet, and
   phone, with repository-owned Kessoku/StarryLinks brand assets.
@@ -54,11 +54,11 @@ excluded.
 - SQLite, MySQL, and PostgreSQL migration support; external MySQL/PostgreSQL
   connections require certificate- and hostname-verified TLS.
 - Docker `linux/amd64`, Linux x86_64 archive/binary, and amd64 DEB as the
-  v3.0.0 release scope. ARM remains best-effort and non-blocking.
+  v3.0.1 release scope. ARM remains best-effort and non-blocking.
 
 > **Upgrade notice:** v3 changes the Go module path to `/v3` and database role
 > semantics at schema version 302. Read the
-> [breaking changes](RELEASE-NOTES-v3.0.0.md#breaking-changes) before upgrading.
+> [breaking changes](RELEASE-NOTES-v3.0.1.md#breaking-changes) before upgrading.
 
 ## Recommended deployment
 
@@ -66,7 +66,7 @@ Docker Compose on Linux amd64 is the recommended deployment. Use the immutable
 version tag and then record the resolved digest in your deployment:
 
 ```sh
-docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.0
+docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.1
 cp examples/compose.env.example .env
 cp examples/config.docker-builtin.yaml config.yaml
 # Edit .env/config.yaml and provision the referenced signing key first.
@@ -78,7 +78,7 @@ The Compose default binds API port 21114 and Web Client port 21122 to
 `127.0.0.1`. Publish them through two distinct reviewed HTTPS origins; see
 [`examples/Caddyfile.example`](examples/Caddyfile.example). The release also
 publishes `latest` for users who intentionally track the newest stable build,
-while production rollback should pin the `v3.0.0` digest.
+while production rollback should pin the `v3.0.1` digest.
 The exact `relay-wss-urls` map lives in mounted YAML, not an environment
 variable; follow the detailed Docker guide before startup.
 
@@ -109,9 +109,9 @@ those pages to GitHub Wiki is a separate release-owner action.
 ## Release status
 
 The authoritative gate is [`RELEASE_STATUS`](RELEASE_STATUS), with evidence
-requirements in [`RELEASE-CHECKLIST.md`](RELEASE-CHECKLIST.md). The v3.0.0
+requirements in [`RELEASE-CHECKLIST.md`](RELEASE-CHECKLIST.md). The v3.0.1
 feature and compatibility notes are in
-[`RELEASE-NOTES-v3.0.0.md`](RELEASE-NOTES-v3.0.0.md).
+[`RELEASE-NOTES-v3.0.1.md`](RELEASE-NOTES-v3.0.1.md).
 
 Local development checks are not permission to publish. Tagging, pushing,
 GHCR publication, GitHub Release creation, and Wiki publication require
