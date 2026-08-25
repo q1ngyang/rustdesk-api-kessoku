@@ -20,17 +20,18 @@ candidate workflow rather than duplicated here.
 
 ## Pre-publication verification
 
-- [ ] `scripts/check_docs.py`, module verification, formatting, vet, all Go
+- [x] `scripts/check_docs.py`, module verification, formatting, vet, all Go
   tests, race tests, and vulnerability scan pass on the release commit.
-- [ ] Admin frontend install, audit, lint, test, reproducible build, and SBOM
+- [x] Admin frontend install, audit, lint, test, reproducible build, and SBOM
   checks pass with the pinned Node/npm versions.
-- [ ] Browser frontend install, audit, lint, test, reproducible build, licence,
+- [x] Browser frontend install, audit, lint, test, reproducible build, licence,
   and SBOM checks pass with the pinned Node/npm versions.
-- [ ] SQLite, MySQL 8.4.2, and PostgreSQL 16.4 migration fixtures pass.
-- [ ] Linux amd64 binary, archive, DEB, container smoke, checksum, provenance,
-  and SBOM gates pass.
-- [ ] Secret scanning, dependency vulnerability checks, workflow policy tests,
+- [x] SQLite, MySQL 8.4.2, and PostgreSQL 16.4 migration fixtures pass.
+- [x] Secret scanning, dependency vulnerability checks, workflow policy tests,
   and forbidden historical browser-asset checks pass.
+
+These checks passed in PR CI run `32841278259`. The final candidate rebuilds
+and re-verifies them from the immutable tag.
 
 ## Protected publication
 
@@ -38,6 +39,8 @@ The following steps occur after the immutable tag is created and are visible in
 GitHub Actions/Release evidence, not as modifications to the tagged source:
 
 - [ ] Non-publishing candidate workflow on `v3.0.0` succeeds.
+- [ ] Linux amd64 binary, archive, DEB, container smoke, checksum, provenance,
+  and SBOM gates pass in that candidate.
 - [ ] Protected release workflow consumes that exact candidate run ID.
 - [ ] GitHub Release assets and `SHA256SUMS` verify.
 - [ ] GHCR `v3.0.0` and `latest` resolve to the same image index digest.
