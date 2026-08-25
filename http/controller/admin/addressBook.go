@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	_ "encoding/json"
 	"github.com/gin-gonic/gin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/request/admin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/request/admin"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/response"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
 	"gorm.io/gorm"
 	"strconv"
 )
@@ -31,6 +31,11 @@ func (ct *AddressBook) Detail(c *gin.Context) {
 	iid, _ := strconv.Atoi(id)
 	t := service.AllService.AddressBookService.InfoByRowId(uint(iid))
 	if t.RowId > 0 {
+		actor := service.AllService.UserService.CurUser(c)
+		if !service.AllService.AdminScopeService.CanManageAddressBook(actor, t) {
+			denyScopedAccess(c, "address_book", t.RowId)
+			return
+		}
 		response.Success(c, t)
 		return
 	}
@@ -61,6 +66,19 @@ func (ct *AddressBook) Create(c *gin.Context) {
 		return
 	}
 	t := f.ToAddressBook()
+	actor := service.AllService.UserService.CurUser(c)
+	if !service.AllService.UserService.IsSuperAdmin(actor) {
+		if !service.AllService.AdminScopeService.CanManageCollection(actor, t.CollectionId) {
+			denyScopedAccess(c, "address_book_collection", t.CollectionId)
+			return
+		}
+		collection := service.AllService.AddressBookService.CollectionInfoById(t.CollectionId)
+		if collection.Id == 0 {
+			response.Fail(c, 101, response.TranslateMsg(c, "ItemNotFound"))
+			return
+		}
+		t.UserId = collection.UserId
+	}
 	if t.UserId == 0 {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
 		return
@@ -118,6 +136,19 @@ func (ct *AddressBook) BatchCreate(c *gin.Context) {
 		//多用户只能创建到默认地址簿
 		f.CollectionId = 0
 	}
+	actor := service.AllService.UserService.CurUser(c)
+	if !service.AllService.UserService.IsSuperAdmin(actor) {
+		if ul != 1 || !service.AllService.AdminScopeService.CanManageCollection(actor, f.CollectionId) {
+			denyScopedAccess(c, "address_book_collection", f.CollectionId)
+			return
+		}
+		collection := service.AllService.AddressBookService.CollectionInfoById(f.CollectionId)
+		if collection.Id == 0 {
+			response.Fail(c, 101, response.TranslateMsg(c, "ItemNotFound"))
+			return
+		}
+		f.UserIds = []uint{collection.UserId}
+	}
 
 	//创建标签
 	/*for _, fu := range f.UserIds {
@@ -169,6 +200,8 @@ func (ct *AddressBook) List(c *gin.Context) {
 		return
 	}
 	res := service.AllService.AddressBookService.List(query.Page, query.PageSize, func(tx *gorm.DB) {
+		actor := service.AllService.UserService.CurUser(c)
+		service.AllService.AdminScopeService.ApplyAddressBookScope(tx, actor)
 		tx.Preload("Collection", func(txc *gorm.DB) *gorm.DB {
 			return txc.Select("id,name")
 		})
@@ -227,7 +260,16 @@ func (ct *AddressBook) Update(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ItemNotFound"))
 		return
 	}
+	actor := service.AllService.UserService.CurUser(c)
+	if !service.AllService.AdminScopeService.CanManageAddressBook(actor, ex) {
+		denyScopedAccess(c, "address_book", ex.RowId)
+		return
+	}
 	t := f.ToAddressBook()
+	if !service.AllService.UserService.IsSuperAdmin(actor) {
+		t.UserId = ex.UserId
+		t.CollectionId = ex.CollectionId
+	}
 	if t.CollectionId > 0 && !service.AllService.AddressBookService.CheckCollectionOwner(t.UserId, t.CollectionId) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
 		return
@@ -268,6 +310,11 @@ func (ct *AddressBook) Delete(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ItemNotFound"))
 		return
 	}
+	actor := service.AllService.UserService.CurUser(c)
+	if !service.AllService.AdminScopeService.CanManageAddressBook(actor, t) {
+		denyScopedAccess(c, "address_book", t.RowId)
+		return
+	}
 	err := service.AllService.AddressBookService.Delete(t)
 	if err == nil {
 		response.Success(c, nil)
@@ -287,6 +334,19 @@ func (ct *AddressBook) BatchCreateFromPeers(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
 		return
 	}
+	actor := service.AllService.UserService.CurUser(c)
+	if !service.AllService.UserService.IsSuperAdmin(actor) {
+		if !service.AllService.AdminScopeService.CanManageCollection(actor, f.CollectionId) {
+			denyScopedAccess(c, "address_book_collection", f.CollectionId)
+			return
+		}
+		collection := service.AllService.AddressBookService.CollectionInfoById(f.CollectionId)
+		if collection.Id == 0 {
+			response.Fail(c, 101, response.TranslateMsg(c, "ItemNotFound"))
+			return
+		}
+		f.UserId = collection.UserId
+	}
 
 	if f.CollectionId != 0 {
 		collection := service.AllService.AddressBookService.CollectionInfoById(f.CollectionId)
@@ -297,6 +357,10 @@ func (ct *AddressBook) BatchCreateFromPeers(c *gin.Context) {
 	}
 
 	pl := int64(len(f.PeerIds))
+	if pl == 0 || !service.AllService.AdminScopeService.AllPeersManageable(actor, f.PeerIds) {
+		denyScopedAccess(c, "peer", 0)
+		return
+	}
 	peers := service.AllService.PeerService.List(1, uint(pl), func(tx *gorm.DB) {
 		tx.Where("row_id in ?", f.PeerIds)
 	})

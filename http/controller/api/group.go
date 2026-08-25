@@ -2,11 +2,11 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
-	apiReq "github.com/q1ngyang/rustdesk-api-kessoku/v2/http/request/api"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response"
-	apiResp "github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response/api"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
+	apiReq "github.com/q1ngyang/rustdesk-api-kessoku/v3/http/request/api"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/response"
+	apiResp "github.com/q1ngyang/rustdesk-api-kessoku/v3/http/response/api"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
 	"net/http"
 )
 
@@ -37,7 +37,7 @@ func (g *Group) Users(c *gin.Context) {
 	u := service.AllService.UserService.CurUser(c)
 	gr := service.AllService.GroupService.InfoById(u.GroupId)
 	userList := &model.UserList{}
-	if !*u.IsAdmin && gr.Type != model.GroupTypeShare {
+	if !service.AllService.UserService.IsSuperAdmin(u) && gr.Type != model.GroupTypeShare {
 		//仅能获取到自己
 		userList.Users = append(userList.Users, u)
 		userList.Total = 1
@@ -86,7 +86,7 @@ func (g *Group) Peers(c *gin.Context) {
 	}
 	gr := service.AllService.GroupService.InfoById(u.GroupId)
 	users := make([]*model.User, 0, 1)
-	if !*u.IsAdmin && gr.Type != model.GroupTypeShare {
+	if !service.AllService.UserService.IsSuperAdmin(u) && gr.Type != model.GroupTypeShare {
 		//仅能获取到自己
 		users = append(users, u)
 	} else {
@@ -142,7 +142,7 @@ func (g *Group) Peers(c *gin.Context) {
 // @Security BearerAuth
 func (g *Group) Device(c *gin.Context) {
 	u := service.AllService.UserService.CurUser(c)
-	if !service.AllService.UserService.IsAdmin(u) {
+	if !service.AllService.UserService.IsSuperAdmin(u) {
 		response.Error(c, "Permission denied")
 		return
 	}

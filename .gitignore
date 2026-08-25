@@ -12,3 +12,6 @@ web-client/dist-*.sha256
 web-client/web-client.cdx.json
 release
 data/rustdeskapi.db
+
+# Local development plans and status notes are intentionally not published.
+/.local-notes/

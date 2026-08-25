@@ -3,14 +3,14 @@
 **English** | [简体中文](PROJECT-METADATA.zh-CN.md)
 
 This file records the release-owner-approved external GitHub values for
-v2.8.3. Remote changes remain restricted to the protected release process.
+v3.0.0. Remote changes remain restricted to the protected release process.
 
 ## Repository About
 
 Description:
 
-> Unofficial RustDesk account and administration API with EdDSA token
-> lifecycle, typed rustdesk-server-starry control, and a built-in open-source
+> Unofficial RustDesk account and enterprise administration API with a
+> responsive UI, scoped administrators, Starry control, and a built-in
 > Relay-only Web Client.
 
 Website:
@@ -37,9 +37,9 @@ ldap
 
 Image description:
 
-> Kessoku v2.8.3 RustDesk account and administration API with EdDSA token
-> lifecycle, typed Starry control, and a repository-owned Relay-only Web
-> Client; Docker Compose is recommended.
+> Kessoku v3.0.0 RustDesk account and enterprise administration API with a
+> responsive UI, scoped administrators, typed Starry control, and a
+> repository-owned Relay-only Web Client; Docker Compose is recommended.
 
 The release workflow sets OCI/index title, source, release URL, documentation,
 version, revision, licence, and description annotations. The documentation URL
@@ -51,7 +51,7 @@ points to [`CONTAINER.md`](../CONTAINER.md), which provides visible links to:
 - the [Starry integration guide](../docs/wiki/Starry-Control.md); and
 - the [built-in Web Client guide](../docs/wiki/Web-Client.md).
 
-The release publishes immutable `v2.8.3` and moving `latest` tags for the same
+The release publishes immutable `v3.0.0` and moving `latest` tags for the same
 image. `latest` identifies the newest successfully published stable release;
 production operators resolve and pin the version tag's digest.
 
@@ -66,12 +66,12 @@ is a separate Git repository; after explicit approval, copy these files to
 
 The protected release workflow is prepared to:
 
-- publish the exact successful, non-publishing v2.8.3 candidate;
+- publish the exact successful, non-publishing v3.0.0 candidate;
 - attach the Compose and environment examples plus bilingual container and
   release documents;
 - build the GitHub Release body from the reviewed English release notes and
   link the Chinese notes;
-- publish one linux/amd64 GHCR image under both `v2.8.3` and `latest`, with OCI
+- publish one linux/amd64 GHCR image under both `v3.0.0` and `latest`, with OCI
   provenance and SBOM; and
 - preserve the fail-closed checks for tag, commit, candidate run, contract,
   checksums, frontend source, and release approval.

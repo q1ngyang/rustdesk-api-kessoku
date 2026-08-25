@@ -30,6 +30,7 @@ export const useRouteStore = defineStore({
   }),
   actions: {
     addRoutes (accessRouteNames) {
+      this.resetRoutes()
       if (accessRouteNames.includes('*')) {
         this.routes = asyncRoutes
       } else {
@@ -43,6 +44,15 @@ export const useRouteStore = defineStore({
         router.addRoute(route)
       })
       this.addKeepAlive(this.routes)
+    },
+    resetRoutes () {
+      asyncRoutes.forEach(route => {
+        if (route.name && router.hasRoute(route.name)) router.removeRoute(route.name)
+      })
+      this.routes = []
+      this.activeRoute = ''
+      this.keepAlive = []
+      this.loaded = 0
     },
     addKeepAlive (route) {
       if (route instanceof Array) {

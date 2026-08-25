@@ -2,10 +2,10 @@ package admin
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/request/admin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/request/admin"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/response"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
 	"gorm.io/gorm"
 	"strconv"
 )
@@ -29,8 +29,8 @@ func (ct *Tag) Detail(c *gin.Context) {
 	iid, _ := strconv.Atoi(id)
 	t := service.AllService.TagService.InfoById(uint(iid))
 	u := service.AllService.UserService.CurUser(c)
-	if !service.AllService.UserService.IsAdmin(u) && t.UserId != u.Id {
-		response.Fail(c, 101, response.TranslateMsg(c, "NoAccess"))
+	if t.Id > 0 && !service.AllService.UserService.IsSuperAdmin(u) && !service.AllService.AdminScopeService.CanManageCollection(u, t.CollectionId) {
+		denyScopedAccess(c, "tag", t.Id)
 		return
 	}
 	if t.Id > 0 {
@@ -64,6 +64,15 @@ func (ct *Tag) Create(c *gin.Context) {
 		return
 	}
 	t := f.ToTag()
+	actor := service.AllService.UserService.CurUser(c)
+	if !service.AllService.UserService.IsSuperAdmin(actor) {
+		if !service.AllService.AdminScopeService.CanManageCollection(actor, t.CollectionId) {
+			denyScopedAccess(c, "address_book_collection", t.CollectionId)
+			return
+		}
+		collection := service.AllService.AddressBookService.CollectionInfoById(t.CollectionId)
+		t.UserId = collection.UserId
+	}
 	if t.UserId == 0 {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
 		return
@@ -97,6 +106,8 @@ func (ct *Tag) List(c *gin.Context) {
 		return
 	}
 	res := service.AllService.TagService.List(query.Page, query.PageSize, func(tx *gorm.DB) {
+		actor := service.AllService.UserService.CurUser(c)
+		service.AllService.AdminScopeService.ApplyTagScope(tx, actor)
 		tx.Preload("Collection", func(txc *gorm.DB) *gorm.DB {
 			return txc.Select("id,name")
 		})
@@ -141,7 +152,16 @@ func (ct *Tag) Update(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ItemNotFound"))
 		return
 	}
+	actor := service.AllService.UserService.CurUser(c)
+	if !service.AllService.UserService.IsSuperAdmin(actor) && !service.AllService.AdminScopeService.CanManageCollection(actor, ex.CollectionId) {
+		denyScopedAccess(c, "tag", ex.Id)
+		return
+	}
 	t := f.ToTag()
+	if !service.AllService.UserService.IsSuperAdmin(actor) {
+		t.UserId = ex.UserId
+		t.CollectionId = ex.CollectionId
+	}
 	err := service.AllService.TagService.Update(t)
 	if err != nil {
 		response.Fail(c, 101, response.TranslateMsg(c, "OperationFailed")+err.Error())
@@ -176,6 +196,11 @@ func (ct *Tag) Delete(c *gin.Context) {
 	ex := service.AllService.TagService.InfoById(f.Id)
 	if ex.Id == 0 {
 		response.Fail(c, 101, response.TranslateMsg(c, "ItemNotFound"))
+		return
+	}
+	actor := service.AllService.UserService.CurUser(c)
+	if !service.AllService.UserService.IsSuperAdmin(actor) && !service.AllService.AdminScopeService.CanManageCollection(actor, ex.CollectionId) {
+		denyScopedAccess(c, "tag", ex.Id)
 		return
 	}
 	err := service.AllService.TagService.Delete(ex)

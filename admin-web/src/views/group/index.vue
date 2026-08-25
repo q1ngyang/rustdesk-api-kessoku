@@ -7,7 +7,7 @@
                 </el-form-item>-->
         <el-form-item>
           <el-button type="primary" @click="handlerQuery">{{ T('Filter') }}</el-button>
-          <el-button type="danger" @click="toAdd">{{ T('Add') }}</el-button>
+          <el-button v-if="isSuperAdmin" type="danger" @click="toAdd">{{ T('Add') }}</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -26,7 +26,7 @@
         <el-table-column :label="T('Actions')" align="center">
           <template #default="{row}">
             <el-button @click="toEdit(row)">{{ T('Edit') }}</el-button>
-            <el-button type="danger" @click="del(row)">{{ T('Delete') }}</el-button>
+            <el-button v-if="isSuperAdmin" type="danger" @click="del(row)">{{ T('Delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -47,7 +47,7 @@
         </el-form-item>
         <el-form-item :label="T('Type')" prop="type" required>
           <el-radio-group v-model="formData.type">
-            <el-radio v-for="item in groupTypes" :key="item.value" :label="item.value" style="display: block">
+            <el-radio v-for="item in groupTypes" :key="item.value" :label="item.value" :disabled="!isSuperAdmin" style="display: block">
               {{ item.label }}
               <span style="font-size: 12px;color: #999">{{ item.note }}</span>
             </el-radio>
@@ -63,10 +63,14 @@
 </template>
 
 <script setup>
-  import { onMounted, reactive, watch, ref, onActivated } from 'vue'
+  import { computed, onMounted, reactive, watch, ref, onActivated } from 'vue'
   import { list, create, update, detail, remove } from '@/api/group'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { T } from '@/utils/i18n'
+  import { useUserStore } from '@/store/user'
+
+  const userStore = useUserStore()
+  const isSuperAdmin = computed(() => userStore.role === 'super_admin')
 
   const listRes = reactive({
     list: [], total: 0, loading: false,

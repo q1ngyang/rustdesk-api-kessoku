@@ -5,9 +5,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/config"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/lib/lock"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/config"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/lib/lock"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -142,7 +142,7 @@ func TestConcurrentAdminDisablePreservesOneEnabledAdministrator(t *testing.T) {
 
 func TestDisabledAdministratorCanBeDeletedWhenAnotherEnabledAdminExists(t *testing.T) {
 	database := securityAuditDatabase(t, true)
-	if err := database.AutoMigrate(&model.UserThird{}, &model.LdapIdentity{}, &model.AddressBook{}, &model.AddressBookCollection{}, &model.AddressBookCollectionRule{}, &model.Peer{}); err != nil {
+	if err := database.AutoMigrate(&model.UserThird{}, &model.LdapIdentity{}, &model.AddressBook{}, &model.AddressBookCollection{}, &model.AddressBookCollectionRule{}, &model.Tag{}, &model.Peer{}, &model.AdminResourceScope{}); err != nil {
 		t.Fatal(err)
 	}
 	isAdmin := true

@@ -1,6 +1,6 @@
 package model
 
-import "github.com/q1ngyang/rustdesk-api-kessoku/v2/model/custom_types"
+import "github.com/q1ngyang/rustdesk-api-kessoku/v3/model/custom_types"
 
 // final String id;
 // String hash; // personal ab hash password

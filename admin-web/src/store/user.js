@@ -21,9 +21,15 @@ export const useUserStore = defineStore({
     logout () {
       removeToken()
       removeCode()
+      useRouteStore().resetRoutes()
       this.$patch({
-        name: '',
-        role: {},
+        nickname: '',
+        username: '',
+        email: '',
+        token: '',
+        role: '',
+        avatar: '',
+        route_names: [],
       })
     },
 

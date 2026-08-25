@@ -2,10 +2,10 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
-	requstform "github.com/q1ngyang/rustdesk-api-kessoku/v2/http/request/api"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
+	requstform "github.com/q1ngyang/rustdesk-api-kessoku/v3/http/request/api"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/response"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
 	"net/http"
 	"time"
 )

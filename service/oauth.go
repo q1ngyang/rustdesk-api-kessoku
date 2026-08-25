@@ -8,8 +8,8 @@ import (
 	"net"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/utils"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/utils"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
 

@@ -16,8 +16,8 @@ import (
 
 	"github.com/go-ldap/ldap/v3"
 
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/config"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/config"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
 )
 
 var (
@@ -229,6 +229,10 @@ func (ls *LdapService) mapToLocalUser(cfg *config.Ldap, lu *LdapUser) (*model.Us
 		// Typically, you don’t store LDAP user passwords locally.
 		// If needed, you can set a random password here.
 		newUser.IsAdmin = &isAdmin
+		newUser.Role = model.UserRoleUser
+		if isAdmin {
+			newUser.Role = model.UserRoleSuperAdmin
+		}
 		newUser.GroupId = 1
 		tx := DB.Begin()
 		if tx.Error != nil {
@@ -254,14 +258,20 @@ func (ls *LdapService) mapToLocalUser(cfg *config.Ldap, lu *LdapUser) (*model.Us
 		originalEmail := localUser.Email
 		originalNickname := localUser.Nickname
 		originalIsAdmin := localUser.IsAdmin
+		originalRole := localUser.Role
 		originalStatus := localUser.Status
 		lu.ToUser(localUser) // merges LDAP data into the existing user
 		localUser.IsAdmin = &isAdmin
+		localUser.Role = model.UserRoleUser
+		if isAdmin {
+			localUser.Role = model.UserRoleSuperAdmin
+		}
 		if err := userService.Update(localUser); err != nil {
 			// If the update fails, revert to original data
 			localUser.Email = originalEmail
 			localUser.Nickname = originalNickname
 			localUser.IsAdmin = originalIsAdmin
+			localUser.Role = originalRole
 			localUser.Status = originalStatus
 		}
 	}

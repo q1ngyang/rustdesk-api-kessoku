@@ -119,8 +119,8 @@ export function useRepositories (api_type = 'my') {
     formData.color = row.color
     formData.user_id = row.user_id
     formData.collection_id = row.collection_id
-    collectionListQuery.user_id = row.user_id
-    getCollectionList()
+    collectionListQueryForUpdate.user_id = row.user_id
+    getCollectionListForUpdate()
   }
   const toAdd = () => {
     formVisible.value = true
@@ -156,7 +156,7 @@ export function useRepositories (api_type = 'my') {
   } = useCollectionRepositories(api_type)
   collectionListQuery.page_size = 9999
   const changeUser = async (val) => {
-    formData.collection_id = 0
+    listQuery.collection_id = null
     if (!val) {
       collectionListRes.list = []
     } else {
@@ -173,11 +173,11 @@ export function useRepositories (api_type = 'my') {
   collectionListQueryForUpdate.page_size = 9999
   //create or update form collection
   const changeUserForUpdate = async (val) => {
-    listQuery.collection_id = null
+    formData.collection_id = null
     if (!val) {
-      collectionListRes.list = []
+      collectionListResForUpdate.list = []
     } else {
-      collectionListQuery.user_id = val
+      collectionListQueryForUpdate.user_id = val
       getCollectionListForUpdate()
     }
   }
@@ -196,10 +196,12 @@ export function useRepositories (api_type = 'my') {
     currentColor,
 
     collectionListRes,
+    collectionListQuery,
     changeUser,
     getCollectionList,
 
     collectionListResForUpdate,
+    collectionListQueryForUpdate,
     changeUserForUpdate,
     getCollectionListForUpdate,
 

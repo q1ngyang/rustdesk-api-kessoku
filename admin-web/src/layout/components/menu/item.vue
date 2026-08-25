@@ -1,54 +1,23 @@
 <template>
-  <el-sub-menu v-if="route.children&&route.children.filter(c=>!c.meta?.hide).length>1&&route.children.some(r => !r.meta?.hide)"
-               :key="route.name"
-               :index="route.name"
-  >
+  <el-sub-menu v-if="visibleChildren.length > 1" :key="route.name" :index="route.name">
     <template #title>
-      <el-icon v-if="route.meta?.icon">
-        <component :is="`el-icon-${route.meta.icon}`"></component>
-      </el-icon>
+      <el-icon v-if="route.meta?.icon"><component :is="`el-icon-${route.meta.icon}`"/></el-icon>
       <span>{{ T(route.meta?.title) || T(route.name) }}</span>
     </template>
-    <menu-item v-for="(_route,_index) in route.children"
-               :route="_route"
-               :key="_route.name">
-    </menu-item>
+    <menu-item v-for="child in visibleChildren" :key="child.name" :route="child" @navigate="$emit('navigate')"/>
   </el-sub-menu>
-  <el-menu-item v-else-if="!parseRoute(route).meta?.hide" :route="parseRoute(route)" :index="parseRoute(route).name">
-    <el-icon v-if="parseRoute(route).meta?.icon">
-      <component :is="`el-icon-${parseRoute(route).meta.icon}`"></component>
-    </el-icon>
-    <span>{{ T(parseRoute(route).meta?.title) || T(parseRoute(route).name) }}</span>
+  <el-menu-item v-else-if="!singleRoute.meta?.hide" :route="singleRoute" :index="singleRoute.name" @click="$emit('navigate')">
+    <el-icon v-if="singleRoute.meta?.icon"><component :is="`el-icon-${singleRoute.meta.icon}`"/></el-icon>
+    <template #title>{{ T(singleRoute.meta?.title) || T(singleRoute.name) }}</template>
   </el-menu-item>
 </template>
 
-<script>
-  import { defineComponent } from 'vue'
-  import { T } from '@/utils/i18n'
+<script setup>
+import { computed } from 'vue'
+import { T } from '@/utils/i18n'
 
-  export default defineComponent({
-    name: 'MenuItem',
-    props: {
-      route: {},
-    },
-    mounted () {
-    },
-    setup (props) {
-      //判断仅有一个子项的route
-      const parseRoute = (route) => {
-        if (route.children && route.children.filter(c => !c.meta?.hide).length === 1) {
-          return route.children.filter(c => !c.meta?.hide)[0]
-        } else {
-          return route
-        }
-      }
-      return {
-        parseRoute,
-        T,
-      }
-    },
-  })
+const props = defineProps({ route: { type: Object, required: true } })
+defineEmits(['navigate'])
+const visibleChildren = computed(() => (props.route.children || []).filter(child => !child.meta?.hide))
+const singleRoute = computed(() => visibleChildren.value.length === 1 ? visibleChildren.value[0] : props.route)
 </script>
-
-<style lang="scss" scoped>
-</style>

@@ -13,9 +13,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v2/internal/auth"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/utils"
+	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/auth"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/utils"
 	"gorm.io/gorm"
 )
 
@@ -325,6 +325,7 @@ func (us *UserService) Create(u *model.User) error {
 	if us.IsUsernameExists(u.Username) {
 		return errors.New("UsernameExists")
 	}
+	u.NormalizeRole()
 	u.Username = us.formatUsername(u.Username)
 	var err error
 	u.Password, err = utils.EncryptPassword(u.Password)
@@ -341,7 +342,7 @@ func (us *UserService) CreateContext(ctx context.Context, actorUserID uint, requ
 	}
 	event, auditErr := beginSecurityAudit(ctx, actorUserID, requestID, "auth.user.created", "user", us.formatUsername(u.Username), map[string]interface{}{
 		"group_id": u.GroupId,
-		"is_admin": us.IsAdmin(u),
+		"role":     us.Role(u),
 		"status":   u.Status,
 	})
 	if auditErr != nil {
@@ -434,8 +435,8 @@ func (us *UserService) DeleteContext(ctx context.Context, actorUserID uint, requ
 	if err != nil {
 		return err
 	}
-	if userCount <= 1 && us.IsAdmin(currentUser) && currentUser.Status == model.COMMON_STATUS_ENABLE {
-		return errors.New("The last enabled admin user cannot be deleted")
+	if userCount <= 1 && us.IsSuperAdmin(currentUser) && currentUser.Status == model.COMMON_STATUS_ENABLE {
+		return errors.New("The last enabled super administrator cannot be deleted")
 	}
 	if err := us.revokeUserTokens(tx, currentUser.Id, "user_deleted", time.Now().Unix()); err != nil {
 		return err
@@ -455,12 +456,28 @@ func (us *UserService) DeleteContext(ctx context.Context, actorUserID uint, requ
 	if err := tx.Where("user_id = ?", currentUser.Id).Delete(&model.AddressBook{}).Error; err != nil {
 		return err
 	}
+	if err := tx.Where("user_id = ?", currentUser.Id).Delete(&model.Tag{}).Error; err != nil {
+		return err
+	}
+	var ownedCollectionIDs []uint
+	if err := tx.Model(&model.AddressBookCollection{}).Where("user_id = ?", currentUser.Id).Pluck("id", &ownedCollectionIDs).Error; err != nil {
+		return err
+	}
 	//  删除关联的abc
 	if err := tx.Where("user_id = ?", currentUser.Id).Delete(&model.AddressBookCollection{}).Error; err != nil {
 		return err
 	}
 	//  删除关联的abcr
-	if err := tx.Where("user_id = ?", currentUser.Id).Delete(&model.AddressBookCollectionRule{}).Error; err != nil {
+	if err := tx.Where("user_id = ? OR (type = ? AND to_id = ?)", currentUser.Id, model.ShareAddressBookRuleTypePersonal, currentUser.Id).Delete(&model.AddressBookCollectionRule{}).Error; err != nil {
+		return err
+	}
+	if err := AllService.AdminScopeService.RemoveResourceScopes(tx, model.AdminScopeTypeCollection, ownedCollectionIDs); err != nil {
+		return err
+	}
+	if err := AllService.AdminScopeService.RemoveAdministratorScopes(tx, currentUser.Id); err != nil {
+		return err
+	}
+	if err := AllService.AdminScopeService.RemoveResourceScopes(tx, model.AdminScopeTypeUser, []uint{currentUser.Id}); err != nil {
 		return err
 	}
 	if err := tx.Commit().Error; err != nil {
@@ -487,8 +504,8 @@ func (us *UserService) UpdateContext(ctx context.Context, actorUserID uint, requ
 		return errors.New("invalid user status")
 	}
 	event, auditErr := beginSecurityAudit(ctx, actorUserID, requestID, "auth.user.update_requested", "user", strconv.FormatUint(uint64(u.Id), 10), map[string]interface{}{
-		"requested_is_admin": u.IsAdmin,
-		"requested_status":   u.Status,
+		"requested_role":   u.Role,
+		"requested_status": u.Status,
 	})
 	if auditErr != nil {
 		return auditErr
@@ -507,12 +524,26 @@ func (us *UserService) UpdateContext(ctx context.Context, actorUserID uint, requ
 	if err := tx.First(currentUser, u.Id).Error; err != nil {
 		return err
 	}
-	currentIsAdmin := us.IsAdmin(currentUser)
-	requestedIsAdmin := currentIsAdmin
-	if u.IsAdmin != nil {
-		requestedIsAdmin = *u.IsAdmin
+	currentRole := us.Role(currentUser)
+	requestedRole := currentRole
+	if u.Role.Valid() {
+		requestedRole = u.Role
 	}
-	roleChanged := currentIsAdmin != requestedIsAdmin
+	if u.IsAdmin != nil {
+		roleIsAdmin := requestedRole == model.UserRoleAdmin || requestedRole == model.UserRoleSuperAdmin
+		if *u.IsAdmin != roleIsAdmin {
+			// A mismatch is a legacy v2 role-change request. The historical true
+			// value maps to the unrestricted super-administrator tier.
+			if *u.IsAdmin {
+				requestedRole = model.UserRoleSuperAdmin
+			} else {
+				requestedRole = model.UserRoleUser
+			}
+		}
+	}
+	u.Role = requestedRole
+	u.NormalizeRole()
+	roleChanged := currentRole != requestedRole
 	statusChanged := currentUser.Status != u.Status
 	willDisable := currentUser.Status == model.COMMON_STATUS_ENABLE && u.Status == model.COMMON_STATUS_DISABLED
 	action := "auth.user.updated"
@@ -528,25 +559,33 @@ func (us *UserService) UpdateContext(ctx context.Context, actorUserID uint, requ
 		failureCode = "AUTH_USER_ROLE_CHANGE_FAILED"
 	}
 	if err := rewriteSecurityAuditIntent(tx, event, action, map[string]interface{}{
-		"from_is_admin": currentIsAdmin,
-		"to_is_admin":   requestedIsAdmin,
-		"from_status":   currentUser.Status,
-		"to_status":     u.Status,
+		"from_role":   currentRole,
+		"to_role":     requestedRole,
+		"from_status": currentUser.Status,
+		"to_status":   u.Status,
 	}); err != nil {
 		return err
 	}
-	removesEnabledAdmin := currentIsAdmin && currentUser.Status == model.COMMON_STATUS_ENABLE && (!requestedIsAdmin || u.Status == model.COMMON_STATUS_DISABLED)
-	if removesEnabledAdmin {
+	removesEnabledSuperAdmin := currentRole == model.UserRoleSuperAdmin && currentUser.Status == model.COMMON_STATUS_ENABLE && (requestedRole != model.UserRoleSuperAdmin || u.Status == model.COMMON_STATUS_DISABLED)
+	if removesEnabledSuperAdmin {
 		adminCount, err := us.getAdminUserCountTx(tx)
 		if err != nil {
 			return err
 		}
 		if adminCount <= 1 {
-			return errors.New("The last enabled admin user cannot be disabled or demoted")
+			return errors.New("The last enabled super administrator cannot be disabled or demoted")
 		}
 	}
 	if err := tx.Model(&model.User{}).Where("id = ?", u.Id).Updates(u).Error; err != nil {
 		return err
+	}
+	if roleChanged {
+		if err := AllService.AdminScopeService.RemoveAdministratorScopes(tx, u.Id); err != nil {
+			return err
+		}
+		if err := AllService.AdminScopeService.RemoveResourceScopes(tx, model.AdminScopeTypeUser, []uint{u.Id}); err != nil {
+			return err
+		}
 	}
 	if willDisable || roleChanged {
 		reason := "user_disabled"
@@ -669,15 +708,29 @@ func (us *UserService) revokeUserTokens(tx *gorm.DB, userID uint, reason string,
 		Updates(map[string]interface{}{"revoked_at": now, "revoked_reason": reason}).Error
 }
 
-// IsAdmin 是否管理员
+// Role returns the v3 role while preserving pre-migration in-memory callers.
+func (us *UserService) Role(u *model.User) model.UserRole {
+	return u.EffectiveRole()
+}
+
+// IsAdmin includes both scoped administrators and super administrators.
 func (us *UserService) IsAdmin(u *model.User) bool {
-	return u != nil && u.IsAdmin != nil && *u.IsAdmin
+	role := us.Role(u)
+	return role == model.UserRoleAdmin || role == model.UserRoleSuperAdmin
+}
+
+func (us *UserService) IsSuperAdmin(u *model.User) bool {
+	return us.Role(u) == model.UserRoleSuperAdmin
 }
 
 // RouteNames
 func (us *UserService) RouteNames(u *model.User) []string {
-	if us.IsAdmin(u) {
+	if us.IsSuperAdmin(u) {
 		return model.AdminRouteNames
+	}
+	if us.Role(u) == model.UserRoleAdmin {
+		routes := append([]string{}, model.UserRouteNames...)
+		return append(routes, model.ScopedAdminRouteNames...)
 	}
 	return model.UserRouteNames
 }
@@ -897,7 +950,7 @@ func (us *UserService) getAdminUserCount() int64 {
 
 func (us *UserService) getAdminUserCountTx(tx *gorm.DB) (int64, error) {
 	var count int64
-	err := tx.Model(&model.User{}).Where("is_admin = ? AND status = ?", true, model.COMMON_STATUS_ENABLE).Count(&count).Error
+	err := tx.Model(&model.User{}).Where("role = ? AND status = ?", model.UserRoleSuperAdmin, model.COMMON_STATUS_ENABLE).Count(&count).Error
 	return count, err
 }
 

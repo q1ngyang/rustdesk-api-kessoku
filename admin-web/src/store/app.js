@@ -1,5 +1,4 @@
 import { defineStore, acceptHMRUpdate } from 'pinia'
-import logo from '@/assets/logo.png'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import en from 'element-plus/es/locale/lang/en'
 import ko from 'element-plus/es/locale/lang/ko'
@@ -23,10 +22,12 @@ export const useAppStore = defineStore({
   id: 'App',
   state: () => ({
     setting: {
-      title: 'Rustdesk API Admin',
+      productName: 'RustDesk API Kessoku',
+      title: 'RustDesk API Kessoku',
       hello: '',
       sideIsCollapse: false,
-      logo,
+      mobileSidebarOpen: false,
+      viewportWidth: window.innerWidth,
       langs: langs,
       lang: defaultLang,
       locale: langs[defaultLang] ? langs[defaultLang] : langs['en'],
@@ -40,6 +41,15 @@ export const useAppStore = defineStore({
   actions: {
     sideCollapse () {
       this.setting.sideIsCollapse = !this.setting.sideIsCollapse
+    },
+    openMobileSidebar () {
+      this.setting.mobileSidebarOpen = true
+    },
+    closeMobileSidebar () {
+      this.setting.mobileSidebarOpen = false
+    },
+    setViewportWidth (width) {
+      this.setting.viewportWidth = width
     },
     setLang (lang) {
       this.setting.lang = lang
@@ -65,6 +75,7 @@ export const useAppStore = defineStore({
       })
     },
     replaceAdminTitle (newTitle) {
+      if (!newTitle) return
       document.title = document.title.replace(`- ${this.setting.title}`, `- ${newTitle}`)
       this.setting.title = newTitle
     },

@@ -4,7 +4,7 @@ package http
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/global"
 	stdhttp "net/http"
 	"time"
 )

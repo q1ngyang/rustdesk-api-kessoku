@@ -2,8 +2,8 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
-	apiResp "github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response/api"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
+	apiResp "github.com/q1ngyang/rustdesk-api-kessoku/v3/http/response/api"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
 	"net/http"
 )
 

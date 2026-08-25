@@ -28,24 +28,35 @@ merge a conflicting external identity.
 
 ## Upgrade sequence
 
-1. Deploy Kessoku v2.8.3 with authentication disabled and control read-only.
-2. Verify database version 301, OAuth identity indexes, the final-admin
-   invariant, and legacy-token migration.
-3. Enable EdDSA issuance with a bounded compatibility overlap if required.
-4. Bring up internal mTLS JWKS/introspection.
-5. Upgrade Starry with connection authentication `off`, then `audit`.
-6. Commission the Control Agent read-only.
-7. Complete real-client audit and staging rollback tests.
-8. Commission the Web Client on its separate HTTPS origin, validate the public
+1. Deploy Kessoku v3.0.0 with authentication disabled and control read-only.
+2. Verify database version 302, every former administrator's `super_admin`
+   role, at least one enabled super administrator, and the OAuth/token
+   invariants from version 301.
+3. Verify that an `admin` with no grants sees no enterprise resources; then
+   test each user-group, user, public-address-book, and ID-device grant.
+4. Confirm that role or scope changes revoke existing administrator sessions.
+5. Enable EdDSA issuance with a bounded compatibility overlap if required.
+6. Bring up internal mTLS JWKS/introspection.
+7. Upgrade Starry with connection authentication `off`, then `audit`, and
+   commission the Control Agent read-only.
+8. Complete real-client audit and staging rollback tests.
+9. Commission the Web Client on its separate HTTPS origin, validate the public
    profile, ready/grant/ack handoff, forced-Relay VP9 session, grant expiry and
    logout; keep `web-client.mode: disabled` if any check fails.
-9. Canary `enforce`; open configuration writes only in separate approved
+10. Canary `enforce`; open configuration writes only in separate approved
    windows.
 
 ## Rollback warning
 
-New v2.8.3 credentials leave the historical plaintext token column empty.
-Older applications cannot reconstruct or authenticate them. Once v2.8.3 has
+Version 302 keeps `is_admin=true` for scoped and super administrators as a
+database compatibility mirror. A v2 binary can therefore grant a scoped
+administrator unrestricted access. Prefer restoring the complete pre-upgrade
+backup. If an in-place v2 rollback is unavoidable, follow
+[`MIGRATION-v3.0.0.md`](../../MIGRATION-v3.0.0.md) before starting v2, and never
+run v2 and v3 writers together.
+
+New v3.0.0 credentials leave the historical plaintext token column empty.
+Older applications cannot reconstruct or authenticate them. Once v3.0.0 has
 issued tokens, roll back the old application only with its matching verified
 pre-upgrade database backup, and expect sessions created after that backup to
 require re-login.
@@ -65,5 +76,6 @@ require re-login.
 7. Verify admin/API login, token invalidation, native/WSS audit behavior,
    database row counts, and the absence of generic command routes.
 
-See [`MIGRATION.md`](../../MIGRATION.md) and
+See [`MIGRATION-v3.0.0.md`](../../MIGRATION-v3.0.0.md),
+[`MIGRATION.md`](../../MIGRATION.md), and
 [`ROLLBACK-RUNBOOK.md`](../../ROLLBACK-RUNBOOK.md) for the detailed procedures.

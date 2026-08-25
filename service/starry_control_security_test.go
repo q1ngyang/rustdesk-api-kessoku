@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/config"
-	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v2/internal/auth"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/config"
+	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/auth"
 )
 
 func TestControlKeyMaterialMustDifferFromAccessKeyring(t *testing.T) {

@@ -12,8 +12,8 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/config"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/config"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/global"
 )
 
 func TestDedicatedWebClientListenerExposesOnlyPublicConfigAndStaticGET(t *testing.T) {

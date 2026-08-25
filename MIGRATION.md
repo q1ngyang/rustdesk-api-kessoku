@@ -1,8 +1,10 @@
 # Database and Authentication Migration Guide
 
-This guide upgrades an existing rustdesk-api database to Kessoku database
-version 301. Rehearse every step against a restored production backup before a
-maintenance window.
+This guide documents the version 301 authentication foundation. Kessoku v3.0.0
+then upgrades it to database version 302 for enterprise roles and scoped
+administration. Follow [`MIGRATION-v3.0.0.md`](MIGRATION-v3.0.0.md) after the
+version 301 preflight, and rehearse every step against a restored production
+backup before a maintenance window.
 
 ## Supported databases and tested fixtures
 

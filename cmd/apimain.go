@@ -15,23 +15,23 @@ import (
 	"github.com/go-redis/redis/v8"
 	mysqlDriver "github.com/go-sql-driver/mysql"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/config"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http"
-	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v2/internal/auth"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/lib/cache"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/lib/lock"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/lib/logger"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/lib/orm"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/lib/upload"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/utils"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/config"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http"
+	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/auth"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/lib/cache"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/lib/lock"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/lib/logger"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/lib/orm"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/lib/upload"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/utils"
 	"github.com/spf13/cobra"
 	"gorm.io/gorm"
 )
 
-const DatabaseVersion = 301
+const DatabaseVersion = 302
 
 const mysqlTLSProfile = "kessoku-verified-ca"
 
@@ -415,6 +415,15 @@ func Migrate(version uint) error {
 	if err := validateOauthIdentityUniqueness(); err != nil {
 		return err
 	}
+	previousVersion := uint(0)
+	if global.DB.Migrator().HasTable(&model.Version{}) {
+		var previous model.Version
+		if err := global.DB.Order("id DESC").First(&previous).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("read previous database version: %w", err)
+		}
+		previousVersion = previous.Version
+	}
+	migrateLegacyRoles := version >= 302 && previousVersion < 302
 	err := global.DB.AutoMigrate(
 		&model.Version{},
 		&model.User{},
@@ -437,6 +446,7 @@ func Migrate(version uint) error {
 		&model.LdapIdentity{},
 		&model.ControlOperationExpectation{},
 		&model.SecurityInvariantLock{},
+		&model.AdminResourceScope{},
 	)
 	if err != nil {
 		return fmt.Errorf("schema migration: %w", err)
@@ -449,6 +459,20 @@ func Migrate(version uint) error {
 	}
 	if err := global.DB.Exec("UPDATE user_tokens SET auth_version = 1 WHERE auth_version IS NULL OR auth_version = 0").Error; err != nil {
 		return fmt.Errorf("backfill token auth version: %w", err)
+	}
+	if migrateLegacyRoles {
+		if err := global.DB.Exec("UPDATE users SET role = ? WHERE is_admin = ? AND (role IS NULL OR role = '' OR role NOT IN (?, ?))", model.UserRoleSuperAdmin, true, model.UserRoleAdmin, model.UserRoleSuperAdmin).Error; err != nil {
+			return fmt.Errorf("migrate legacy administrators to super administrators: %w", err)
+		}
+		if err := global.DB.Exec("UPDATE users SET role = ? WHERE (is_admin = ? OR is_admin IS NULL) AND (role IS NULL OR role = '' OR role NOT IN (?, ?, ?))", model.UserRoleUser, false, model.UserRoleUser, model.UserRoleAdmin, model.UserRoleSuperAdmin).Error; err != nil {
+			return fmt.Errorf("migrate legacy ordinary users: %w", err)
+		}
+	}
+	if err := global.DB.Exec("UPDATE users SET role = ? WHERE role IS NULL OR role = '' OR role NOT IN (?, ?, ?)", model.UserRoleUser, model.UserRoleUser, model.UserRoleAdmin, model.UserRoleSuperAdmin).Error; err != nil {
+		return fmt.Errorf("normalize invalid user roles: %w", err)
+	}
+	if err := global.DB.Exec("UPDATE users SET is_admin = CASE WHEN role IN (?, ?) THEN ? ELSE ? END", model.UserRoleAdmin, model.UserRoleSuperAdmin, true, false).Error; err != nil {
+		return fmt.Errorf("synchronize legacy administrator flag: %w", err)
 	}
 	var legacyTokens []model.UserToken
 	if err := global.DB.Where("token <> '' AND token_hash IS NULL").Find(&legacyTokens).Error; err != nil {
@@ -494,6 +518,7 @@ func Migrate(version uint) error {
 			Username: "admin",
 			Nickname: "Admin",
 			Status:   model.COMMON_STATUS_ENABLE,
+			Role:     model.UserRoleSuperAdmin,
 			IsAdmin:  &is_admin,
 			GroupId:  1,
 		}

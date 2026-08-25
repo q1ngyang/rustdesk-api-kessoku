@@ -152,6 +152,7 @@ export function useRepositories (api_type = 'my') {
     formData.tags = []
     formData.user_id = null
     formData.username = ''
+    formData.collection_id = null
 
   }
   const submit = async () => {
@@ -230,6 +231,7 @@ export function useRepositories (api_type = 'my') {
     toAdd,
     submit,
     getCollectionListForUpdate,
+    collectionListQueryForUpdate,
     collectionListResForUpdate,
     changeUserForUpdate,
     changeCollectionForUpdate,

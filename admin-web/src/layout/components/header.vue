@@ -1,72 +1,33 @@
 <template>
-  <el-icon class="ex-icon" @click="expandOrFoldSlider">
-    <el-icon-expand v-if="setting.sideIsCollapse"></el-icon-expand>
-    <el-icon-fold v-else></el-icon-fold>
-  </el-icon>
-  <div class="header-logo">
-    <img :src="setting.logo" alt="" class="logo">
-    <div class="title">{{setting.title}}</div>
+  <div class="topbar">
+    <button class="topbar__menu" type="button" :aria-label="T('ToggleNavigation')" @click="toggleNavigation"><el-icon><Menu/></el-icon></button>
+    <div class="topbar__heading"><h1>{{ pageTitle }}</h1><span v-if="instanceTitle">{{ instanceTitle }}</span></div>
+    <Setting/>
   </div>
-  <Setting></Setting>
 </template>
 
-<script>
-  import { defineComponent, computed } from 'vue'
-  import HeaderMenu from '@/layout/components/menu/index.vue'
-  import Setting from '@/layout/components/setting/index.vue'
-  import { useAppStore } from '@/store/app'
-  import GTags from '@/layout/components/tags/index.vue'
+<script setup>
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { Menu } from '@element-plus/icons-vue'
+import Setting from '@/layout/components/setting/index.vue'
+import { useAppStore } from '@/store/app'
+import { T } from '@/utils/i18n'
 
-  export default defineComponent({
-    name: 'LayerHeader',
-    created () {
-    },
-    components: { HeaderMenu, Setting, GTags },
-    watch: {},
-    setup (props) {
-      const appStore = useAppStore()
-      const setting = computed(() => appStore.setting)
-      const expandOrFoldSlider = () => {
-        appStore.sideCollapse()
-      }
-      return {
-        setting,
-        expandOrFoldSlider,
-      }
-    },
-
-  })
+const appStore = useAppStore()
+const route = useRoute()
+const pageTitle = computed(() => T(route.meta?.title || route.name || 'Overview'))
+const instanceTitle = computed(() => appStore.setting.title !== appStore.setting.productName ? appStore.setting.title : '')
+const toggleNavigation = () => {
+  if (appStore.setting.viewportWidth < 768) appStore.openMobileSidebar()
+  else appStore.sideCollapse()
+}
 </script>
 
 <style scoped lang="scss">
-  .ex-icon {
-    height: 100%;
-    display: flex;
-    align-items: center;
-    margin-right: 10px;
-    font-size: 16px;
-    cursor: pointer;
-  }
-
-  .header-logo {
-    display: flex;
-    height: 100%;
-    align-items: center;
-
-    .title {
-      display: block;
-      margin-left: 10px;
-    }
-
-    .logo {
-      display: block;
-      width: 30px;
-      height: 30px;
-    }
-  }
-
-
-</style>
-<style lang="scss">
-
+.topbar { display: flex; box-sizing: border-box; height: 100%; align-items: center; gap: 12px; padding: 0 clamp(14px, 2vw, 28px); }
+.topbar__menu { display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center; border: 0; border-radius: 12px; background: transparent; color: var(--text-secondary); cursor: pointer; transition: color var(--motion-fast), background var(--motion-fast); }
+.topbar__menu:hover { background: var(--surface-3); color: var(--primary); }.topbar__menu:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 1px; }
+.topbar__heading { display: flex; min-width: 0; flex-direction: column; }.topbar__heading h1 { margin: 0; color: var(--text-primary); font-size: 17px; font-weight: 760; letter-spacing: -.02em; }.topbar__heading span { margin-top: 2px; overflow: hidden; color: var(--text-tertiary); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 520px) { .topbar { gap: 8px; padding-inline: 10px; }.topbar__heading span { display: none; }.topbar__heading h1 { max-width: 42vw; overflow: hidden; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; } }
 </style>

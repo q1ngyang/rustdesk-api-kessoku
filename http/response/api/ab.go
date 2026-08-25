@@ -1,6 +1,6 @@
 package api
 
-import "github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
+import "github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
 
 type AbList struct {
 	Peers     []*model.AddressBook `json:"peers,omitempty"`

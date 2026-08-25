@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/config"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/config"
 )
 
 func TestInternalMTLSRequiresVerifiedAllowedSAN(t *testing.T) {

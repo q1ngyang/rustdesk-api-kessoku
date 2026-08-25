@@ -1,10 +1,10 @@
 package service
 
 import (
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/config"
-	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v2/internal/auth"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/lib/lock"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/config"
+	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/auth"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/lib/lock"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
@@ -30,6 +30,7 @@ type Service struct {
 	*StarryControlService
 	*LdapService
 	*AppService
+	*AdminScopeService
 }
 
 type Dependencies struct {

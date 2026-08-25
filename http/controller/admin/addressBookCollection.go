@@ -2,11 +2,11 @@ package admin
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/global"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/request/admin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/http/response"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/request/admin"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/response"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
 	"gorm.io/gorm"
 	"strconv"
 )
@@ -30,6 +30,11 @@ func (abc *AddressBookCollection) Detail(c *gin.Context) {
 	iid, _ := strconv.Atoi(id)
 	t := service.AllService.AddressBookService.CollectionInfoById(uint(iid))
 	if t.Id > 0 {
+		actor := service.AllService.UserService.CurUser(c)
+		if !service.AllService.AdminScopeService.CanManageCollection(actor, t.Id) {
+			denyScopedAccess(c, "address_book_collection", t.Id)
+			return
+		}
 		response.Success(c, t)
 		return
 	}
@@ -93,6 +98,8 @@ func (abc *AddressBookCollection) List(c *gin.Context) {
 		return
 	}
 	res := service.AllService.AddressBookService.ListCollection(query.Page, query.PageSize, func(tx *gorm.DB) {
+		actor := service.AllService.UserService.CurUser(c)
+		service.AllService.AdminScopeService.ApplyCollectionScope(tx, actor)
 		if query.UserId > 0 {
 			tx.Where("user_id = ?", query.UserId)
 		}
@@ -126,7 +133,20 @@ func (abc *AddressBookCollection) Update(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
 		return
 	}
+	current := service.AllService.AddressBookService.CollectionInfoById(f.Id)
+	if current.Id == 0 {
+		response.Fail(c, 101, response.TranslateMsg(c, "ItemNotFound"))
+		return
+	}
+	actor := service.AllService.UserService.CurUser(c)
+	if !service.AllService.AdminScopeService.CanManageCollection(actor, current.Id) {
+		denyScopedAccess(c, "address_book_collection", current.Id)
+		return
+	}
 	t := f //f.ToAddressBookCollection()
+	if !service.AllService.UserService.IsSuperAdmin(actor) {
+		t.UserId = current.UserId
+	}
 	err := service.AllService.AddressBookService.UpdateCollection(t)
 	if err != nil {
 		response.Fail(c, 101, response.TranslateMsg(c, "OperationFailed")+err.Error())

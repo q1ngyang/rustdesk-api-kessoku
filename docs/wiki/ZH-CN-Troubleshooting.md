@@ -20,7 +20,7 @@
 | Starry 实例不可用 | 固定 origin、Agent identity UUID、CA/client cert、超时 | 保持控制只读，修复私有管理路径。 |
 | Apply 返回 ETag/plan 错误 | 当前 ETag、actor/instance 绑定、plan 到期、candidate digest | 重新读取、合并、校验并创建 plan，不能强制覆盖。 |
 | Apply 成功但 UI 状态旧 | Starry 活动 generation/digest 与 operation/audit | 重新读取权威状态；HTTP 成功不充分。 |
-| 旧程序无法认证新会话 | v2.8.3 是否已签发仅 hash token | 恢复匹配的升级前数据库备份，或向前修复。 |
+| 旧程序无法认证新会话 | v3.0.0 是否已签发仅 hash token | 恢复匹配的升级前数据库备份，或向前修复。 |
 | audit/sysinfo 来源有争议 | 记录是否来自 RustDesk 1.4.9 无认证兼容路由 | 只把它视为运维 telemetry；需要不可抵赖性时使用 append-only/不可变外部日志。 |
 
 修改行为前保存 request/operation ID、镜像/contract digest、脱敏日志、数据库版本与 Starry

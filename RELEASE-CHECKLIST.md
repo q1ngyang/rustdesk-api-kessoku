@@ -1,256 +1,47 @@
-# Release Checklist
+# Kessoku v3.0.0 release checklist
 
-This worktree is the release-owner-approved v2.8.3 source candidate. It is
-still unpublished: the unchecked tag, protected-CI, image, Release, and Wiki
-steps below must be completed in order. Source approval does not imply that
-any public artifact exists.
+This checklist defines the release gate for the exact source commit named by
+the immutable `v3.0.0` tag. Detailed runtime evidence is retained by the
+candidate workflow rather than duplicated here.
 
-The annotated `v2.8.0` source tag is a permanent unpublished tombstone at
-`626726dc6ab3300d529eb9ea1e39f68b69185abd`. Candidate run `32499283822`
-failed before building because the container job used `/bin/sh` for a
-`pipefail` script. No GitHub Release, package, GHCR version, `latest` image, or
-release asset was created. The tag will not be moved or reused.
+## Source and compatibility
 
-The annotated `v2.8.1` source tag is also a permanent unpublished tombstone at
-`7114803269577341fd9c81dcc55535f4aec5e632`. Candidate run `32500982746`
-passed tag, contract, and both frontend gates, then exposed two candidate-only
-workflow defects: the container trusted the checkout too late, and the race
-run reused databases populated by the preceding migration test. No runtime,
-package, image, `latest` update, Release, or release asset was created. The tag
-will not be moved or reused.
+- [x] Project-owned Go imports and the module declaration use `/v3`; no project
+  `/v2` import remains.
+- [x] Database version 302 migrates legacy administrators to `super_admin` and
+  adds scoped grants for user groups, users, public address books, and ID
+  devices.
+- [x] Scope filtering, batch-denial, cleanup, audit, final-super-admin, and
+  session-revocation behavior have automated coverage.
+- [x] The responsive admin UI and all brand assets are stored in this repository
+  and preserve the reviewed frontend provenance.
+- [x] Breaking changes and safe v2 rollback preparation are documented in both
+  languages and linked from the Wiki upgrade guide.
 
-The annotated `v2.8.2` source tag is a third permanent unpublished tombstone at
-`bea276b9d8c70d9067d8abae79b129f8835f2978`. Candidate run `32502697007`
-passed the complete source build, database/race, frontend, scan, and runtime
-gates. Its downstream DEB and image jobs then failed closed because GitHub
-artifact extraction normalized the reviewed binary's executable mode. No final
-candidate, package, image, `latest` update, Release, or published asset was
-created. The tag will not be moved or reused; v2.8.3 restores the single
-executable mode at each artifact boundary, verifies the tar mode and binary
-content, and updates version/documentation metadata.
+## Pre-publication verification
 
-## Local candidate evidence (not publication)
+- [ ] `scripts/check_docs.py`, module verification, formatting, vet, all Go
+  tests, race tests, and vulnerability scan pass on the release commit.
+- [ ] Admin frontend install, audit, lint, test, reproducible build, and SBOM
+  checks pass with the pinned Node/npm versions.
+- [ ] Browser frontend install, audit, lint, test, reproducible build, licence,
+  and SBOM checks pass with the pinned Node/npm versions.
+- [ ] SQLite, MySQL 8.4.2, and PostgreSQL 16.4 migration fixtures pass.
+- [ ] Linux amd64 binary, archive, DEB, container smoke, checksum, provenance,
+  and SBOM gates pass.
+- [ ] Secret scanning, dependency vulnerability checks, workflow policy tests,
+  and forbidden historical browser-asset checks pass.
 
-The 2026-08-21 pre-Web-Client candidate passed the following repeatable local
-checks with locked inputs. These results are retained as regression evidence
-but do not approve the expanded candidate:
+## Protected publication
 
-- Go `1.26.6`: `gofmt`, `go mod verify/tidy`, `go vet ./...`, full
-  `go test ./...`, and full `go test -race ./...`;
-- the real version-301 legacy migration fixture on SQLite, MySQL `8.4.2`, and
-  PostgreSQL `16.4`;
-- `govulncheck v1.7.0` with zero reachable and zero imported-package
-  vulnerabilities after dependency upgrades. One module-only advisory remains
-  for the unimported `golang.org/x/crypto/openpgp` package; it has no upstream
-  fixed version and must be reassessed at candidate review;
-- actionlint `1.7.12`, Gitleaks `8.25.1` full-history scanning, Syft `1.50.0`
-  source SBOM generation, packaging policy tests, and the digest-pinned
-  `builder-backend` Docker target;
-- clean-snapshot compilation of the module package `./cmd`, with the exact
-  source revision and `vcs.modified=false` verified from persisted
-  `GO-BUILD-INFO.txt`. Two independent exact-image builds were byte-identical;
-  candidate CI repeats and compares the build, while candidate and publication
-  workflows independently enforce the same binary identity;
-- the historical `resources/web` and `resources/web2` trees are now deleted;
-  every runtime-copy and Docker build path permanently rejects their return.
+The following steps occur after the immutable tag is created and are visible in
+GitHub Actions/Release evidence, not as modifications to the tagged source:
 
-The local Starry candidate now also passes 75 ordinary library tests, while the
-separate deterministic mutation-corpus unit was intentionally not rerun under
-the agreed no-fuzz/no-active-security-test constraint. All integration targets
-compile, and the candidate passes a real HBBS/Control-Agent-to-Kessoku Provider
-E2E, its native/Secure TCP/WSS transport matrix, 1,000 registered idle WSS
-sessions plus 100 reconnect
-replacements, and reproducible amd64/arm64 Debian-package installation/runtime
-checks. RustSec reports no vulnerability, unsound, or yanked package; the one
-remaining `sodiumoxide 0.2.7` unmaintained warning is disclosed for release risk
-review. The local reviewed admin-web candidate also passes nine tests, a
-zero-finding production audit, reproducible build comparison, SBOM/license
-inspection, registry signature verification, secret scanning, and browser QA.
-The exact local v2.8.3 candidate verifier additionally passed reproducible Go,
-admin-web, tar, and amd64 DEB builds; package installation; a non-root
-linux/amd64 image smoke; and live local HTTP security-header checks. It now
-clones the clean reviewed HEAD, verifies that persisted Go build information
-names that exact commit with `vcs.modified=false`, and can retain a checksummed
-non-publishing evidence bundle with source/runtime/candidate SBOMs, scan
-summaries, build inputs, archive, and DEB outside the repository.
+- [ ] Non-publishing candidate workflow on `v3.0.0` succeeds.
+- [ ] Protected release workflow consumes that exact candidate run ID.
+- [ ] GitHub Release assets and `SHA256SUMS` verify.
+- [ ] GHCR `v3.0.0` and `latest` resolve to the same image index digest.
+- [ ] The reviewed bilingual Wiki is published and its navigation is verified.
 
-Codex Security completed sealed, static-only repository reviews without
-starting a service or sending probe traffic. Kessoku's frozen snapshot records
-23 findings across 27 review surfaces under snapshot
-`codex-security-snapshot/v1:sha256:d504807864f052238881f7e0e18548763d8e1b0134567f95ee0d08b497bef68d`.
-Starry's frozen snapshot records 22 findings (6 medium, 16 low) across 40
-surfaces, with no high or critical result, under snapshot
-`codex-security-snapshot/v1:sha256:4b5ffa3ce6bc819a9a72e9f6e9ec7fd9dc63c0aee4c74645b1d67472d5b6aaac`.
-The plugin scanner was not callable in this final Kessoku session, so no new
-exact-tree plugin result is claimed; closure is based on the sealed snapshot,
-post-remediation static review, ordinary tests, and the local candidate verifier.
-On 2026-08-21 the release owner accepted that evidence boundary and explicitly
-removed a fresh Codex Security plugin run as a release prerequisite. This does
-not change or overstate the recorded scan results.
-The published Starry `1.1.16-patch-v1.2.0` assets, contract, source commit,
-GHCR tag/digest identity, amd64 command smoke, and official-binary Kessoku
-Provider E2E were independently rechecked on 2026-08-21. The exact local
-Kessoku clean-commit verifier now passes after the built-in Web Client
-integration, including both frontend builds, Go/race, scans/SBOMs, reproducible
-archive and amd64 DEB, package install, non-root image, Web Client licence
-payload, and live response-header checks. Protected candidate CI for the final
-approved tag remains outstanding; topology-specific recovery acceptance gates
-deployment instead.
-
-The exact published Starry image then passed a RustDesk 1.4.9 forced-Relay
-desktop matrix: `audit` native/native, followed by `enforce` native/native,
-WSS/WSS, WSS/native, and native/WSS. Each case verified the Remote Desktop
-window, screenshot, and established HBBR connection. This evidence does not
-claim direct P2P or a separate Secure TCP case.
-
-The built-in Web Client additionally passed a clean-start, fixed-toolchain
-browser fixture against that exact published Starry image on 2026-08-21. The
-fixture exercised direct password login and the admin popup ready/grant/accept
-handoff on distinct HTTPS origins, forced Relay WSS, signed identity and
-encrypted-session setup, VP9/WebCodecs rendering at 1280x800, actual remote
-mouse position 320x240, `K`, `Control_L`, and `Ctrl+S`, and logout revocation.
-The browser retained no local/session storage, IndexedDB, or service worker;
-the grant never entered a URL. This is ordinary functional compatibility
-evidence, not penetration or stress testing.
-
-## Source and contracts
-
-- [x] The backend and embedded frontend source is reviewed together from the
-      intended v2.7 upstream baseline.
-- [ ] After final approval, the exact reviewed commit is tagged as Kessoku
-      `v2.8.3`; the immutable tag has not been created or pushed yet.
-- [x] `internal/starrycontrol/CONTRACT_VERSION` names a published, immutable
-      Starry tag, contract version, and verified SHA-256, with `status: PINNED`.
-- [x] Generated-compatible client DTOs match that published contract and pass
-      forward/backward compatibility fixtures.
-- [x] Cross-repository native, Secure TCP, WSS, Relay simulation, apply, failed
-      apply, and rollback E2E pass against the exact Starry release candidate.
-
-## Embedded frontends
-
-- Local evidence: reviewed candidate
-  `2a9d037fc271cf96b39fd4add4b97c4ff4477f12`; `npm ci`, eight tests,
-  zero-finding production audit, registry signature verification, two identical
-  builds, CycloneDX/license check, Gitleaks, and full local browser QA passed on
-  2026-08-20.
-- The earlier exact-SHA local verifier passed duplicate admin/Go/tar/DEB
-  builds, non-root image smoke, real static security headers, disabled
-  directory listing, and the removed server-config route's `404`. It is local
-  evidence only and cannot set release approval.
-- [x] `admin-web/` provenance, MIT license, reviewed import lineage, and
-      lockfile are present in the exact Kessoku commit.
-- [x] Backend and both frontend build definitions use the same Kessoku commit
-      SHA;
-      no external frontend repository, URL, tag, or branch is an input.
-- [x] Node/npm are fixed; installation uses `npm ci`.
-- [x] `web-client/` lint, 46 unit tests, production/signature audits,
-      two-build comparison, and complete CycloneDX/licence check passed in the
-      fixed Node/npm image on 2026-08-21.
-- [x] `web-client/NOTICE.md` and provenance match the exact runtime dependency
-      licence expression, and required third-party licence texts are included
-      in the final candidate.
-- [x] Browser forced-Relay functional acceptance and exact response-header/
-      popup lifecycle verification pass without weakening the gate.
-- [x] Admin launch obtains only `/api/web-client/v1/grants`, trusts
-      `web_client_public_origin` from backend configuration, uses an exact
-      `postMessage` target origin, never persists or URL-encodes the grant,
-      and best-effort revokes every unacknowledged grant.
-
-## Security and migrations
-
-- [x] Legacy server commands are absent by default, administrator-only in the
-      compatibility route, and always `410 Gone` without parsing input.
-- [x] All versioned management-control routes require administrator privilege.
-- [x] Access and Control Agent Ed25519 keys are distinct, external read-only
-      secrets with tested rotation and restoration.
-- [x] Internal JWKS/introspection mTLS, SAN allow list, TLS 1.3, limits, timeout,
-      and fail-closed behavior pass in deployment.
-- [x] Version-301 migration fixtures pass on SQLite, MySQL 8.4.2, and PostgreSQL
-      16.4; the SQLite fixture also passes file backup and restore verification.
-- [x] Audit-to-enforce rollout, revocation-cache bound, token mass invalidation,
-      and client re-login are rehearsed.
-- [x] Control Agent read-only, ETag conflict, apply verification, automatic
-      rollback, and manual rollback are rehearsed.
-
-## Reproducible build and artifacts
-
-- [x] `gofmt`, `go vet`, full tests, race tests, migration services, and contract
-      tests pass from locked dependencies.
-- [x] Every GitHub Action, tool, base image, service image, frontend source, and
-      cross compiler is fixed to an immutable reviewed input with checksum or
-      digest verification.
-- [x] Secret scan, vulnerability scan, three SPDX SBOMs, separate admin/client
-      CycloneDX,
-      artifact checksums, and build provenance pass and are attached to the
-      retained local non-publishing candidate evidence bundle. Its
-      `BUILD-INPUTS.txt` pins the exact clean source commit; protected CI
-      regenerates the evidence for the final approved tag before publication.
-- [x] Codex Security produced sealed, auditable static results for both frozen
-      worktrees without active probing, fuzzing, mutation, stress, or exploit
-      traffic; snapshot digests and finding counts are recorded above.
-- [x] The exact post-remediation local candidate receives static review against
-      those findings, with every accepted residual risk and closure recorded.
-- [x] The local candidate binary was built as module package `./cmd`; its
-      persisted Go build info names the exact reviewed commit and
-      `vcs.modified=false`. Protected CI repeats this against the approved tag.
-- [x] Images, archives, and Debian packages contain reviewed
-      `resources/client/index.html`, the complete
-      `resources/client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt`,
-      separate client checksum/licence evidence,
-      and no `resources/web`, `resources/web2`, WebClient2/V2, browser-client
-      download code, private keys, or build credentials.
-- [x] Artifact names, service units, image names, module paths, titles, and
-      documentation consistently use Kessoku branding.
-- [ ] Published GHCR `v2.8.3` and `latest` tags resolve to the same approved
-      image index digest; production instructions pin the versioned digest.
-
-## v2.8.3 platform scope
-
-- [x] The Docker `linux/amd64` image builds from the candidate context, runs as
-      the unprivileged user, serves both embedded frontends with security
-      headers, exposes 21122, and passes configuration/bootstrap smoke tests.
-- [x] The Linux x86_64 binary/tar and amd64 Debian package are reproducible;
-      the package installs and its service/runtime permissions pass in the
-      pinned Debian environment.
-- ARM remains best-effort source compatibility for v2.8.3. Existing arm64/QEMU
-  evidence may be retained, but an ARM binary, DEB, image, or runtime smoke is
-  not a release blocker or a promised v2.8.3 artifact.
-- Windows is outside the supported v2.8.3 release matrix and is non-blocking.
-
-## Documentation and approval
-
-- [x] The release owner confirms that the public project/repository/image name
-      remains `rustdesk-api-kessoku` and that no requested rename to
-      `rustdesk-server-kessoku` is pending.
-- [x] The concise English/Chinese README, bilingual v2.8.3 release notes,
-      bilingual container guide, all paired Wiki pages, and project/package
-      metadata wording are reviewed and approved, including the requested
-      current Web Client implementation explanation.
-- [x] The GHCR description and OCI documentation URL identify the v2.8.3
-      changes, recommend Docker Compose, and link the Docker guide, Compose
-      file, environment example, and Starry integration guide.
-- [x] `scripts/check_docs.py`, the release Compose render, and every local
-      documentation link pass on the exact release candidate.
-- [x] [SECURITY-MODEL.md](SECURITY-MODEL.md), [MIGRATION.md](MIGRATION.md),
-      [OPERATOR-RUNBOOK.md](OPERATOR-RUNBOOK.md), and
-      [ROLLBACK-RUNBOOK.md](ROLLBACK-RUNBOOK.md), and
-      [RELEASE-PROCESS.md](RELEASE-PROCESS.md) were reviewed against the exact
-      release candidate.
-- [x] The known limitations and required recovery evidence are documented.
-- [x] Documentation states that Kessoku does not publish one universal RTO/RPO;
-      each deployment owner must record its recovery owners, maintenance window,
-      RTO/RPO, and go/no-go decision before rollout. This is a deployment gate,
-      not a software-publication gate.
-- [x] The release owner explicitly approves the final new-feature,
-      compatibility, platform-scope, and migration wording before any tag,
-      Wiki, GHCR image, or GitHub Release is published, including the final TLS,
-      OAuth/OIDC, accepted-residual, Starry matrix, `latest`, and Web Client
-      wording.
-- [x] The release owner confirms every pre-publication source, evidence,
-      compatibility, residual-risk, platform, and wording item and approves
-      the reviewed release-status change. Post-approval tag, protected-CI, and
-      publication checks intentionally remain unchecked until performed.
-
-Remaining actions are the immutable approved tag, protected candidate workflow,
-and the unpublished image/Release/Wiki operations. Do not substitute moving
-upstream branches or disable audits to make a release workflow pass.
+Supported release artifacts are Linux amd64 only. ARM remains best-effort
+source compatibility, and Windows is outside the blocking release matrix.

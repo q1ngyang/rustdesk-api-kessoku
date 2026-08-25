@@ -53,7 +53,7 @@ jobs:
           test "$release_tag" = "${GITHUB_REF_NAME}"
           printf '%s' "$release_tag" \
             | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.]+)?$'
-          test "$release_tag" = v2.8.3
+          test "$release_tag" = v3.0.0
           test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/${release_tag}^{commit}")"
           test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CANDIDATE_RUN_ID}" --jq .head_sha)" = "$GITHUB_SHA"
           test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CANDIDATE_RUN_ID}" --jq .conclusion)" = success
@@ -181,7 +181,7 @@ jobs:
             org.opencontainers.image.version=${{ github.ref_name }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.licenses=MIT
-            org.opencontainers.image.description=Kessoku v2.8.3 RustDesk account and administration API with EdDSA token lifecycle, typed Starry control, and a repository-owned Relay-only browser client; Docker Compose is recommended
+            org.opencontainers.image.description=Kessoku v3.0.0 RustDesk enterprise administration API with a responsive UI, scoped administrators, typed Starry control, and a repository-owned Relay-only browser client; Docker Compose is recommended
           annotations: |
             index:org.opencontainers.image.title=rustdesk-api-kessoku
             index:org.opencontainers.image.source=https://github.com/${{ github.repository }}
@@ -190,7 +190,7 @@ jobs:
             index:org.opencontainers.image.version=${{ github.ref_name }}
             index:org.opencontainers.image.revision=${{ github.sha }}
             index:org.opencontainers.image.licenses=MIT
-            index:org.opencontainers.image.description=Kessoku v2.8.3 RustDesk account and administration API with EdDSA token lifecycle, typed Starry control, and a repository-owned Relay-only browser client; Docker Compose is recommended
+            index:org.opencontainers.image.description=Kessoku v3.0.0 RustDesk enterprise administration API with a responsive UI, scoped administrators, typed Starry control, and a repository-owned Relay-only browser client; Docker Compose is recommended
 
       - name: Publish immutable GitHub release assets
         env:
@@ -198,8 +198,8 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          notes_file="RELEASE-NOTES-v2.8.3.md"
-          chinese_notes="RELEASE-NOTES-v2.8.3.zh-CN.md"
+          notes_file="RELEASE-NOTES-v3.0.0.md"
+          chinese_notes="RELEASE-NOTES-v3.0.0.zh-CN.md"
           test -f "$notes_file"
           test -f "$chinese_notes"
           cat > release-notes.md <<EOF
@@ -233,7 +233,7 @@ jobs:
 
           EOF
           sed \
-            -e "s#(RELEASE-NOTES-v2.8.3.zh-CN.md)#(https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/${chinese_notes})#" \
+            -e "s#(RELEASE-NOTES-v3.0.0.zh-CN.md)#(https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/${chinese_notes})#" \
             -e "s#(CONTAINER.md)#(https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/CONTAINER.md)#" \
             -e "s#(docs/wiki/Docker-Deployment.md)#(https://github.com/${GITHUB_REPOSITORY}/wiki/Docker-Deployment)#" \
             -e "s#(docker-compose.yaml)#(https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/docker-compose.yaml)#" \
@@ -242,6 +242,7 @@ jobs:
             -e "s#(docs/wiki/Starry-Control.md)#(https://github.com/${GITHUB_REPOSITORY}/wiki/Starry-Control)#" \
             -e "s#(docs/wiki/Security-Finding-Closure.md)#(https://github.com/${GITHUB_REPOSITORY}/wiki/Security-Finding-Closure)#" \
             -e "s#(docs/wiki/Upgrade-and-Rollback.md)#(https://github.com/${GITHUB_REPOSITORY}/wiki/Upgrade-and-Rollback)#" \
+            -e "s#(MIGRATION-v3.0.0.md)#(https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/MIGRATION-v3.0.0.md)#" \
             -e "s#(MIGRATION.md)#(https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/MIGRATION.md)#" \
             "$notes_file" >> release-notes.md
           gh release create "$RELEASE_TAG" candidate/release-assets/* \

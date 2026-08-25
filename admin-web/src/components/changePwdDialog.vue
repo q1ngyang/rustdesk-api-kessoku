@@ -1,19 +1,17 @@
 <template>
-  <el-dialog v-model="v" width="50%" :show-close="false">
-    <el-form ref="cpwd" :model="changePwdForm" :rules="chagePwdRules" label-width="150px" label-position="left" style="margin-top: 20px">
+  <el-dialog v-model="v" width="520px" :title="T('ChangePassword')" :close-on-click-modal="false" destroy-on-close @closed="resetForm">
+    <p class="change-password-note">{{ T('PasswordSecurityDescription') }}</p>
+    <el-form ref="cpwd" class="dialog-form" :model="changePwdForm" :rules="chagePwdRules" label-position="top">
       <el-form-item :label="T('OldPassword')" prop="old_password">
-        <el-input v-model="changePwdForm.old_password" :placeholder="T('For OIDC login without a password, enter any 4-20 letters')" show-password></el-input>
+        <el-input v-model="changePwdForm.old_password" type="password" autocomplete="current-password" :placeholder="T('For OIDC login without a password, enter any 4-20 letters')" show-password></el-input>
       </el-form-item>
       <el-form-item :label="T('NewPassword')" prop="new_password">
-        <el-input v-model="changePwdForm.new_password" show-password></el-input>
+        <el-input v-model="changePwdForm.new_password" type="password" autocomplete="new-password" show-password></el-input>
       </el-form-item>
       <el-form-item :label="T('ConfirmPassword')" prop="confirmPwd">
-        <el-input v-model="changePwdForm.confirmPwd" show-password></el-input>
+        <el-input v-model="changePwdForm.confirmPwd" type="password" autocomplete="new-password" show-password></el-input>
       </el-form-item>
-      <el-form-item>
-        <el-button @click="cancelChangePwd">{{ T('Cancel') }}</el-button>
-        <el-button type="primary" @click="changePassword">{{ T('Confirm') }}</el-button>
-      </el-form-item>
+      <div class="change-password-actions"><el-button @click="cancelChangePwd">{{ T('Cancel') }}</el-button><el-button type="primary" @click="changePassword">{{ T('Confirm') }}</el-button></div>
     </el-form>
   </el-dialog>
 </template>
@@ -41,12 +39,6 @@
   // watch(() => props.visible, (newVal) => {
   //   emit('update:visible', newVal);
   // });
-  const showChangePwd = () => {
-    emit('update:visible', true)
-    changePwdForm.old_password = ''
-    changePwdForm.new_password = ''
-    changePwdForm.confirmPwd = ''
-  }
   const changePwdForm = reactive({
     old_password: '',
     new_password: '',
@@ -81,6 +73,11 @@
     ],
   }))
   const cpwd = ref(null)
+  const resetForm = () => {
+    changePwdForm.old_password = ''
+    changePwdForm.new_password = ''
+    changePwdForm.confirmPwd = ''
+  }
   const cancelChangePwd = () => {
     emit('update:visible', false)
   }
@@ -116,5 +113,7 @@
 </script>
 
 <style scoped lang="scss">
-
+.change-password-note { margin: -4px 0 18px; color: var(--text-tertiary); font-size: 12px; line-height: 1.6; }
+.change-password-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
+@media (max-width: 520px) { .change-password-actions .el-button { flex: 1; margin: 0; } }
 </style>

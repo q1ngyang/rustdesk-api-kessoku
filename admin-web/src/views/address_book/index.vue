@@ -2,7 +2,7 @@
   <div>
     <el-card class="list-query" shadow="hover">
       <el-form inline label-width="120px">
-        <el-form-item :label="T('Owner')">
+        <el-form-item v-if="isSuperAdmin" :label="T('Owner')">
           <el-select v-model="listQuery.user_id" clearable @change="changeQueryUser">
             <el-option
                 v-for="item in allUsers"
@@ -14,7 +14,7 @@
         </el-form-item>
         <el-form-item :label="T('AddressBookName')">
           <el-select v-model="listQuery.collection_id" clearable>
-            <el-option :value="0" :label="T('MyAddressBook')"></el-option>
+            <el-option v-if="isSuperAdmin" :value="0" :label="T('MyAddressBook')"></el-option>
             <el-option v-for="c in collectionListRes.list" :key="c.id" :label="c.name" :value="c.id"></el-option>
           </el-select>
         </el-form-item>
@@ -29,7 +29,7 @@
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handlerQuery">{{ T('Filter') }}</el-button>
-          <el-button type="danger" @click="toAdd">{{ T('Add') }}</el-button>
+          <el-button type="danger" @click="openAdd">{{ T('Add') }}</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -49,7 +49,7 @@
         </el-table-column>
         <el-table-column :label="T('Owner')" align="center" width="200">
           <template #default="{row}">
-            <span v-if="row.user_id"> <el-tag>{{ allUsers?.find(u => u.id === row.user_id)?.username }}</el-tag> </span>
+            <span v-if="row.user_id"> <el-tag>{{ allUsers?.find(u => u.id === row.user_id)?.username || `#${row.user_id}` }}</el-tag> </span>
           </template>
         </el-table-column>
         <el-table-column prop="collection_id" :label="T('AddressBookName')" align="center" width="150">
@@ -86,7 +86,7 @@
     </el-card>
     <el-dialog v-model="formVisible" width="800" :title="!formData.row_id?T('Create') :T('Update') ">
       <el-form class="dialog-form" ref="form" :model="formData" label-width="120px">
-        <el-form-item :label="T('Owner')" prop="user_id" required>
+        <el-form-item v-if="isSuperAdmin" :label="T('Owner')" prop="user_id" required>
           <el-select v-model="formData.user_id" @change="changeUserForUpdate">
             <el-option
                 v-for="item in allUsers"
@@ -97,8 +97,8 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="T('AddressBookName')">
-          <el-select v-model="formData.collection_id" clearable @change="changeCollectionForUpdate">
-            <el-option :value="0" :label="T('MyAddressBook')"></el-option>
+          <el-select v-model="formData.collection_id" clearable :disabled="!isSuperAdmin && !!formData.row_id" @change="handleCollectionChange">
+            <el-option v-if="isSuperAdmin" :value="0" :label="T('MyAddressBook')"></el-option>
             <el-option v-for="c in collectionListResForUpdate.list" :key="c.id" :label="c.name" :value="c.id"></el-option>
           </el-select>
         </el-form-item>
@@ -170,7 +170,7 @@
 </template>
 
 <script setup>
-  import { onActivated, onMounted, watch } from 'vue'
+  import { computed, onActivated, onMounted, watch } from 'vue'
   import { useRepositories } from '@/views/address_book/index'
   import { T } from '@/utils/i18n'
   import { useRoute } from 'vue-router'
@@ -179,8 +179,11 @@
   import { CopyDocument } from '@element-plus/icons-vue'
   import PlatformIcons from '@/components/icons/platform.vue'
   import { loadAllUsers } from '@/global'
+  import { useUserStore } from '@/store/user'
 
   const route = useRoute()
+  const userStore = useUserStore()
+  const isSuperAdmin = computed(() => userStore.role === 'super_admin')
   const { allUsers, getAllUsers } = loadAllUsers()
 
   const {
@@ -189,6 +192,7 @@
     getList,
     handlerQuery,
     collectionListRes,
+    getCollectionList,
 
     del,
     formVisible,
@@ -199,6 +203,8 @@
     submit,
     changeUserForUpdate,
     changeCollectionForUpdate,
+    getCollectionListForUpdate,
+    collectionListQueryForUpdate,
     collectionListResForUpdate,
     tagListRes,
 
@@ -209,12 +215,28 @@
     listQuery.user_id = parseInt(route.query.user_id)
   }
   onMounted(getAllUsers)
+  onMounted(() => { if (!isSuperAdmin.value) getCollectionList() })
   onMounted(getList)
   onActivated(getList)
 
   watch(() => listQuery.page, getList)
 
   watch(() => listQuery.page_size, handlerQuery)
+
+  const openAdd = () => {
+    toAdd()
+    if (!isSuperAdmin.value) {
+      collectionListQueryForUpdate.user_id = null
+      getCollectionListForUpdate()
+    }
+  }
+  const handleCollectionChange = value => {
+    if (!isSuperAdmin.value) {
+      const collection = collectionListResForUpdate.list.find(item => item.id === value)
+      if (collection) formData.user_id = collection.user_id
+    }
+    changeCollectionForUpdate(value)
+  }
 
 
 </script>

@@ -1,112 +1,63 @@
 <template>
   <div class="setting">
-    <div class="menu-item">
-      <el-switch
-          v-model="isDark"
-          style="--el-switch-on-color:#18222c"
-      >
-        <template #active-action>
-          <el-icon>
-            <Moon/>
-          </el-icon>
-        </template>
-        <template #inactive-action>
-          <el-icon>
-            <Sunny color="#000"/>
-          </el-icon>
-        </template>
-      </el-switch>
-    </div>
-    <el-dropdown class="menu-item">
-      <div class="title">
-        <i class="el-icon el-tooltip__trigger" style="font-size: 24px;">
-          <svg preserveAspectRatio="xMidYMid meet" viewBox="0 0 24 24" width="1.2em" height="1.2em">
-            <path fill="currentColor"
-                  d="m18.5 10l4.4 11h-2.155l-1.201-3h-4.09l-1.199 3h-2.154L16.5 10h2zM10 2v2h6v2h-1.968a18.222 18.222 0 0 1-3.62 6.301a14.864 14.864 0 0 0 2.336 1.707l-.751 1.878A17.015 17.015 0 0 1 9 13.725a16.676 16.676 0 0 1-6.201 3.548l-.536-1.929a14.7 14.7 0 0 0 5.327-3.042A18.078 18.078 0 0 1 4.767 8h2.24A16.032 16.032 0 0 0 9 10.877a16.165 16.165 0 0 0 2.91-4.876L2 6V4h6V2h2zm7.5 10.885L16.253 16h2.492L17.5 12.885z"></path>
-          </svg>
-        </i>
-      </div>
+    <el-tooltip :content="isDark ? T('LightMode') : T('DarkMode')" placement="bottom">
+      <button class="setting__icon" type="button" :aria-label="isDark ? T('LightMode') : T('DarkMode')" @click="isDark = !isDark"><el-icon><Sunny v-if="isDark"/><Moon v-else/></el-icon></button>
+    </el-tooltip>
+    <el-dropdown trigger="click">
+      <button class="setting__icon" type="button" :aria-label="T('ChangeLang')"><el-icon><Guide/></el-icon></button>
       <template #dropdown>
         <el-dropdown-menu>
-          <el-dropdown-item v-for="(v, k) in appStore.setting.langs" @click="changeLang(k)" :key="k">{{ v.name }}</el-dropdown-item>
+          <el-dropdown-item v-for="(language, key) in appStore.setting.langs" :key="key" :class="{ 'is-active-language': key === appStore.setting.lang }" @click="changeLang(key)">{{ language.name }}</el-dropdown-item>
         </el-dropdown-menu>
       </template>
     </el-dropdown>
-    <el-dropdown class="menu-item">
-      <div class="title">
-        <!--        <el-image class="avatar" :src="user.avatar"></el-image>-->
-        <span class="nickname">{{ user.username }}</span>
-        <el-icon>
-          <el-icon-arrow-down/>
-        </el-icon>
-
-      </div>
-
+    <el-dropdown trigger="click">
+      <button class="setting__user" type="button">
+        <span class="setting__avatar">{{ initial }}</span><span class="setting__name">{{ user.username }}</span><el-icon><ArrowDown/></el-icon>
+      </button>
       <template #dropdown>
         <el-dropdown-menu>
-          <el-dropdown-item @click="showChangePwd">{{ T('ChangePassword') }}</el-dropdown-item>
-          <el-dropdown-item @click="logout">{{ T('Logout') }}</el-dropdown-item>
+          <el-dropdown-item @click="toProfile"><el-icon><User/></el-icon>{{ T('Userinfo') }}</el-dropdown-item>
+          <el-dropdown-item @click="showChangePwd"><el-icon><Lock/></el-icon>{{ T('ChangePassword') }}</el-dropdown-item>
+          <el-dropdown-item @click="toAbout"><el-icon><InfoFilled/></el-icon>{{ T('About') }}</el-dropdown-item>
+          <el-dropdown-item divided @click="logout"><el-icon><SwitchButton/></el-icon>{{ T('Logout') }}</el-dropdown-item>
         </el-dropdown-menu>
       </template>
     </el-dropdown>
-    <changePwdDialog v-model:visible="changePwdVisible"></changePwdDialog>
+    <changePwdDialog v-model:visible="changePwdVisible"/>
   </div>
 </template>
 
 <script setup>
-  import { useUserStore } from '@/store/user'
-  import { useAppStore } from '@/store/app'
-  import changePwdDialog from '@/components/changePwdDialog.vue'
-  import { ref } from 'vue'
-  import { T } from '@/utils/i18n'
-  import { useDark } from '@vueuse/core'
-  import { Sunny, Moon } from '@element-plus/icons-vue'
+import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useDark } from '@vueuse/core'
+import { ArrowDown, Guide, InfoFilled, Lock, Moon, Sunny, SwitchButton, User } from '@element-plus/icons-vue'
+import { useUserStore } from '@/store/user'
+import { useAppStore } from '@/store/app'
+import changePwdDialog from '@/components/changePwdDialog.vue'
+import { T } from '@/utils/i18n'
 
-  const userStore = useUserStore()
-  const user = userStore
-  const appStore = useAppStore()
-
-  const logout = () => {
-    userStore.logout()
-    window.location.reload()
-  }
-
-  const changePwdVisible = ref(false)
-  const showChangePwd = () => {
-    changePwdVisible.value = true
-  }
-  const changeLang = (v) => {
-    appStore.changeLang(v)
-  }
-  const isDark = useDark()
-  // const toggleDark = useToggle(isDark)
+const user = useUserStore()
+const appStore = useAppStore()
+const router = useRouter()
+const changePwdVisible = ref(false)
+const isDark = useDark({ storageKey: 'kessoku-theme' })
+const initial = computed(() => (user.username || 'K').slice(0, 1).toUpperCase())
+const logout = () => { user.logout(); window.location.reload() }
+const showChangePwd = () => { changePwdVisible.value = true }
+const changeLang = value => appStore.changeLang(value)
+const toProfile = () => router.push({ name: 'MyInfo' })
+const toAbout = () => router.push({ name: 'About' })
 </script>
 
-<style lang="scss" scoped>
-.setting {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
-
-  .menu-item {
-    margin-left: 15px;
-
-    * {
-      outline: none;
-    }
-  }
-
-  .title {
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: space-around;
-
-
-    .nickname {
-      padding: 0 10px;
-    }
-  }
-}
+<style scoped lang="scss">
+.setting { display: flex; min-width: 0; align-items: center; gap: 6px; margin-left: auto; }
+.setting__icon,.setting__user { border: 0; background: transparent; color: var(--text-secondary); cursor: pointer; }
+.setting__icon { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 12px; font-size: 17px; }
+.setting__icon:hover,.setting__user:hover { background: var(--surface-3); color: var(--primary); }.setting__icon:focus-visible,.setting__user:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 1px; }
+.setting__user { display: flex; min-width: 0; height: 42px; align-items: center; gap: 8px; padding: 4px 8px 4px 5px; border-radius: 14px; }
+.setting__avatar { display: grid; width: 32px; height: 32px; flex: 0 0 auto; place-items: center; border-radius: 10px; background: linear-gradient(145deg, var(--primary), #8467ef); color: white; font-size: 12px; font-weight: 800; }
+.setting__name { max-width: 120px; overflow: hidden; color: var(--text-primary); font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 600px) { .setting { gap: 1px; }.setting__name,.setting__user > .el-icon { display: none; }.setting__user { width: 38px; padding: 3px; }.setting__icon { width: 34px; } }
 </style>

@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
 	"gorm.io/gorm"
 )
 
@@ -118,8 +118,18 @@ func (ps *PeerService) Create(u *model.Peer) error {
 // Delete 删除, 同时也应该删除token
 func (ps *PeerService) Delete(u *model.Peer) error {
 	uuid := u.Uuid
-	err := DB.Delete(u).Error
-	if err != nil {
+	tx := DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	defer tx.Rollback()
+	if err := AllService.AdminScopeService.RemoveResourceScopes(tx, model.AdminScopeTypePeer, []uint{u.RowId}); err != nil {
+		return err
+	}
+	if err := tx.Delete(u).Error; err != nil {
+		return err
+	}
+	if err := tx.Commit().Error; err != nil {
 		return err
 	}
 	// 删除token
@@ -145,8 +155,21 @@ func (ps *PeerService) GetUuidListByIDs(ids []uint) ([]string, error) {
 // BatchDelete 批量删除, 同时也应该删除token
 func (ps *PeerService) BatchDelete(ids []uint) error {
 	uuids, err := ps.GetUuidListByIDs(ids)
-	err = DB.Where("row_id in (?)", ids).Delete(&model.Peer{}).Error
 	if err != nil {
+		return err
+	}
+	tx := DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	defer tx.Rollback()
+	if err := AllService.AdminScopeService.RemoveResourceScopes(tx, model.AdminScopeTypePeer, ids); err != nil {
+		return err
+	}
+	if err := tx.Where("row_id in (?)", ids).Delete(&model.Peer{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Commit().Error; err != nil {
 		return err
 	}
 	// 删除token

@@ -6,8 +6,8 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/model/custom_types"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model/custom_types"
 	"gorm.io/gorm"
 )
 

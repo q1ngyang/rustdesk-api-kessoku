@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v2/internal/starrycontrol"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/starrycontrol"
 )
 
 func TestControlErrorDoesNotExposeAgentAuthenticationStatus(t *testing.T) {

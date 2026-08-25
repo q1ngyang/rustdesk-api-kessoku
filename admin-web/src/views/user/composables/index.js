@@ -78,11 +78,15 @@ export function useToEditOrAdd () {
   const toAddressBook = (row) => {
     router.push('/user/addressBook/?user_id=' + row.id)
   }
+	const toAccess = (row) => {
+		router.push('/user/access/' + row.id)
+	}
   return {
     toAdd,
     toEdit,
     toTag,
     toAddressBook,
+		toAccess,
   }
 }
 

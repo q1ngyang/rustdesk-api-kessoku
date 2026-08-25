@@ -1,56 +1,26 @@
 <template>
-  <el-menu
-          class="menus"
-          :collapse="isCollapse"
-          :default-active="activeIndex"
-          background-color="#2d3a4b"
-          text-color="#fff"
-          active-text-color="#409eff"
-          router
-  >
-    <menu-item v-for="(route,index) in routes" :key="route.name" :route="route"></menu-item>
+  <el-menu class="menus" :collapse="isCollapse" :default-active="activeIndex" :collapse-transition="false" router @select="$emit('navigate')">
+    <menu-item v-for="routeItem in routes" :key="routeItem.name" :route="routeItem" @navigate="$emit('navigate')"/>
   </el-menu>
 </template>
 
-<script>
-  import { defineComponent, ref, onMounted, watch, computed } from 'vue'
-  import { useRouteStore } from '@/store/router'
-  import MenuItem from '@/layout/components/menu/item.vue'
-  import { useRoute } from 'vue-router'
-  import { useAppStore } from '@/store/app'
+<script setup>
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { useRouteStore } from '@/store/router'
+import { useAppStore } from '@/store/app'
+import MenuItem from '@/layout/components/menu/item.vue'
 
-  export default defineComponent({
-    name: 'Menu',
-    created () {
-    },
-    components: { MenuItem },
-    setup () {
-      const routes = ref([])
-      const route = useRoute()
-      const app = useAppStore()
-      const isCollapse = computed(() => app.setting.sideIsCollapse)
-      const activeIndex = computed(() => route.name)
-
-      routes.value = useRouteStore().routes
-      return {
-        routes,
-        activeIndex,
-        isCollapse,
-      }
-    },
-
-  })
+defineEmits(['navigate'])
+const route = useRoute()
+const app = useAppStore()
+const routeStore = useRouteStore()
+const routes = computed(() => routeStore.routes)
+const activeIndex = computed(() => route.name)
+const isCollapse = computed(() => app.setting.sideIsCollapse && app.setting.viewportWidth >= 768)
 </script>
 
-<style lang="scss" scoped>
-  .menus {
-    min-height: 100vh;
-    border-right: none;
-    &:not(.el-menu--collapse) {
-      width: var(--sideBarWidth);
-    }
-
-  }
-</style>
-<style>
+<style scoped lang="scss">
+.menus { border-right: 0; background: transparent; }
+.menus:not(.el-menu--collapse) { width: 100%; }
 </style>

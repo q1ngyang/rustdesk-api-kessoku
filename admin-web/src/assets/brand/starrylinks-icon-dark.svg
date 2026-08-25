@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="256"
+   height="256"
+   viewBox="0 0 256 256"
+   role="img"
+   aria-labelledby="title desc"
+   version="1.1"
+   id="svg75"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <title
+     id="title">StarryLinks icon dark variant</title>
+  <desc
+     id="desc">Dark rounded-square icon with protected mesh and three layered comic stars.</desc>
+  <defs
+     id="defs33">
+    <g
+       id="icon-lines-dark"
+       fill="none"
+       stroke="currentColor"
+       stroke-linecap="round"
+       stroke-linejoin="round">
+      <path
+         d="M62 62L126 31L214 57L229 151L185 222L70 220L29 148L62 62"
+         id="path4" />
+      <path
+         d="M62 62L148 99L214 57"
+         id="path6" />
+      <path
+         d="M148 99L229 151L185 222L119 177L70 220"
+         id="path8" />
+      <path
+         d="M62 62L119 177L29 148"
+         id="path10" />
+    </g>
+    <g
+       id="icon-nodes-dark"
+       stroke="currentColor">
+      <circle
+         cx="126"
+         cy="31"
+         r="6"
+         id="circle13" />
+      <circle
+         cx="214"
+         cy="57"
+         r="6"
+         id="circle15" />
+      <circle
+         cx="229"
+         cy="151"
+         r="6"
+         id="circle17" />
+      <circle
+         cx="185"
+         cy="222"
+         r="6"
+         id="circle19" />
+      <circle
+         cx="70"
+         cy="220"
+         r="6"
+         id="circle21" />
+      <circle
+         cx="29"
+         cy="148"
+         r="6"
+         id="circle23" />
+      <circle
+         cx="148"
+         cy="99"
+         r="6"
+         id="circle25" />
+      <circle
+         cx="119"
+         cy="177"
+         r="6"
+         id="circle27" />
+    </g>
+    <path
+       id="icon-large-star-dark"
+       d="M124 43L149 103L215 88L165 134L207 193L141 165L90 221L96 150L36 112L106 106Z" />
+    <path
+       id="icon-small-star-dark"
+       d="M186 58L196 86L225 80L202 102L218 130L188 116L163 140L171 108L141 93L176 89Z" />
+    <path
+       id="icon-pink-star-dark"
+       d="M71 46L80 68L103 63L86 80L97 103L74 92L55 110L60 86L38 74L64 70Z" />
+  </defs>
+  <rect
+     x="2"
+     y="2"
+     width="252"
+     height="252"
+     rx="43"
+     fill="#111827"
+     stroke="#252F43"
+     stroke-width="4"
+     id="rect35" />
+  <g
+     color="#111827"
+     stroke-width="10"
+     id="g39">
+    <use
+       xlink:href="#icon-lines-dark"
+       id="use37" />
+  </g>
+  <g
+     color="#737D8E"
+     stroke-width="4.5"
+     opacity=".72"
+     id="g43">
+    <use
+       xlink:href="#icon-lines-dark"
+       id="use41" />
+  </g>
+  <g
+     color="#111827"
+     fill="#111827"
+     stroke-width="10"
+     id="g47">
+    <use
+       xlink:href="#icon-nodes-dark"
+       id="use45" />
+  </g>
+  <g
+     color="#737D8E"
+     fill="#111827"
+     stroke-width="4"
+     stroke-opacity=".76"
+     id="g51">
+    <use
+       xlink:href="#icon-nodes-dark"
+       id="use49" />
+  </g>
+  <path
+     d="M122 180L209 183L203 219L116 216Z"
+     fill="none"
+     stroke="#111827"
+     stroke-width="11"
+     stroke-linejoin="round"
+     id="path53" />
+  <path
+     d="M122 180L209 183L203 219L116 216Z"
+     fill="#E85252"
+     stroke="#9AA1AD"
+     stroke-width="4"
+     stroke-linejoin="round"
+     id="path55" />
+  <g
+     transform="rotate(-11 71 78)"
+     id="g61">
+    <use
+       xlink:href="#icon-pink-star-dark"
+       fill="#111827"
+       stroke="#111827"
+       stroke-width="13"
+       stroke-linejoin="round"
+       paint-order="stroke fill"
+       id="use57" />
+    <use
+       xlink:href="#icon-pink-star-dark"
+       fill="#F28DBB"
+       stroke="#5D6570"
+       stroke-width="5"
+       stroke-linejoin="round"
+       id="use59" />
+  </g>
+  <g
+     transform="rotate(-4 126 132)"
+     id="g67">
+    <use
+       xlink:href="#icon-large-star-dark"
+       fill="#111827"
+       stroke="#111827"
+       stroke-width="19"
+       stroke-linejoin="round"
+       paint-order="stroke fill"
+       id="use63" />
+    <use
+       xlink:href="#icon-large-star-dark"
+       fill="#F6C945"
+       stroke="#5D6570"
+       stroke-width="6.5"
+       stroke-linejoin="round"
+       id="use65" />
+  </g>
+  <g
+     transform="rotate(8 184 101)"
+     id="g73">
+    <use
+       xlink:href="#icon-small-star-dark"
+       fill="#111827"
+       stroke="#111827"
+       stroke-width="13"
+       stroke-linejoin="round"
+       paint-order="stroke fill"
+       id="use69" />
+    <use
+       xlink:href="#icon-small-star-dark"
+       fill="#4A9FE8"
+       stroke="#5D6570"
+       stroke-width="5"
+       stroke-linejoin="round"
+       id="use71" />
+  </g>
+</svg>
