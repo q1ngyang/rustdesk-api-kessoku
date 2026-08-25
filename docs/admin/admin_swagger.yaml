@@ -154,6 +154,8 @@ definitions:
         type: string
       nickname:
         type: string
+      role:
+        $ref: '#/definitions/model.UserRole'
       route_names:
         items:
           type: string
@@ -276,6 +278,13 @@ definitions:
         type: string
       remark:
         type: string
+      role:
+        allOf:
+        - $ref: '#/definitions/model.UserRole'
+        enum:
+        - user
+        - admin
+        - super_admin
       status:
         allOf:
         - $ref: '#/definitions/model.StatusCode'
@@ -288,7 +297,6 @@ definitions:
         type: string
     required:
     - group_id
-    - is_admin
     - status
     - username
     type: object
@@ -328,7 +336,7 @@ definitions:
     required:
     - ids
     type: object
-  github_com_q1ngyang_rustdesk-api-kessoku_v2_http_request_admin.Login:
+  github_com_q1ngyang_rustdesk-api-kessoku_v3_http_request_admin.Login:
     properties:
       captcha:
         type: string
@@ -804,11 +812,16 @@ definitions:
       id:
         type: integer
       is_admin:
+        description: |-
+          IsAdmin is retained as a compatibility mirror for v2 clients and data.
+          Authorization decisions use Role after the v3 migration.
         type: boolean
       nickname:
         type: string
       remark:
         type: string
+      role:
+        $ref: '#/definitions/model.UserRole'
       status:
         $ref: '#/definitions/model.StatusCode'
       updated_at:
@@ -829,6 +842,16 @@ definitions:
       total:
         type: integer
     type: object
+  model.UserRole:
+    enum:
+    - user
+    - admin
+    - super_admin
+    type: string
+    x-enum-varnames:
+    - UserRoleUser
+    - UserRoleAdmin
+    - UserRoleSuperAdmin
   model.UserToken:
     properties:
       auth_version:
@@ -2545,7 +2568,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/github_com_q1ngyang_rustdesk-api-kessoku_v2_http_request_admin.Login'
+          $ref: '#/definitions/github_com_q1ngyang_rustdesk-api-kessoku_v3_http_request_admin.Login'
       produces:
       - application/json
       responses:
