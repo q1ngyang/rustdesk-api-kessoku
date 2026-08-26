@@ -1,6 +1,6 @@
 # Complete deployment: Kessoku + Starry HBBS/HBBR
 
-**English** | [简体中文](ZH-CN-Complete-Deployment.md)
+**English** | [简体中文](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Complete-Deployment)
 
 This tutorial deploys the complete single-host stack on a blank Linux server:
 
@@ -309,8 +309,8 @@ An HTTP 101 alone is not an end-to-end RustDesk test.
 - Deploy the Starry control agent read-only first; enable writes only during a
   separately tested maintenance window.
 
-See [Configuration Reference](Configuration-Reference.md),
-[Relay-Only Deployment](Relay-Only-Deployment.md),
-[Connection Authentication](Connection-Authentication.md),
-[Starry Control](Starry-Control.md), and
-[Operations and Verification](Operations-and-Verification.md).
+See [Configuration Reference](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Configuration-Reference),
+[Relay-Only Deployment](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Relay-Only-Deployment),
+[Connection Authentication](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Connection-Authentication),
+[Starry Control](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Starry-Control), and
+[Operations and Verification](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Operations-and-Verification).

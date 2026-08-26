@@ -55,21 +55,7 @@ xcopy conf release\conf /E /I /Y
 copy README.md release\README.md
 copy README_EN.md release\README_EN.md
 copy README.zh-CN.md release\README.zh-CN.md
-copy CONTAINER.md release\CONTAINER.md
-copy CONTAINER.zh-CN.md release\CONTAINER.zh-CN.md
-copy RELEASE-NOTES-v3.0.1.md release\RELEASE-NOTES-v3.0.1.md
-copy RELEASE-NOTES-v3.0.1.zh-CN.md release\RELEASE-NOTES-v3.0.1.zh-CN.md
-copy SECURITY-MODEL.md release\SECURITY-MODEL.md
-copy MIGRATION.md release\MIGRATION.md
-copy MIGRATION-v3.0.1.md release\MIGRATION-v3.0.1.md
-copy MIGRATION-v3.0.1.zh-CN.md release\MIGRATION-v3.0.1.zh-CN.md
-copy OPERATOR-RUNBOOK.md release\OPERATOR-RUNBOOK.md
-copy ROLLBACK-RUNBOOK.md release\ROLLBACK-RUNBOOK.md
-copy WEB-CLIENT.md release\WEB-CLIENT.md
-copy WEB-CLIENT.zh-CN.md release\WEB-CLIENT.zh-CN.md
-copy ADMIN-WEB-PROVENANCE.md release\ADMIN-WEB-PROVENANCE.md
-copy RELEASE-CHECKLIST.md release\RELEASE-CHECKLIST.md
-copy RELEASE-PROCESS.md release\RELEASE-PROCESS.md
+rem Guides and release records were copied above into release\docs\.
 copy RELEASE_STATUS release\RELEASE_STATUS
 copy LICENSE release\LICENSE
 copy admin-web\LICENSE release\ADMIN-WEB-LICENSE

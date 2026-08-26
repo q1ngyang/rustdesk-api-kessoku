@@ -9,7 +9,7 @@
 - Nginx、HTTPS 和 WSS。
 
 Kessoku 也可以搭配官方 HBBS/HBBR 使用，已有服务的用户可阅读
-[单独部署 Kessoku](ZH-CN-Getting-Started.md)。新部署推荐 Starry，是因为它与 Kessoku
+[单独部署 Kessoku](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Getting-Started)。新部署推荐 Starry，是因为它与 Kessoku
 由同一开发者维护，并额外提供安全 TCP、WSS 信令、按地理位置选择中继服务器、连接令牌
 校验和可选管理代理。Starry 镜像中的 HBBR 是同一锁定上游版本构建的原版 HBBR，不包含
 额外修改。
@@ -402,9 +402,9 @@ curl -fsS https://client.example.com/config/v1.json
 
 LDAP、OAuth/OIDC、外部 MySQL/PostgreSQL、Starry 连接强制认证和管理代理需要额外的身份
 系统或证书，不适合用示例密码直接启用。配置方法见
-[配置参数参考](ZH-CN-Configuration-Reference.md)、
-[连接认证](ZH-CN-Connection-Authentication.md)和
-[Starry 管理](ZH-CN-Starry-Control.md)。
+[配置参数参考](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Configuration-Reference)、
+[连接认证](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Connection-Authentication)和
+[Starry 管理](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Starry-Control)。
 
 ## 14. 地理位置规则（可选）
 
@@ -462,7 +462,7 @@ docker compose --env-file .env -f compose.yaml logs --tail 180 hbbs hbbr kessoku
 ```
 
 不要删除持久化目录来解决升级问题，也不要在故障时重新生成 `id_ed25519`。详细恢复步骤见
-[升级与回退](ZH-CN-Upgrade-and-Rollback.md)。
+[升级与回退](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Upgrade-and-Rollback)。
 
 ## 16. 下一步：安全启用高级集成
 
@@ -475,9 +475,9 @@ Starry 先运行一段时间的 `audit`。管理代理需要独立的双向 TLS 
 
 继续阅读：
 
-- [增加纯中继节点](ZH-CN-Relay-Only-Deployment.md)
-- [反向代理与防火墙](ZH-CN-Reverse-Proxy-and-Firewall.md)
-- [配置参数参考](ZH-CN-Configuration-Reference.md)
-- [连接认证](ZH-CN-Connection-Authentication.md)
-- [Starry 管理](ZH-CN-Starry-Control.md)
-- [日常运维与验证](ZH-CN-Operations-and-Verification.md)
+- [增加纯中继节点](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Relay-Only-Deployment)
+- [反向代理与防火墙](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Reverse-Proxy-and-Firewall)
+- [配置参数参考](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Configuration-Reference)
+- [连接认证](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Connection-Authentication)
+- [Starry 管理](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Starry-Control)
+- [日常运维与验证](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Operations-and-Verification)

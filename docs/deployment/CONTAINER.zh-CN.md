@@ -36,16 +36,16 @@ docker image inspect ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.1 \
 
 仅部署 Kessoku：
 
-- [`docker-compose.yaml`](docker-compose.yaml)
-- [`examples/compose.env.example`](examples/compose.env.example)
-- [`examples/config.docker-builtin.yaml`](examples/config.docker-builtin.yaml)
-- [完整教程](docs/wiki/ZH-CN-Getting-Started.md)
+- [`docker-compose.yaml`](../../docker-compose.yaml)
+- [`examples/compose.env.example`](../../examples/compose.env.example)
+- [`examples/config.docker-builtin.yaml`](../../examples/config.docker-builtin.yaml)
+- [完整教程](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Getting-Started)
 
 Kessoku + Starry HBBS/HBBR：
 
-- [`examples/combined/compose.yaml`](examples/combined/compose.yaml)
-- [`examples/combined/.env.example`](examples/combined/.env.example)
-- [联合完整教程](docs/wiki/ZH-CN-Complete-Deployment.md)
+- [`examples/combined/compose.yaml`](../../examples/combined/compose.yaml)
+- [`examples/combined/.env.example`](../../examples/combined/.env.example)
+- [联合完整教程](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Complete-Deployment)
 
 ## 正确的宿主机权限
 
@@ -97,8 +97,8 @@ api.example.com    -> 127.0.0.1:21114
 client.example.com -> 127.0.0.1:21122
 ```
 
-示例见 [`examples/nginx/`](examples/nginx)；完整端口表见
-[反向代理与防火墙](docs/wiki/ZH-CN-Reverse-Proxy-and-Firewall.md)。不得公开 `21121`。
+示例见 [`examples/nginx/`](../../examples/nginx)；完整端口表见
+[反向代理与防火墙](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Reverse-Proxy-and-Firewall)。不得公开 `21121`。
 
 ## 备份与更新
 
@@ -115,4 +115,4 @@ docker compose --env-file .env -f compose.yaml up -d kessoku-api
 docker compose --env-file .env -f compose.yaml logs --tail 150 kessoku-api
 ```
 
-跨 v2/v3 升降级前阅读[升级与回退](docs/wiki/ZH-CN-Upgrade-and-Rollback.md)。
+跨 v2/v3 升降级前阅读[升级与回退](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Upgrade-and-Rollback)。

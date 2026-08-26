@@ -2,9 +2,9 @@
 
 推荐在 `linux/amd64` 主机上使用 Docker Compose 部署 Kessoku。第一次部署请先选择：
 
-- 已有 HBBS/HBBR：[单独部署 Kessoku](ZH-CN-Getting-Started.md)；
-- 还没有 HBBS/HBBR：[Kessoku + Starry 完整部署](ZH-CN-Complete-Deployment.md)；
-- 为现有中心增加 HBBR：[纯中继节点部署](ZH-CN-Relay-Only-Deployment.md)。
+- 已有 HBBS/HBBR：[单独部署 Kessoku](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Getting-Started)；
+- 还没有 HBBS/HBBR：[Kessoku + Starry 完整部署](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Complete-Deployment)；
+- 为现有中心增加 HBBR：[纯中继节点部署](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Relay-Only-Deployment)。
 
 本页供部署后查询编排文件、目录、网络、数据库和更新命令。
 
@@ -12,9 +12,9 @@
 
 | 场景 | 文件 | 包含服务 |
 | --- | --- | --- |
-| 仅 Kessoku | [`docker-compose.yaml`](../../docker-compose.yaml)、[`examples/compose.env.example`](../../examples/compose.env.example) | Kessoku API、管理后台、可选内置浏览器客户端 |
-| Kessoku + Starry | [`examples/combined/compose.yaml`](../../examples/combined/compose.yaml)、[`examples/combined/.env.example`](../../examples/combined/.env.example) | Kessoku、Starry HBBS、同版本 HBBR |
-| 纯中继节点 | [`examples/relay/compose.yaml`](../../examples/relay/compose.yaml)、[`examples/relay/.env.example`](../../examples/relay/.env.example) | 一台独立 HBBR；默认 Starry 镜像，已注释官方替代项 |
+| 仅 Kessoku | [`docker-compose.yaml`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docker-compose.yaml)、[`examples/compose.env.example`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/compose.env.example) | Kessoku API、管理后台、可选内置浏览器客户端 |
+| Kessoku + Starry | [`examples/combined/compose.yaml`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/combined/compose.yaml)、[`examples/combined/.env.example`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/combined/.env.example) | Kessoku、Starry HBBS、同版本 HBBR |
+| 纯中继节点 | [`examples/relay/compose.yaml`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/relay/compose.yaml)、[`examples/relay/.env.example`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/relay/.env.example) | 一台独立 HBBR；默认 Starry 镜像，已注释官方替代项 |
 
 Kessoku 可以搭配官方 `rustdesk/rustdesk-server` 的 HBBS/HBBR。联合示例推荐
 `q1ngyang/rustdesk-server-starry`，并让 HBBS/HBBR 使用同一个固定 Starry 镜像版本，避免
@@ -95,7 +95,7 @@ Starry 单机示例把持久目录挂载到 `/root`，其中常见文件：
   传入；增加外部数据库密码等变量时要同时修改 Compose 映射。
 
 环境变量覆盖规则和所有参数见
-[配置参数参考](ZH-CN-Configuration-Reference.md)。
+[配置参数参考](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Configuration-Reference)。
 
 ## 网络模式
 
@@ -118,7 +118,7 @@ Nginx 在宿主机代理这两个地址。可选内部认证接口 `21121` 默�
 地址。该示例不适用于 Docker Desktop。主机网络意味着 `21115`～`21119` 直接在宿主机
 监听，必须正确设置主机防火墙和云安全组。
 
-完整端口表见[反向代理与防火墙](ZH-CN-Reverse-Proxy-and-Firewall.md)。
+完整端口表见[反向代理与防火墙](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Reverse-Proxy-and-Firewall)。
 
 ## 启动、停止和查看日志
 
@@ -198,7 +198,7 @@ CA 无法读取或使用不安全模式时，Kessoku 会拒绝启动。
 7. 确认稳定后再更新另一组件。
 
 联合部署应确保 HBBS 与 HBBR 始终使用同一个 `STARRY_VERSION`。详细回退步骤见
-[升级与回退](ZH-CN-Upgrade-and-Rollback.md)。
+[升级与回退](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Upgrade-and-Rollback)。
 
 ## 部署后检查
 

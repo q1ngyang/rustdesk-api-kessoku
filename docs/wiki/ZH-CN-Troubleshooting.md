@@ -1,6 +1,6 @@
 # 常见问题排查
 
-[English](Troubleshooting.md) | **简体中文**
+[English](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Troubleshooting) | **简体中文**
 
 排障时先确认是哪一层失败：容器、Kessoku API、账户、HBBS 信令、HBBR 中继、WSS、浏览器
 客户端或高级认证。每次只改一项，避免同时关闭防火墙、证书和认证后无法判断真正原因。
@@ -184,7 +184,7 @@ WebCodecs 支持。不要用 `curl -k` 掩盖证书问题。
 - 用户是否已注销、禁用、删除或重置密码；
 - Kessoku、Starry 和客户端时钟。
 
-内部 TLS 测试命令见[连接认证](ZH-CN-Connection-Authentication.md)。不得公开 `21121` 或
+内部 TLS 测试命令见[连接认证](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Connection-Authentication)。不得公开 `21121` 或
 关闭证书验证。
 
 ## Starry 管理页面不可用

@@ -1,7 +1,7 @@
 # Kessoku admin web provenance
 
 Kessoku v2.8.3 keeps the reviewed management frontend source in
-[`admin-web/`](admin-web/). Backend and frontend are reviewed, tagged, built,
+[`admin-web/`](../../admin-web/). Backend and frontend are reviewed, tagged, built,
 and attested from the same Kessoku commit. No separate frontend repository,
 moving branch, network checkout, URL, or build argument is accepted.
 

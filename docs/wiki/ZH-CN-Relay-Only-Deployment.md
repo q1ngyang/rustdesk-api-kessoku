@@ -1,6 +1,6 @@
 # 纯中继节点部署：仅运行 HBBR
 
-[English](Relay-Only-Deployment.md) | **简体中文**
+[English](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Relay-Only-Deployment) | **简体中文**
 
 本教程面向第一次使用 Docker 的用户，在一台独立 Linux 服务器上只部署 RustDesk 中继
 服务器 HBBR。该节点不运行 Kessoku、HBBS 或账户服务，适用于：
@@ -418,5 +418,5 @@ docker compose --env-file .env -f compose.yaml logs --tail 150 hbbr
 | 改用官方镜像后仍拉取 Starry | YAML 与 `.env` 没有同时切换，先查看 `docker compose config` |
 | P2P 正常、强制中继失败 | HBBR 或 `21117/TCP` 故障；P2P 没有测试中继 |
 
-进一步网络检查见[反向代理与防火墙](ZH-CN-Reverse-Proxy-and-Firewall.md)，中心完整部署见
-[Kessoku + Starry 完整部署](ZH-CN-Complete-Deployment.md)。
+进一步网络检查见[反向代理与防火墙](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Reverse-Proxy-and-Firewall)，中心完整部署见
+[Kessoku + Starry 完整部署](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Complete-Deployment)。

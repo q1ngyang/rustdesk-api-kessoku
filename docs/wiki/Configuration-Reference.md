@@ -1,9 +1,9 @@
 # Configuration reference
 
-**English** | [简体中文](ZH-CN-Configuration-Reference.md)
+**English** | [简体中文](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Configuration-Reference)
 
 The complete annotated template is
-[`conf/config.yaml`](../../conf/config.yaml). Configuration is read from that
+[`conf/config.yaml`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/conf/config.yaml). Configuration is read from that
 YAML file and may be overridden with environment variables prefixed by
 `RUSTDESK_API_`; dots and hyphens become underscores.
 
@@ -94,7 +94,7 @@ and cannot exceed one hour or `auth.maximum-token-ttl`.
 
 The public client profile exposes endpoints, server public key/fingerprint and
 generation only. Change the generation when an approved endpoint or key
-profile changes. See [Built-in Web Client](Web-Client.md).
+profile changes. See [Built-in Web Client](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Web-Client).
 
 ## Removed or rejected settings
 

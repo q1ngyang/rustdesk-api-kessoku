@@ -22,7 +22,9 @@ jobs:
           persist-credentials: false
 
       - name: Check documentation links and pairs
-        run: python3 scripts/check_docs.py
+        run: |
+          python3 scripts/check_docs.py
+          python3 -m unittest discover -s scripts -p 'test_documentation.py'
 
       - name: Validate recommended Docker deployment
         run: |
@@ -30,6 +32,10 @@ jobs:
             -f docker-compose.yaml config
           docker compose --env-file examples/compose.env.example \
             -f docker-compose.yaml config --quiet
+          docker compose --env-file examples/combined/.env.example \
+            -f examples/combined/compose.yaml config --quiet
+          docker compose --env-file examples/relay/.env.example \
+            -f examples/relay/compose.yaml config --quiet
 
   test:
     runs-on: ubuntu-24.04

@@ -1,6 +1,6 @@
 # 安全配置
 
-[English](Security-Finding-Closure.md) | **简体中文**
+[English](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Security-Finding-Closure) | **简体中文**
 
 本页把安全要求整理成部署者可直接执行的检查项。项目的安全默认值不能替代正确的域名、
 防火墙、权限、证书、备份和账户管理。
@@ -25,7 +25,7 @@ Kessoku Compose 把 API 和浏览器客户端后端绑定到 `127.0.0.1`。不�
 - `gin.trust-proxy` 只信任实际代理地址，不信任整个互联网；
 - 内部 `21121` 和管理代理 `21120` 不经过公网反向代理。
 
-参考[反向代理与防火墙](ZH-CN-Reverse-Proxy-and-Firewall.md)。
+参考[反向代理与防火墙](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Reverse-Proxy-and-Firewall)。
 
 ## 容器与文件权限
 

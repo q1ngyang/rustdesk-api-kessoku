@@ -1,13 +1,13 @@
 # 快速开始：单独部署 Kessoku
 
-[English](Getting-Started.md) | **简体中文**
+[English](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Getting-Started) | **简体中文**
 
 本教程面向第一次使用 Docker 的用户，从一台已经运行 HBBS/HBBR 的 Linux 服务器开始，
 部署 Kessoku API、管理后台和内置浏览器远控页面。完成后可以使用 RustDesk 客户端登录、
 管理用户和设备、同步地址簿，并通过独立网页发起远程控制。
 
 如果你还没有 HBBS/HBBR，直接阅读
-[完整部署：Kessoku + Starry](ZH-CN-Complete-Deployment.md)。Kessoku 可以搭配官方
+[完整部署：Kessoku + Starry](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Complete-Deployment)。Kessoku 可以搭配官方
 HBBS/HBBR；本项目更推荐同一开发者维护的
 [`q1ngyang/rustdesk-server-starry`](https://github.com/q1ngyang/rustdesk-server-starry)。
 
@@ -182,7 +182,7 @@ web-client:
 ```
 
 这样桌面客户端的账户、地址簿和管理功能仍可使用，但 `client.example.com` 不提供浏览器
-远控。部署 WSS 后再按[客户端使用方法](ZH-CN-Web-Client.md)启用。
+远控。部署 WSS 后再按[客户端使用方法](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Web-Client)启用。
 
 检查是否还残留占位值：
 
@@ -219,7 +219,7 @@ sudo ufw status numbered
 ```
 
 如果 HBBS/HBBR 也在同一主机，还要按
-[反向代理与防火墙](ZH-CN-Reverse-Proxy-and-Firewall.md)开放 `21115/TCP`、
+[反向代理与防火墙](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Reverse-Proxy-and-Firewall)开放 `21115/TCP`、
 `21116/TCP+UDP` 和 `21117/TCP`。云服务器安全组需要同步设置；主机防火墙不会自动修改
 云平台安全组。
 
@@ -344,4 +344,4 @@ docker compose --env-file .env -f compose.yaml logs --tail 120 kessoku-api
 ```
 
 需要同时部署 HBBS/HBBR、WSS 和完整 Nginx 的用户，继续阅读
-[Kessoku + Starry 完整部署](ZH-CN-Complete-Deployment.md)。
+[Kessoku + Starry 完整部署](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Complete-Deployment)。

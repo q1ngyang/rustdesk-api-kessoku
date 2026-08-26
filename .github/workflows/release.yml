@@ -177,7 +177,7 @@ jobs:
             org.opencontainers.image.title=rustdesk-api-kessoku
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.url=https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}
-            org.opencontainers.image.documentation=https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/CONTAINER.md
+            org.opencontainers.image.documentation=https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/docs/deployment/CONTAINER.md
             org.opencontainers.image.version=${{ github.ref_name }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.licenses=MIT
@@ -186,7 +186,7 @@ jobs:
             index:org.opencontainers.image.title=rustdesk-api-kessoku
             index:org.opencontainers.image.source=https://github.com/${{ github.repository }}
             index:org.opencontainers.image.url=https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}
-            index:org.opencontainers.image.documentation=https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/CONTAINER.md
+            index:org.opencontainers.image.documentation=https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/docs/deployment/CONTAINER.md
             index:org.opencontainers.image.version=${{ github.ref_name }}
             index:org.opencontainers.image.revision=${{ github.sha }}
             index:org.opencontainers.image.licenses=MIT
@@ -198,8 +198,8 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          notes_file="RELEASE-NOTES-v3.0.1.md"
-          chinese_notes="RELEASE-NOTES-v3.0.1.zh-CN.md"
+          notes_file="docs/releases/v3.0.1/RELEASE-NOTES-v3.0.1.md"
+          chinese_notes="docs/releases/v3.0.1/RELEASE-NOTES-v3.0.1.zh-CN.md"
           test -f "$notes_file"
           test -f "$chinese_notes"
           cat > release-notes.md <<EOF
@@ -211,7 +211,7 @@ jobs:
 
           Recommended Docker deployment: https://github.com/${GITHUB_REPOSITORY}/wiki/Docker-Deployment
 
-          Container guide: https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/CONTAINER.md
+          Container guide: https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/docs/deployment/CONTAINER.md
 
           Compose asset: https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/docker-compose.yaml
 
@@ -232,19 +232,9 @@ jobs:
           in BUILD-INPUTS.txt, with separate SBOM and reproducibility evidence.
 
           EOF
-          sed \
-            -e "s#(RELEASE-NOTES-v3.0.1.zh-CN.md)#(https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/${chinese_notes})#" \
-            -e "s#(CONTAINER.md)#(https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/CONTAINER.md)#" \
-            -e "s#(docs/wiki/Docker-Deployment.md)#(https://github.com/${GITHUB_REPOSITORY}/wiki/Docker-Deployment)#" \
-            -e "s#(docker-compose.yaml)#(https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/docker-compose.yaml)#" \
-            -e "s#(examples/compose.env.example)#(https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/compose.env.example)#" \
-            -e "s#(examples/config.docker-builtin.yaml)#(https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/config.docker-builtin.yaml)#" \
-            -e "s#(docs/wiki/Starry-Control.md)#(https://github.com/${GITHUB_REPOSITORY}/wiki/Starry-Control)#" \
-            -e "s#(docs/wiki/Security-Finding-Closure.md)#(https://github.com/${GITHUB_REPOSITORY}/wiki/Security-Finding-Closure)#" \
-            -e "s#(docs/wiki/Upgrade-and-Rollback.md)#(https://github.com/${GITHUB_REPOSITORY}/wiki/Upgrade-and-Rollback)#" \
-            -e "s#(MIGRATION-v3.0.1.md)#(https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/MIGRATION-v3.0.1.md)#" \
-            -e "s#(MIGRATION.md)#(https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/MIGRATION.md)#" \
-            "$notes_file" >> release-notes.md
+          python3 scripts/render_release_notes.py "$notes_file" \
+            --repository "$GITHUB_REPOSITORY" --ref "$RELEASE_TAG" \
+            >> release-notes.md
           gh release create "$RELEASE_TAG" candidate/release-assets/* \
             --target "$GITHUB_SHA" \
             --title "rustdesk-api-kessoku $RELEASE_TAG" \

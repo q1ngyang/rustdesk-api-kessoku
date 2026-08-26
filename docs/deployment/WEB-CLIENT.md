@@ -88,6 +88,6 @@ text required by the runtime dependency is shipped at
 `resources/client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt` in every
 archive, Debian package, and container image.
 
-See [Web Client deployment](docs/wiki/Web-Client.md),
-[Security model](SECURITY-MODEL.md), and
-[the wire profile](docs/development/WEB-CLIENT-WIRE-SPEC.md).
+See [Web Client deployment](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Web-Client),
+[Security model](../security/SECURITY-MODEL.md), and
+[the wire profile](../development/WEB-CLIENT-WIRE-SPEC.md).

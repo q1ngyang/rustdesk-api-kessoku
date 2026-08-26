@@ -243,14 +243,7 @@ jobs:
             candidate/release/resources resources require-admin require-client
           printf '%s\n' "$ARTIFACT_LABEL" > candidate/release/resources/version
           cp -a conf docs candidate/release/
-          cp -a README.md README.zh-CN.md README_EN.md CONTAINER.md \
-            CONTAINER.zh-CN.md RELEASE-NOTES-v3.0.1.md \
-            RELEASE-NOTES-v3.0.1.zh-CN.md SECURITY-MODEL.md MIGRATION.md \
-            MIGRATION-v3.0.1.md MIGRATION-v3.0.1.zh-CN.md \
-            OPERATOR-RUNBOOK.md ROLLBACK-RUNBOOK.md WEB-CLIENT.md \
-            WEB-CLIENT.zh-CN.md \
-            ADMIN-WEB-PROVENANCE.md RELEASE-CHECKLIST.md RELEASE-PROCESS.md \
-            RELEASE_STATUS LICENSE \
+          cp -a README.md README.zh-CN.md README_EN.md RELEASE_STATUS LICENSE \
             candidate/release/
           install -m 0644 admin-web/LICENSE \
             candidate/release/ADMIN-WEB-LICENSE
@@ -359,6 +352,7 @@ jobs:
       - name: Verify bilingual docs and recommended Compose
         run: |
           python3 scripts/check_docs.py
+          python3 -m unittest discover -s scripts -p 'test_documentation.py'
           docker compose --env-file examples/compose.env.example \
             -f docker-compose.yaml config
           docker compose --env-file examples/compose.env.example \
@@ -475,10 +469,12 @@ jobs:
             runtime/kessoku-web-client.cdx.json \
             runtime/kessoku-source.spdx.json \
             runtime/kessoku-runtime.spdx.json candidate/release-assets/
-          cp RELEASE_STATUS RELEASE-CHECKLIST.md RELEASE-PROCESS.md \
+          cp RELEASE_STATUS docs/releases/RELEASE-CHECKLIST.md \
+            docs/releases/RELEASE-PROCESS.md \
             internal/starrycontrol/CONTRACT_VERSION candidate/release-assets/
-          cp CONTAINER.md CONTAINER.zh-CN.md RELEASE-NOTES-v3.0.1.md \
-            RELEASE-NOTES-v3.0.1.zh-CN.md docker-compose.yaml \
+          cp docs/deployment/CONTAINER.md docs/deployment/CONTAINER.zh-CN.md \
+            docs/releases/v3.0.1/RELEASE-NOTES-v3.0.1.md \
+            docs/releases/v3.0.1/RELEASE-NOTES-v3.0.1.zh-CN.md docker-compose.yaml \
             candidate/release-assets/
           cp examples/compose.env.example \
             candidate/release-assets/compose.env.example

@@ -1,6 +1,6 @@
 # Reverse proxy and firewall
 
-**English** | [简体中文](ZH-CN-Reverse-Proxy-and-Firewall.md)
+**English** | [简体中文](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Reverse-Proxy-and-Firewall)
 
 This page is the network reference for standalone Kessoku and combined
 Kessoku/Starry deployments.
@@ -40,12 +40,12 @@ records unless the provider offers an explicitly configured layer-4 product.
 
 | File | Use |
 | --- | --- |
-| [`examples/nginx/kessoku-bootstrap.conf.example`](../../examples/nginx/kessoku-bootstrap.conf.example) | Two-name certificate bootstrap |
-| [`examples/nginx/kessoku.example.conf`](../../examples/nginx/kessoku.example.conf) | Standalone Kessoku |
-| [`examples/combined/nginx-bootstrap.conf.example`](../../examples/combined/nginx-bootstrap.conf.example) | Three-name certificate bootstrap |
-| [`examples/combined/nginx.conf.example`](../../examples/combined/nginx.conf.example) | Complete Kessoku + Starry proxy |
-| [`examples/relay/nginx-bootstrap.conf.example`](../../examples/relay/nginx-bootstrap.conf.example) | Relay-only certificate bootstrap |
-| [`examples/relay/nginx.conf.example`](../../examples/relay/nginx.conf.example) | Relay-only `/ws/relay` site |
+| [`examples/nginx/kessoku-bootstrap.conf.example`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/nginx/kessoku-bootstrap.conf.example) | Two-name certificate bootstrap |
+| [`examples/nginx/kessoku.example.conf`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/nginx/kessoku.example.conf) | Standalone Kessoku |
+| [`examples/combined/nginx-bootstrap.conf.example`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/combined/nginx-bootstrap.conf.example) | Three-name certificate bootstrap |
+| [`examples/combined/nginx.conf.example`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/combined/nginx.conf.example) | Complete Kessoku + Starry proxy |
+| [`examples/relay/nginx-bootstrap.conf.example`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/relay/nginx-bootstrap.conf.example) | Relay-only certificate bootstrap |
+| [`examples/relay/nginx.conf.example`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/relay/nginx.conf.example) | Relay-only `/ws/relay` site |
 
 Replace every example name and certificate path, then always run:
 

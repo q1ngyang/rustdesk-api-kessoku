@@ -1,6 +1,6 @@
 # Connection authentication
 
-**English** | [简体中文](ZH-CN-Connection-Authentication.md)
+**English** | [简体中文](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Connection-Authentication)
 
 Kessoku issues and revokes access tokens; Starry verifies them on RustDesk
 signalling transports. Neither service can provide the complete property alone.
@@ -58,5 +58,5 @@ Unknown/stale keys and configured introspection failure cannot silently allow a
 cache miss in enforce mode. Roll back enforcement to `audit` under change
 control; do not bypass TLS verification or publish introspection publicly.
 
-See [`MIGRATION.md`](../../MIGRATION.md) and
-[`ROLLBACK-RUNBOOK.md`](../../ROLLBACK-RUNBOOK.md).
+See [`MIGRATION.md`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/releases/MIGRATION.md) and
+[`ROLLBACK-RUNBOOK.md`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/operations/ROLLBACK-RUNBOOK.md).

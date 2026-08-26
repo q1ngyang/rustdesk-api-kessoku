@@ -1,6 +1,6 @@
 # Relay-only deployment: HBBR
 
-**English** | [简体中文](ZH-CN-Relay-Only-Deployment.md)
+**English** | [简体中文](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Relay-Only-Deployment)
 
 This tutorial deploys one HBBR-only node on a separate Linux server. It runs no
 Kessoku API or HBBS. Use it to move Relay traffic away from the centre, add
@@ -299,6 +299,6 @@ docker compose --env-file .env -f compose.yaml logs --tail 150 hbbr
 Rollback by restoring the previous image line and tag. Never rotate the centre
 identity merely to troubleshoot a Relay node.
 
-For the complete centre stack, see [Complete Deployment](Complete-Deployment.md).
+For the complete centre stack, see [Complete Deployment](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Complete-Deployment).
 For the full port matrix, see
-[Reverse Proxy and Firewall](Reverse-Proxy-and-Firewall.md).
+[Reverse Proxy and Firewall](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Reverse-Proxy-and-Firewall).

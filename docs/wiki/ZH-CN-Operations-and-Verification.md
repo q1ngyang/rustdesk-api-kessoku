@@ -1,6 +1,6 @@
 # 日常运维与验证
 
-[English](Operations-and-Verification.md) | **简体中文**
+[English](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Operations-and-Verification) | **简体中文**
 
 本页提供部署后的日常检查、备份和完整验收清单。容器显示“运行中”、API 返回 200 或用户
 登录成功都只证明一部分链路正常。

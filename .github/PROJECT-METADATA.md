@@ -43,13 +43,13 @@ Image description:
 
 The release workflow sets OCI/index title, source, release URL, documentation,
 version, revision, licence, and description annotations. The documentation URL
-points to [`CONTAINER.md`](../CONTAINER.md), which provides visible links to:
+points to [`CONTAINER.md`](../docs/deployment/CONTAINER.md), which provides visible links to:
 
-- the recommended [Docker deployment](../docs/wiki/Docker-Deployment.md);
+- the recommended [Docker deployment](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Docker-Deployment);
 - the [Compose example](../docker-compose.yaml);
 - the [environment example](../examples/compose.env.example); and
-- the [Starry integration guide](../docs/wiki/Starry-Control.md); and
-- the [built-in Web Client guide](../docs/wiki/Web-Client.md).
+- the [Starry integration guide](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Starry-Control); and
+- the [built-in Web Client guide](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Web-Client).
 
 The release publishes immutable `v3.0.1` and moving `latest` tags for the same
 image. `latest` identifies the newest successfully published stable release;
@@ -78,4 +78,4 @@ The protected release workflow is prepared to:
 
 The documentation/new-feature wording and release gate are approved. Repository
 About, Wiki, package, tag, image, and Release changes still follow the audited
-sequence in [`RELEASE-PROCESS.md`](../RELEASE-PROCESS.md).
+sequence in [`RELEASE-PROCESS.md`](../docs/releases/RELEASE-PROCESS.md).

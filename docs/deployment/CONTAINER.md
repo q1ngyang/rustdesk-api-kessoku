@@ -12,14 +12,14 @@ package page. Docker Compose on Linux amd64 is the recommended deployment.
 Deployment links:
 
 - [GHCR image page](https://github.com/q1ngyang/rustdesk-api-kessoku/pkgs/container/rustdesk-api-kessoku)
-- [Recommended Docker deployment](docs/wiki/Docker-Deployment.md)
-- [Compose example](docker-compose.yaml)
-- [Environment example](examples/compose.env.example)
-- [Builtin Web Client configuration](examples/config.docker-builtin.yaml)
-- [Caddy HTTPS example](examples/Caddyfile.example)
-- [Getting started](docs/wiki/Getting-Started.md)
-- [Starry integration](docs/wiki/Starry-Control.md)
-- [Upgrade and rollback](docs/wiki/Upgrade-and-Rollback.md)
+- [Recommended Docker deployment](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Docker-Deployment)
+- [Compose example](../../docker-compose.yaml)
+- [Environment example](../../examples/compose.env.example)
+- [Builtin Web Client configuration](../../examples/config.docker-builtin.yaml)
+- [Caddy HTTPS example](../../examples/Caddyfile.example)
+- [Getting started](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Getting-Started)
+- [Starry integration](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Starry-Control)
+- [Upgrade and rollback](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Upgrade-and-Rollback)
 
 ## Image scope
 
@@ -104,7 +104,7 @@ password as a command argument or environment variable.
 
 The Compose default publishes ports `21114` and `21122` on `127.0.0.1` only. A
 host-local Caddy example provides different API/admin and Web Client HTTPS
-origins in [`examples/Caddyfile.example`](examples/Caddyfile.example). Compose
+origins in [`examples/Caddyfile.example`](../../examples/Caddyfile.example). Compose
 mounts `KESSOKU_CONFIG_FILE` read-only; the supplied builtin example explicitly
 enables `web-client.mode: builtin`. Edit its exact Relay-name-to-WSS YAML map,
 origins, public key, generation, and authentication key path before startup;
@@ -120,7 +120,7 @@ The built-in MVP supports forced Relay WSS, VP9 video, mouse and basic
 keyboard. It excludes P2P/direct transport, incoming mode, file/clipboard/
 audio, display switching, and non-VP9 codecs. Its connection-only token is
 short-lived and delivered in memory to the exact client origin. See
-[Web Client](docs/wiki/Web-Client.md).
+[Web Client](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Web-Client).
 
 ## Secrets and advanced configuration
 
@@ -155,7 +155,7 @@ enabling connection enforcement or Agent writes, verify:
 8. a browser forced-Relay VP9 session with mouse/keyboard, grant expiry/logout,
    and separate-origin/CSP verification.
 
-See [Operations and verification](docs/wiki/Operations-and-Verification.md).
+See [Operations and verification](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Operations-and-Verification).
 
 ## Upgrade and rollback
 
@@ -168,7 +168,7 @@ an older application.
 
 External MySQL/PostgreSQL connections must use certificate- and hostname-
 verified TLS. Mount a private CA read-only when required; see the
-[configuration reference](docs/wiki/Configuration-Reference.md).
+[configuration reference](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Configuration-Reference).
 
 Never overwrite or move an exposed version tag. See
-[Upgrade and rollback](docs/wiki/Upgrade-and-Rollback.md).
+[Upgrade and rollback](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Upgrade-and-Rollback).

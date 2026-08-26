@@ -74,6 +74,6 @@ Node 24.15.0 与 npm 11.12.1 固定。CI 执行 `npm ci`、lint、测试、生�
 Apache-2.0 与 BSD-3-Clause 文本会随每个 archive、Debian 包和容器镜像发布在
 `resources/client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt`。
 
-详见 [Web 客户端部署](docs/wiki/ZH-CN-Web-Client.md)、
-[安全模型](SECURITY-MODEL.md)和
-[wire profile](docs/development/WEB-CLIENT-WIRE-SPEC.md)。
+详见 [Web 客户端部署](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Web-Client)、
+[安全模型](../security/SECURITY-MODEL.md)和
+[wire profile](../development/WEB-CLIENT-WIRE-SPEC.md)。

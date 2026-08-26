@@ -31,7 +31,7 @@ v3.0.1 在延续现有 Kessoku/Starry 技术架构的基础上，重构内置管
 - 管理员角色或范围发生变化后，该账号的现有会话会被撤销。
 
 生产升级前必须备份数据库并演练。详细步骤见
-[升级与回滚 Wiki](docs/wiki/ZH-CN-Upgrade-and-Rollback.md)和
+[升级与回滚 Wiki](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Upgrade-and-Rollback)和
 [v3 数据库迁移说明](MIGRATION-v3.0.1.zh-CN.md)。
 
 [English release notes](RELEASE-NOTES-v3.0.1.md)

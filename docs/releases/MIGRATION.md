@@ -2,7 +2,7 @@
 
 This guide documents the version 301 authentication foundation. Kessoku v3.0.1
 then upgrades it to database version 302 for enterprise roles and scoped
-administration. Follow [`MIGRATION-v3.0.1.md`](MIGRATION-v3.0.1.md) after the
+administration. Follow [`MIGRATION-v3.0.1.md`](v3.0.1/MIGRATION-v3.0.1.md) after the
 version 301 preflight, and rehearse every step against a restored production
 backup before a maintenance window.
 
@@ -146,7 +146,7 @@ issue short-lived `rustdesk-connect`/`connect:initiate` tokens; they do not
 reuse a query-string token, provider cookie, or admin storage. Validate the
 public profile, strict CORS, exact-origin admin handoff, forced-Relay WSS/VP9
 session, logout, and rollback with `mode: disabled` before declaring the client
-available. See [`WEB-CLIENT.md`](WEB-CLIENT.md).
+available. See [`WEB-CLIENT.md`](../deployment/WEB-CLIENT.md).
 
 ### Phase 1: additive database upgrade
 
@@ -258,5 +258,5 @@ ownership, backup, and rotation procedures separate.
 - MySQL/PostgreSQL connect only with the reviewed CA and expected hostname;
   both OAuth identity unique indexes and the final-admin invariant are present.
 
-See [ROLLBACK-RUNBOOK.md](ROLLBACK-RUNBOOK.md) before approving the maintenance
+See [ROLLBACK-RUNBOOK.md](../operations/ROLLBACK-RUNBOOK.md) before approving the maintenance
 window.

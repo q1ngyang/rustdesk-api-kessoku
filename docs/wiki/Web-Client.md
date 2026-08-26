@@ -1,6 +1,6 @@
 # Built-in Web Client
 
-**English** | [简体中文](ZH-CN-Web-Client.md)
+**English** | [简体中文](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Web-Client)
 
 Kessoku v3.0.1 builds its MIT-licensed browser client from the repository's
 `web-client/` source and packages it as `resources/client`. The management UI
@@ -45,8 +45,8 @@ rejects a Relay name not present in its configured exact map.
 Set `web-client.mode: builtin`, exact `public-origin`/`api-origin`, listener,
 WSS URLs, base64 Ed25519 server public key, positive profile generation, and a
 connection-token TTL no longer than one hour or the global auth maximum. The
-full example and field contract are in [`WEB-CLIENT.md`](../../WEB-CLIENT.md)
-and the [configuration reference](Configuration-Reference.md).
+full example and field contract are in [`WEB-CLIENT.md`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/deployment/WEB-CLIENT.md)
+and the [configuration reference](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Configuration-Reference).
 
 `GET /config/v1.json` on the client origin contains public endpoints, public
 key/fingerprint, schema version, and profile generation only. The fingerprint
@@ -96,4 +96,4 @@ lifecycle ownership to the client.
   then logout/disconnect clears the token and password from memory.
 
 The detailed protocol/security limits are in
-[`docs/development/WEB-CLIENT-WIRE-SPEC.md`](../development/WEB-CLIENT-WIRE-SPEC.md).
+[`docs/development/WEB-CLIENT-WIRE-SPEC.md`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/development/WEB-CLIENT-WIRE-SPEC.md).

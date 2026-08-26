@@ -24,12 +24,12 @@ v2.8.3 将原通用 RustDesk API 服务收紧为有明确边界的账户与管�
 推荐在 Linux amd64 使用 Docker Compose。
 
 - [GHCR 镜像页面](https://github.com/q1ngyang/rustdesk-api-kessoku/pkgs/container/rustdesk-api-kessoku)
-- [容器镜像指南](CONTAINER.zh-CN.md)
-- [Docker 部署文档](docs/wiki/ZH-CN-Docker-Deployment.md)
-- [Compose 范例](docker-compose.yaml)
-- [环境变量范例](examples/compose.env.example)
-- [内置 Web Client 配置范例](examples/config.docker-builtin.yaml)
-- [Starry 集成文档](docs/wiki/ZH-CN-Starry-Control.md)
+- [容器镜像指南](../../deployment/CONTAINER.zh-CN.md)
+- [Docker 部署文档](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Docker-Deployment)
+- [Compose 范例](../../../docker-compose.yaml)
+- [环境变量范例](../../../examples/compose.env.example)
+- [内置 Web Client 配置范例](../../../examples/config.docker-builtin.yaml)
+- [Starry 集成文档](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Starry-Control)
 
 本版本把 `ghcr.io/q1ngyang/rustdesk-api-kessoku:v2.8.3` 与 `:latest` 发布为同一镜像。
 版本 tag 不可变；`latest` 只会在稳定版成功发布后移动。生产部署应解析并固定版本 tag 的
@@ -89,7 +89,7 @@ digest。
   内存，禁止用 URL、Cookie 或持久存储传 token。
 - 排除 direct/P2P、被控模式、文件传输、剪贴板、音频、终端、端口转发、打印、显示器
   切换、触摸/IME、非 VP9 codec 与软件解码。详见
-  [Web 客户端](docs/wiki/ZH-CN-Web-Client.md)。
+  [Web 客户端](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Web-Client)。
 
 ### 制品与自动化
 
@@ -115,15 +115,15 @@ digest。
   would-deny 后才可开启 `enforce`。
 - Control Agent 必须先只读上线，并在开启配置写入前完成回滚演练。
 
-详见[升级与回滚](docs/wiki/ZH-CN-Upgrade-and-Rollback.md)和
-[`MIGRATION.md`](MIGRATION.md)。
+详见[升级与回滚](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Upgrade-and-Rollback)和
+[`MIGRATION.md`](../MIGRATION.md)。
 
 ## v2.8.3 接受的已知限制
 
 RustDesk 1.4.9 的 audit/sysinfo 上传不携带认证头。Kessoku 保留有界兼容路由，并要求已经
 登记的 peer ID 与精确 UUID；但 UUID 不是秘密，已知这一组合仍可提交伪造运维 telemetry。
 需要不可抵赖性时，应把记录导出到 append-only 或不可变存储。完整处置与证据边界见
-[安全发现闭环](docs/wiki/ZH-CN-Security-Finding-Closure.md)。
+[安全发现闭环](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Security-Finding-Closure)。
 
 ## 平台范围
 

@@ -18,6 +18,7 @@ secrets/
 **/.env
 /config.yaml
 /compose.yaml
+__pycache__/
 
 # Local development plans and status notes are intentionally not published.
 /.local-notes/

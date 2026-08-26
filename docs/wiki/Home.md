@@ -1,6 +1,6 @@
 # rustdesk-api-kessoku documentation
 
-**English** | [简体中文](ZH-CN-Home.md)
+**English** | [简体中文](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Home)
 
 Kessoku is an unofficial RustDesk account, administration, and policy plane.
 It supplies the client API and embedded management UI. It can use compatible
@@ -22,20 +22,20 @@ authorization, and Relay allocation.
 
 | Situation | Start here |
 | --- | --- |
-| Existing HBBS/HBBR; first Kessoku deployment | [Getting Started](Getting-Started.md) |
-| Blank host; complete API + HBBS + HBBR deployment | [Complete Kessoku + Starry Deployment](Complete-Deployment.md) |
-| Add a remote HBBR-only Relay node | [Relay-Only Deployment](Relay-Only-Deployment.md) |
-| You arrived from GHCR | [Docker Image Usage](Docker-Image-Usage.md) |
-| Recommended single-host API deployment | [Docker Deployment](Docker-Deployment.md) |
-| You need Nginx, TLS, or port rules | [Reverse Proxy and Firewall](Reverse-Proxy-and-Firewall.md) |
-| You need all configuration boundaries | [Configuration Reference](Configuration-Reference.md) |
-| You are enabling connection authentication | [Connection Authentication](Connection-Authentication.md) |
-| You need Relay visibility or configuration transactions | [Starry Control](Starry-Control.md) |
-| You need the current browser-client boundary | [Web Client](Web-Client.md) |
-| You need backups, health checks, or routine verification | [Operations and Verification](Operations-and-Verification.md) |
-| You are hardening a public deployment | [Security Configuration](Security-Finding-Closure.md) |
-| You are upgrading or preparing rollback | [Upgrade and Rollback](Upgrade-and-Rollback.md) |
-| A deployment is failing | [Troubleshooting](Troubleshooting.md) |
+| Existing HBBS/HBBR; first Kessoku deployment | [Getting Started](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Getting-Started) |
+| Blank host; complete API + HBBS + HBBR deployment | [Complete Kessoku + Starry Deployment](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Complete-Deployment) |
+| Add a remote HBBR-only Relay node | [Relay-Only Deployment](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Relay-Only-Deployment) |
+| You arrived from GHCR | [Docker Image Usage](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Docker-Image-Usage) |
+| Recommended single-host API deployment | [Docker Deployment](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Docker-Deployment) |
+| You need Nginx, TLS, or port rules | [Reverse Proxy and Firewall](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Reverse-Proxy-and-Firewall) |
+| You need all configuration boundaries | [Configuration Reference](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Configuration-Reference) |
+| You are enabling connection authentication | [Connection Authentication](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Connection-Authentication) |
+| You need Relay visibility or configuration transactions | [Starry Control](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Starry-Control) |
+| You need the current browser-client boundary | [Web Client](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Web-Client) |
+| You need backups, health checks, or routine verification | [Operations and Verification](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Operations-and-Verification) |
+| You are hardening a public deployment | [Security Configuration](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Security-Finding-Closure) |
+| You are upgrading or preparing rollback | [Upgrade and Rollback](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Upgrade-and-Rollback) |
+| A deployment is failing | [Troubleshooting](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Troubleshooting) |
 
 ## Safe defaults
 

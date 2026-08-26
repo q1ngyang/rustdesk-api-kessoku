@@ -1,10 +1,10 @@
 # 配置参数参考
 
 Kessoku 从 YAML 文件读取配置。Docker 示例把宿主机的 `config.yaml` 只读挂载到
-`/app/conf/config.yaml`。完整模板见 [`conf/config.yaml`](../../conf/config.yaml)，可直接部署的
+`/app/conf/config.yaml`。完整模板见 [`conf/config.yaml`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/conf/config.yaml)，可直接部署的
 浏览器客户端模板见
-[`examples/config.docker-builtin.yaml`](../../examples/config.docker-builtin.yaml)，联合部署模板见
-[`examples/combined/kessoku-config.yaml`](../../examples/combined/kessoku-config.yaml)。
+[`examples/config.docker-builtin.yaml`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/config.docker-builtin.yaml)，联合部署模板见
+[`examples/combined/kessoku-config.yaml`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/combined/kessoku-config.yaml)。
 
 ## 配置规则
 
@@ -223,7 +223,7 @@ POST /api/internal/v1/auth/introspect
 ```
 
 必须使用 TLS 1.3、双向证书校验和精确 SAN；不要经过公网 `api.example.com` 代理。完整流程
-见[连接认证](ZH-CN-Connection-Authentication.md)。
+见[连接认证](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Connection-Authentication)。
 
 ## `web-client`
 
@@ -284,7 +284,7 @@ web-client:
 | `control-issuer` | 服务令牌签发者 HTTPS 地址 |
 | `authorized-party` | 必须等于 Kessoku 客户端证书的 URI SAN |
 
-所有凭据值都是文件路径。完整示例和上线顺序见[Starry 管理](ZH-CN-Starry-Control.md)。
+所有凭据值都是文件路径。完整示例和上线顺序见[Starry 管理](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Starry-Control)。
 
 ## `ldap`
 

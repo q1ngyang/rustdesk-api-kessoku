@@ -31,12 +31,12 @@ workflow.
 Docker Compose on Linux amd64 is the recommended deployment.
 
 - [GHCR image page](https://github.com/q1ngyang/rustdesk-api-kessoku/pkgs/container/rustdesk-api-kessoku)
-- [Container image guide](CONTAINER.md)
-- [Docker deployment guide](docs/wiki/Docker-Deployment.md)
-- [Compose example](docker-compose.yaml)
-- [Environment example](examples/compose.env.example)
-- [Builtin Web Client configuration](examples/config.docker-builtin.yaml)
-- [Starry integration guide](docs/wiki/Starry-Control.md)
+- [Container image guide](../../deployment/CONTAINER.md)
+- [Docker deployment guide](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Docker-Deployment)
+- [Compose example](../../../docker-compose.yaml)
+- [Environment example](../../../examples/compose.env.example)
+- [Builtin Web Client configuration](../../../examples/config.docker-builtin.yaml)
+- [Starry integration guide](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Starry-Control)
 
 The release publishes
 `ghcr.io/q1ngyang/rustdesk-api-kessoku:v2.8.3` and `:latest` for the same image.
@@ -112,7 +112,7 @@ release. Resolve and pin the version tag's digest for production rollout.
 - Direct/P2P, incoming mode, file transfer, clipboard, audio, terminal, port
   forwarding, printing, display switching, touch/IME, non-VP9 codecs, and
   software decoding are excluded. See
-  [Web Client](docs/wiki/Web-Client.md).
+  [Web Client](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Web-Client).
 
 ### Packaging and automation
 
@@ -146,8 +146,8 @@ release. Resolve and pin the version tag's digest for production rollout.
 - Commission the Control Agent read-only and rehearse rollback before enabling
   configuration writes.
 
-See [Upgrade and rollback](docs/wiki/Upgrade-and-Rollback.md) and
-[`MIGRATION.md`](MIGRATION.md).
+See [Upgrade and rollback](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Upgrade-and-Rollback) and
+[`MIGRATION.md`](../MIGRATION.md).
 
 ## Known limitation accepted for v2.8.3
 
@@ -157,7 +157,7 @@ peer ID and exact UUID, but UUIDs are not secrets and a known pair can still be
 used to submit spoofed operational telemetry. Export these records to
 append-only or immutable storage when non-repudiation is required. The full
 disposition and evidence boundary are in
-[Security finding closure](docs/wiki/Security-Finding-Closure.md).
+[Security finding closure](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Security-Finding-Closure).
 
 ## Platform scope
 

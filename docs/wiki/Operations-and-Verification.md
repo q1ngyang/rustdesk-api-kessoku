@@ -1,6 +1,6 @@
 # Operations and verification
 
-**English** | [简体中文](ZH-CN-Operations-and-Verification.md)
+**English** | [简体中文](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Operations-and-Verification)
 
 Use this checklist after deployment and before or after every configuration or
 image change. A healthy container does not prove that login, signalling, or

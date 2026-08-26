@@ -1,6 +1,6 @@
 # Upgrade and rollback
 
-**English** | [简体中文](ZH-CN-Upgrade-and-Rollback.md)
+**English** | [简体中文](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Upgrade-and-Rollback)
 
 Back up data and keys before changing an image or schema. Kessoku v3.0.1 uses
 database version `302`; an older image may not understand a database already

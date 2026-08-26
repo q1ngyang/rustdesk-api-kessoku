@@ -30,10 +30,10 @@ Kessoku 不包含 HBBS/HBBR。它可以搭配官方 RustDesk Server；推荐搭�
 
 | 场景 | 教程 |
 | --- | --- |
-| 已有官方/第三方 HBBS/HBBR，只部署 Kessoku | [手把手快速开始](docs/wiki/ZH-CN-Getting-Started.md) |
-| 从空白服务器部署 API + HBBS + HBBR | [Kessoku + Starry 完整教程](docs/wiki/ZH-CN-Complete-Deployment.md) |
-| 为现有中心增加独立 HBBR | [纯中继节点教程](docs/wiki/ZH-CN-Relay-Only-Deployment.md) |
-| 查询 Compose、目录和更新命令 | [Docker 部署参考](docs/wiki/ZH-CN-Docker-Deployment.md) |
+| 已有官方/第三方 HBBS/HBBR，只部署 Kessoku | [手把手快速开始](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Getting-Started) |
+| 从空白服务器部署 API + HBBS + HBBR | [Kessoku + Starry 完整教程](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Complete-Deployment) |
+| 为现有中心增加独立 HBBR | [纯中继节点教程](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Relay-Only-Deployment) |
+| 查询 Compose、目录和更新命令 | [Docker 部署参考](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Docker-Deployment) |
 
 基础 Kessoku Compose：
 
@@ -61,7 +61,7 @@ RustDesk 原生端口：21115/TCP、21116/TCP+UDP、21117/TCP
 ```
 
 API 和浏览器客户端必须使用两个不同的 HTTPS 域名。`21114`、`21118`～`21122` 不对公网
-开放；详细规则见[反向代理与防火墙](docs/wiki/ZH-CN-Reverse-Proxy-and-Firewall.md)。
+开放；详细规则见[反向代理与防火墙](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Reverse-Proxy-and-Firewall)。
 
 ## 配置与持久化
 
@@ -78,31 +78,34 @@ Kessoku 容器使用 UID/GID `65534:65534`。数据和密钥目录必须属于�
 
 ## 文档
 
+完整分类见[文档目录](docs/README.zh-CN.md)：部署、运维、安全、发布历史与开发参考统一
+收纳在 `docs/`，下方使用指南链接直接打开在线 Wiki。
+
 | 主题 | 文档 |
 | --- | --- |
-| 中文首页与功能概览 | [Wiki 首页](docs/wiki/ZH-CN-Home.md) |
-| 单独部署 Kessoku | [快速开始](docs/wiki/ZH-CN-Getting-Started.md) |
-| Kessoku + Starry | [完整部署](docs/wiki/ZH-CN-Complete-Deployment.md) |
-| 独立 HBBR | [纯中继节点](docs/wiki/ZH-CN-Relay-Only-Deployment.md) |
-| Docker 镜像 | [镜像使用](CONTAINER.zh-CN.md) |
-| Docker 参考 | [Docker 部署](docs/wiki/ZH-CN-Docker-Deployment.md) |
-| Nginx 和端口 | [反向代理与防火墙](docs/wiki/ZH-CN-Reverse-Proxy-and-Firewall.md) |
-| 所有 YAML 参数 | [配置参数参考](docs/wiki/ZH-CN-Configuration-Reference.md) |
-| 桌面与浏览器客户端 | [客户端使用方法](docs/wiki/ZH-CN-Web-Client.md) |
-| Starry 连接令牌 | [连接认证](docs/wiki/ZH-CN-Connection-Authentication.md) |
-| Starry 管理代理 | [Starry 管理](docs/wiki/ZH-CN-Starry-Control.md) |
-| 安全、运维和故障 | [安全配置](docs/wiki/ZH-CN-Security-Finding-Closure.md) · [日常运维](docs/wiki/ZH-CN-Operations-and-Verification.md) · [排障](docs/wiki/ZH-CN-Troubleshooting.md) |
-| 升级 | [升级与回退](docs/wiki/ZH-CN-Upgrade-and-Rollback.md) |
-| English | [English documentation](docs/wiki/Home.md) |
+| 中文首页与功能概览 | [Wiki 首页](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Home) |
+| 单独部署 Kessoku | [快速开始](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Getting-Started) |
+| Kessoku + Starry | [完整部署](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Complete-Deployment) |
+| 独立 HBBR | [纯中继节点](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Relay-Only-Deployment) |
+| Docker 镜像 | [镜像使用](docs/deployment/CONTAINER.zh-CN.md) |
+| Docker 参考 | [Docker 部署](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Docker-Deployment) |
+| Nginx 和端口 | [反向代理与防火墙](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Reverse-Proxy-and-Firewall) |
+| 所有 YAML 参数 | [配置参数参考](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Configuration-Reference) |
+| 桌面与浏览器客户端 | [客户端使用方法](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Web-Client) |
+| Starry 连接令牌 | [连接认证](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Connection-Authentication) |
+| Starry 管理代理 | [Starry 管理](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Starry-Control) |
+| 安全、运维和故障 | [安全配置](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Security-Finding-Closure) · [日常运维](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Operations-and-Verification) · [排障](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Troubleshooting) |
+| 升级 | [升级与回退](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Upgrade-and-Rollback) |
+| English | [English documentation](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Home) |
 
 ## 升级提示
 
 v3.0.1 使用数据库版本 302，新增企业角色和范围授权。v2 程序可能把范围管理员误认为无限制
 管理员，不能让 v2/v3 同时写一个数据库，也不能在没有匹配备份时直接降级。升级前阅读
-[`MIGRATION-v3.0.1.zh-CN.md`](MIGRATION-v3.0.1.zh-CN.md)。
+[`MIGRATION-v3.0.1.zh-CN.md`](docs/releases/v3.0.1/MIGRATION-v3.0.1.zh-CN.md)。
 
 ## 许可证
 
 Kessoku 使用 MIT 许可证，与 RustDesk 官方项目没有隶属关系。项目延续
 `lejianwen/rustdesk-api` 贡献者的工作；管理前端来源记录见
-[`ADMIN-WEB-PROVENANCE.md`](ADMIN-WEB-PROVENANCE.md)。
+[`ADMIN-WEB-PROVENANCE.md`](docs/development/ADMIN-WEB-PROVENANCE.md)。

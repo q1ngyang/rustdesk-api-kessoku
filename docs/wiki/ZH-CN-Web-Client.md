@@ -61,7 +61,7 @@ Kessoku `v3.0.1` 内置浏览器远控页面，当前支持：
 6. WSS 证书受浏览器信任，不能使用自签名证书后手工忽略警告。
 
 Kessoku 可以搭配支持这些 WSS 路径的官方 HBBS/HBBR。推荐使用 Starry，联合配置见
-[完整部署教程](ZH-CN-Complete-Deployment.md)。
+[完整部署教程](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Complete-Deployment)。
 
 ## Kessoku 配置示例
 
@@ -141,8 +141,8 @@ wss://rustdesk.example.com/ws/relay -> 127.0.0.1:21119
 ```
 
 完整示例见
-[`examples/combined/nginx.conf.example`](../../examples/combined/nginx.conf.example)和
-[反向代理与防火墙](ZH-CN-Reverse-Proxy-and-Firewall.md)。不能直接向公网开放
+[`examples/combined/nginx.conf.example`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/combined/nginx.conf.example)和
+[反向代理与防火墙](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Reverse-Proxy-and-Firewall)。不能直接向公网开放
 `21118`、`21119` 或 `21122`。
 
 ## 使用浏览器客户端

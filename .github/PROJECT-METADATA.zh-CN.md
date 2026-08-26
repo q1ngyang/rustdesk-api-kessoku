@@ -42,13 +42,13 @@ ldap
 
 发布 workflow 会设置 OCI/index title、source、release URL、documentation、version、
 revision、licence 与 description annotation。documentation 指向
-[`CONTAINER.md`](../CONTAINER.md)，其中提供以下可见链接：
+[`CONTAINER.md`](../docs/deployment/CONTAINER.md)，其中提供以下可见链接：
 
-- 推荐 [Docker 部署](../docs/wiki/ZH-CN-Docker-Deployment.md)；
+- 推荐 [Docker 部署](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Docker-Deployment)；
 - [Compose 范例](../docker-compose.yaml)；
 - [环境变量范例](../examples/compose.env.example)；
-- [Starry 集成](../docs/wiki/ZH-CN-Starry-Control.md)；
-- [内置 Web Client](../docs/wiki/ZH-CN-Web-Client.md)。
+- [Starry 集成](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Starry-Control)；
+- [内置 Web Client](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Web-Client)。
 
 发布流程会把不可变 `v3.0.1` 与移动的 `latest` 发布为同一镜像。`latest` 指向最新成功
 发布的稳定版；生产运维人员解析并固定版本 tag 的 digest。
@@ -72,4 +72,4 @@ revision、licence 与 description annotation。documentation 指向
   检查。
 
 文档/新特性文案和发布门禁已经批准；Repository About、Wiki、package、tag、镜像与
-Release 仍须按 [`RELEASE-PROCESS.md`](../RELEASE-PROCESS.md) 的可审计顺序执行。
+Release 仍须按 [`RELEASE-PROCESS.md`](../docs/releases/RELEASE-PROCESS.md) 的可审计顺序执行。

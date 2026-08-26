@@ -203,7 +203,7 @@ func TestCompilerFrontendAndVulnerabilityScannerArePinned(t *testing.T) {
 func TestAdminWebIsEmbeddedWithReviewedProvenance(t *testing.T) {
 	const importCommit = "2a9d037fc271cf96b39fd4add4b97c4ff4477f12"
 	const seedCommit = "3998c2a9213fcd047252776d0f0db33e6717026c"
-	for _, path := range []string{"ADMIN-WEB-PROVENANCE.md", "admin-web/PROVENANCE.md"} {
+	for _, path := range []string{"docs/development/ADMIN-WEB-PROVENANCE.md", "admin-web/PROVENANCE.md"} {
 		contents, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)

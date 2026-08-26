@@ -1,14 +1,14 @@
 # Docker deployment
 
-**English** | [简体中文](ZH-CN-Docker-Deployment.md)
+**English** | [简体中文](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Docker-Deployment)
 
 Docker Compose on Linux amd64 is the recommended Kessoku deployment. The
 repository example runs only Kessoku; Starry HBBS and official HBBR remain
 separate services with independent data and ports.
 
-For a complete centre use [Complete Deployment](Complete-Deployment.md). To
+For a complete centre use [Complete Deployment](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Complete-Deployment). To
 add a remote HBBR without another API or HBBS, use
-[Relay-Only Deployment](Relay-Only-Deployment.md).
+[Relay-Only Deployment](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Relay-Only-Deployment).
 
 ## Architecture
 
@@ -28,15 +28,15 @@ Never route port `21121` or the Control Agent through the public API path.
 
 ## Files
 
-- [`docker-compose.yaml`](../../docker-compose.yaml)
-- [`examples/compose.env.example`](../../examples/compose.env.example)
-- [`examples/config.docker-builtin.yaml`](../../examples/config.docker-builtin.yaml)
-- [`examples/Caddyfile.example`](../../examples/Caddyfile.example)
-- [`examples/nginx/kessoku.example.conf`](../../examples/nginx/kessoku.example.conf)
-- [`examples/relay/compose.yaml`](../../examples/relay/compose.yaml)
-- [`examples/relay/.env.example`](../../examples/relay/.env.example)
-- [`conf/config.yaml`](../../conf/config.yaml)
-- [`CONTAINER.md`](../../CONTAINER.md)
+- [`docker-compose.yaml`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docker-compose.yaml)
+- [`examples/compose.env.example`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/compose.env.example)
+- [`examples/config.docker-builtin.yaml`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/config.docker-builtin.yaml)
+- [`examples/Caddyfile.example`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/Caddyfile.example)
+- [`examples/nginx/kessoku.example.conf`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/nginx/kessoku.example.conf)
+- [`examples/relay/compose.yaml`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/relay/compose.yaml)
+- [`examples/relay/.env.example`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/relay/.env.example)
+- [`conf/config.yaml`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/conf/config.yaml)
+- [`CONTAINER.md`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/deployment/CONTAINER.md)
 
 ## Prepare
 
@@ -116,7 +116,7 @@ private PKI, place the CA in `secrets/`, mount it read-only under
 `/run/secrets`, and set `mysql.ca-file` or `postgresql.ssl-root-cert` to that
 container path. The database address/host must match a certificate SAN.
 Kessoku intentionally exits on an insecure mode, unreadable CA, unknown CA, or
-hostname mismatch. See [Configuration reference](Configuration-Reference.md).
+hostname mismatch. See [Configuration reference](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Configuration-Reference).
 
 ## Verify
 
@@ -124,7 +124,7 @@ Verify administrator login, ordinary API login/logout, address-book access,
 database version 301, OAuth identity index/invariant presence, and logs before
 introducing Starry authentication. A complete
 deployment then follows the staged acceptance in
-[Operations and Verification](Operations-and-Verification.md).
+[Operations and Verification](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Operations-and-Verification).
 Also verify the browser client public profile contains no secret, grant handoff
 uses the exact origin, and one forced-Relay VP9 mouse/keyboard session completes
-and logs out. See [Built-in Web Client](Web-Client.md).
+and logs out. See [Built-in Web Client](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Web-Client).

@@ -1,6 +1,6 @@
 # Security configuration
 
-**English** | [简体中文](ZH-CN-Security-Finding-Closure.md)
+**English** | [简体中文](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Security-Finding-Closure)
 
 Use this page to harden a public Kessoku deployment. The filename is retained
 so existing Wiki links continue to work.
@@ -19,7 +19,7 @@ Expose only the ports required by the selected deployment:
 Keep `21114`, `21118`, `21119`, `21120`, `21121`, and `21122` off the public
 network. Bind Kessoku's proxy backends to `127.0.0.1`; protect Starry's
 host-network listeners with both the host firewall and cloud security group.
-See [Reverse Proxy and Firewall](Reverse-Proxy-and-Firewall.md) for exact rules.
+See [Reverse Proxy and Firewall](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Reverse-Proxy-and-Firewall) for exact rules.
 
 Configure `gin.trust-proxy` only with the exact proxy source address. Never
 trust `0.0.0.0/0` or `::/0` merely to obtain a client address in logs.

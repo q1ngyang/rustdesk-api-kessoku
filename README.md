@@ -58,7 +58,7 @@ excluded.
 
 > **Upgrade notice:** v3 changes the Go module path to `/v3` and database role
 > semantics at schema version 302. Read the
-> [breaking changes](RELEASE-NOTES-v3.0.1.md#breaking-changes) before upgrading.
+> [breaking changes](docs/releases/v3.0.1/RELEASE-NOTES-v3.0.1.md#breaking-changes) before upgrading.
 
 ## Recommended deployment
 
@@ -88,23 +88,26 @@ read-only, and complete a real-client and rollback rehearsal first.
 
 ## Documentation
 
+Browse the [categorized documentation index](docs/README.md) for deployment,
+operations, security, release history, and developer references.
+
 | Topic | Document |
 | --- | --- |
-| First deployment | [Getting started](docs/wiki/Getting-Started.md) |
-| Kessoku + Starry full stack | [Complete deployment](docs/wiki/Complete-Deployment.md) |
-| Remote HBBR-only node | [Relay-only deployment](docs/wiki/Relay-Only-Deployment.md) |
-| GHCR package users | [Container image guide](CONTAINER.md) |
-| Recommended Compose deployment | [Docker deployment](docs/wiki/Docker-Deployment.md) |
-| Nginx and firewall rules | [Reverse proxy and firewall](docs/wiki/Reverse-Proxy-and-Firewall.md) |
-| Configuration | [Configuration reference](docs/wiki/Configuration-Reference.md) |
-| JWT/JWKS/introspection rollout | [Connection authentication](docs/wiki/Connection-Authentication.md) |
-| Starry integration | [Starry control](docs/wiki/Starry-Control.md) |
-| Browser client deployment and exclusions | [Web Client](docs/wiki/Web-Client.md) |
-| Deployment hardening | [Security configuration](docs/wiki/Security-Finding-Closure.md) |
-| Backups and routine checks | [Operations and verification](docs/wiki/Operations-and-Verification.md) |
-| Upgrade and rollback | [Upgrade and rollback](docs/wiki/Upgrade-and-Rollback.md) |
-| Failure diagnosis | [Troubleshooting](docs/wiki/Troubleshooting.md) |
-| 中文文档 | [中文文档主页](docs/wiki/ZH-CN-Home.md) |
+| First deployment | [Getting started](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Getting-Started) |
+| Kessoku + Starry full stack | [Complete deployment](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Complete-Deployment) |
+| Remote HBBR-only node | [Relay-only deployment](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Relay-Only-Deployment) |
+| GHCR package users | [Container image guide](docs/deployment/CONTAINER.md) |
+| Recommended Compose deployment | [Docker deployment](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Docker-Deployment) |
+| Nginx and firewall rules | [Reverse proxy and firewall](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Reverse-Proxy-and-Firewall) |
+| Configuration | [Configuration reference](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Configuration-Reference) |
+| JWT/JWKS/introspection rollout | [Connection authentication](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Connection-Authentication) |
+| Starry integration | [Starry control](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Starry-Control) |
+| Browser client deployment and exclusions | [Web Client](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Web-Client) |
+| Deployment hardening | [Security configuration](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Security-Finding-Closure) |
+| Backups and routine checks | [Operations and verification](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Operations-and-Verification) |
+| Upgrade and rollback | [Upgrade and rollback](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Upgrade-and-Rollback) |
+| Failure diagnosis | [Troubleshooting](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Troubleshooting) |
+| 中文文档 | [中文文档主页](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Home) |
 
 The reviewed Wiki source is stored in [`docs/wiki/`](docs/wiki/). Publishing
 those pages to GitHub Wiki is a separate release-owner action.
@@ -112,9 +115,9 @@ those pages to GitHub Wiki is a separate release-owner action.
 ## Release status
 
 The authoritative gate is [`RELEASE_STATUS`](RELEASE_STATUS), with evidence
-requirements in [`RELEASE-CHECKLIST.md`](RELEASE-CHECKLIST.md). The v3.0.1
+requirements in [`RELEASE-CHECKLIST.md`](docs/releases/RELEASE-CHECKLIST.md). The v3.0.1
 feature and compatibility notes are in
-[`RELEASE-NOTES-v3.0.1.md`](RELEASE-NOTES-v3.0.1.md).
+[`RELEASE-NOTES-v3.0.1.md`](docs/releases/v3.0.1/RELEASE-NOTES-v3.0.1.md).
 
 Local development checks are not permission to publish. Tagging, pushing,
 GHCR publication, GitHub Release creation, and Wiki publication require
@@ -125,5 +128,5 @@ separate explicit approval.
 Kessoku is MIT licensed and is not affiliated with RustDesk. It continues the
 work of the upstream `lejianwen/rustdesk-api` contributors. The embedded admin
 frontend retains its own reviewed MIT provenance in
-[`ADMIN-WEB-PROVENANCE.md`](ADMIN-WEB-PROVENANCE.md). The repository-owned Web
+[`ADMIN-WEB-PROVENANCE.md`](docs/development/ADMIN-WEB-PROVENANCE.md). The repository-owned Web
 Client is MIT licensed; dependency licences are recorded in its release SBOM.

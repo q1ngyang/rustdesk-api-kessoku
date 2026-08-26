@@ -1,6 +1,6 @@
 # 升级与回退
 
-[English](Upgrade-and-Rollback.md) | **简体中文**
+[English](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Upgrade-and-Rollback) | **简体中文**
 
 Kessoku 启动时会自动升级数据库结构。跨数据库版本升级后，直接把镜像改回旧版并继续写入
 可能造成权限错误或旧程序无法识别新会话，因此升级前必须准备匹配的数据库备份。
@@ -79,8 +79,8 @@ v3.0.1 把数据库升级到版本 `302`，新增企业角色和管理员资源�
 8. 再启用新的 Ed25519 认证、浏览器客户端或 Starry 高级集成。
 
 详细预检和数据库查询见
-[`MIGRATION-v3.0.1.zh-CN.md`](../../MIGRATION-v3.0.1.zh-CN.md)及
-[`MIGRATION.md`](../../MIGRATION.md)。身份冲突必须由管理员明确决定合并或解绑，不能只为
+[`MIGRATION-v3.0.1.zh-CN.md`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/releases/v3.0.1/MIGRATION-v3.0.1.zh-CN.md)及
+[`MIGRATION.md`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/releases/MIGRATION.md)。身份冲突必须由管理员明确决定合并或解绑，不能只为
 通过唯一索引而随意删除记录。
 
 ## 推荐的高级功能启用顺序
@@ -145,4 +145,4 @@ v3.0.1 把数据库升级到版本 `302`，新增企业角色和管理员资源�
 - API、原生 TCP/UDP、HBBR、WSS 和浏览器客户端均按预期工作；
 - 防火墙和 Nginx 没有因临时排障留下公开后端端口。
 
-更详细的应急流程见 [`ROLLBACK-RUNBOOK.md`](../../ROLLBACK-RUNBOOK.md)。
+更详细的应急流程见 [`ROLLBACK-RUNBOOK.md`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/operations/ROLLBACK-RUNBOOK.md)。

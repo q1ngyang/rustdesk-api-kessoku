@@ -1,8 +1,8 @@
 # 反向代理与防火墙
 
 本页集中说明 Kessoku、HBBS/HBBR 和 Starry 联合部署时的公网入口。第一次部署请先按
-[单独部署教程](ZH-CN-Getting-Started.md)或
-[Kessoku + Starry 完整教程](ZH-CN-Complete-Deployment.md)操作。
+[单独部署教程](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Getting-Started)或
+[Kessoku + Starry 完整教程](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Complete-Deployment)操作。
 
 ## 端口总表
 
@@ -45,12 +45,12 @@ rustdesk.example.com  HBBS/HBBR 原生地址及 /ws/id、/ws/relay
 
 | 文件 | 场景 |
 | --- | --- |
-| [`examples/nginx/kessoku-bootstrap.conf.example`](../../examples/nginx/kessoku-bootstrap.conf.example) | Kessoku 两个域名首次申请证书 |
-| [`examples/nginx/kessoku.example.conf`](../../examples/nginx/kessoku.example.conf) | 仅 Kessoku API 与浏览器客户端 |
-| [`examples/combined/nginx-bootstrap.conf.example`](../../examples/combined/nginx-bootstrap.conf.example) | 联合部署三个域名首次申请证书 |
-| [`examples/combined/nginx.conf.example`](../../examples/combined/nginx.conf.example) | Kessoku + Starry 完整反向代理 |
-| [`examples/relay/nginx-bootstrap.conf.example`](../../examples/relay/nginx-bootstrap.conf.example) | 纯中继节点首次申请证书 |
-| [`examples/relay/nginx.conf.example`](../../examples/relay/nginx.conf.example) | 纯中继节点 `/ws/relay` |
+| [`examples/nginx/kessoku-bootstrap.conf.example`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/nginx/kessoku-bootstrap.conf.example) | Kessoku 两个域名首次申请证书 |
+| [`examples/nginx/kessoku.example.conf`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/nginx/kessoku.example.conf) | 仅 Kessoku API 与浏览器客户端 |
+| [`examples/combined/nginx-bootstrap.conf.example`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/combined/nginx-bootstrap.conf.example) | 联合部署三个域名首次申请证书 |
+| [`examples/combined/nginx.conf.example`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/combined/nginx.conf.example) | Kessoku + Starry 完整反向代理 |
+| [`examples/relay/nginx-bootstrap.conf.example`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/relay/nginx-bootstrap.conf.example) | 纯中继节点首次申请证书 |
+| [`examples/relay/nginx.conf.example`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/relay/nginx.conf.example) | 纯中继节点 `/ws/relay` |
 
 复制后必须替换全部 `example.com` 和证书路径，并在每次重新加载前执行：
 

@@ -1,6 +1,6 @@
 # Docker 镜像使用
 
-[English](Docker-Image-Usage.md) | **简体中文**
+[English](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Docker-Image-Usage) | **简体中文**
 
 Kessoku 镜像发布于
 [`ghcr.io/q1ngyang/rustdesk-api-kessoku`](https://github.com/q1ngyang/rustdesk-api-kessoku/pkgs/container/rustdesk-api-kessoku)，
@@ -36,17 +36,17 @@ RustDesk Server，推荐使用
 Kessoku 需要持久化数据、只读配置、签名密钥、端口回环绑定和安全限制。推荐使用仓库提供的
 Compose：
 
-- [已有 HBBS/HBBR 的完整教程](ZH-CN-Getting-Started.md)；
-- [Kessoku + Starry 联合教程](ZH-CN-Complete-Deployment.md)；
-- [Docker 部署参考](ZH-CN-Docker-Deployment.md)。
+- [已有 HBBS/HBBR 的完整教程](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Getting-Started)；
+- [Kessoku + Starry 联合教程](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Complete-Deployment)；
+- [Docker 部署参考](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Docker-Deployment)。
 
 相关文件：
 
-- [`docker-compose.yaml`](../../docker-compose.yaml)
-- [`examples/compose.env.example`](../../examples/compose.env.example)
-- [`examples/config.docker-builtin.yaml`](../../examples/config.docker-builtin.yaml)
-- [`examples/combined/`](../../examples/combined)
-- [`examples/nginx/`](../../examples/nginx)
+- [`docker-compose.yaml`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docker-compose.yaml)
+- [`examples/compose.env.example`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/compose.env.example)
+- [`examples/config.docker-builtin.yaml`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/config.docker-builtin.yaml)
+- [`examples/combined/`](https://github.com/q1ngyang/rustdesk-api-kessoku/tree/master/examples/combined)
+- [`examples/nginx/`](https://github.com/q1ngyang/rustdesk-api-kessoku/tree/master/examples/nginx)
 
 ## 更新镜像
 
@@ -59,5 +59,5 @@ docker compose --env-file .env -f compose.yaml up -d kessoku-api
 docker compose --env-file .env -f compose.yaml logs --tail 150 kessoku-api
 ```
 
-升级跨越 v2/v3 时必须阅读[升级与回退](ZH-CN-Upgrade-and-Rollback.md)，不能只替换镜像后
+升级跨越 v2/v3 时必须阅读[升级与回退](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Upgrade-and-Rollback)，不能只替换镜像后
 在同一数据库上反复切换新旧版本。

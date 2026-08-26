@@ -56,6 +56,7 @@ if ! grep -Fq "$admin_import_commit" "$admin_web_root/PROVENANCE.md" || \
 fi
 
 python3 "$repo_root/scripts/check_docs.py"
+python3 -m unittest discover -s "$repo_root/scripts" -p 'test_documentation.py'
 docker compose --env-file "$repo_root/examples/compose.env.example" \
   -f "$repo_root/docker-compose.yaml" config --quiet
 
@@ -213,13 +214,7 @@ sh "$backend_source/scripts/copy-runtime-resources.sh" \
   "$release/resources" "$backend_source/resources" require-admin require-client
 printf '%s\n' 'v3.0.1-local-candidate' > "$release/resources/version"
 cp -a "$backend_source/conf" "$backend_source/docs" "$release/"
-for document in README.md README.zh-CN.md README_EN.md CONTAINER.md \
-  CONTAINER.zh-CN.md RELEASE-NOTES-v3.0.1.md \
-  RELEASE-NOTES-v3.0.1.zh-CN.md SECURITY-MODEL.md MIGRATION.md \
-  MIGRATION-v3.0.1.md MIGRATION-v3.0.1.zh-CN.md \
-  OPERATOR-RUNBOOK.md ROLLBACK-RUNBOOK.md WEB-CLIENT.md WEB-CLIENT.zh-CN.md \
-  ADMIN-WEB-PROVENANCE.md RELEASE-CHECKLIST.md RELEASE-PROCESS.md \
-  RELEASE_STATUS LICENSE; do
+for document in README.md README.zh-CN.md README_EN.md RELEASE_STATUS LICENSE; do
   cp -a "$backend_source/$document" "$release/"
 done
 install -m 0644 "$admin_source/LICENSE" "$release/ADMIN-WEB-LICENSE"
@@ -415,10 +410,11 @@ install -m 0644 "$admin_source/LICENSE" "$release_assets/ADMIN-WEB-LICENSE"
 install -m 0644 "$web_client_source/LICENSE" "$release_assets/WEB-CLIENT-LICENSE"
 install -m 0644 "$web_client_source/NOTICE.md" "$release_assets/WEB-CLIENT-NOTICE.md"
 install -m 0644 "$backend_source/RELEASE_STATUS" \
-  "$backend_source/RELEASE-CHECKLIST.md" \
-  "$backend_source/RELEASE-NOTES-v3.0.1.md" \
-  "$backend_source/RELEASE-NOTES-v3.0.1.zh-CN.md" \
-  "$backend_source/CONTAINER.md" "$backend_source/CONTAINER.zh-CN.md" \
+  "$backend_source/docs/releases/RELEASE-CHECKLIST.md" \
+  "$backend_source/docs/releases/v3.0.1/RELEASE-NOTES-v3.0.1.md" \
+  "$backend_source/docs/releases/v3.0.1/RELEASE-NOTES-v3.0.1.zh-CN.md" \
+  "$backend_source/docs/deployment/CONTAINER.md" \
+  "$backend_source/docs/deployment/CONTAINER.zh-CN.md" \
   "$backend_source/docker-compose.yaml" \
   "$backend_source/examples/compose.env.example" \
   "$backend_source/internal/starrycontrol/CONTRACT_VERSION" \

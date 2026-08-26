@@ -1,6 +1,6 @@
 # Starry control
 
-**English** | [简体中文](ZH-CN-Starry-Control.md)
+**English** | [简体中文](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Starry-Control)
 
 Kessoku integrates with the optional Starry Control Agent through Control API
 v1. The browser talks only to Kessoku; it never talks directly to the Agent.

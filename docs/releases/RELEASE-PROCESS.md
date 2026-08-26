@@ -37,6 +37,10 @@ Before tagging, the reviewed commit must pass the checks in
 7. Publish the reviewed `docs/wiki/` tree to the separate GitHub Wiki repository
    and verify bilingual navigation and upgrade links.
 
+Follow the [documentation maintenance guide](../development/DOCUMENTATION.md)
+for Wiki URL rules and post-publication link checks. Wiki sources already use
+rendered page URLs; do not convert them to relative `.md` or raw-file links.
+
 A failed or partial publication must be inventoried before retrying. Never
 overwrite an exposed version tag; use a new reviewed patch version if identity
 cannot be proven.
@@ -46,7 +50,7 @@ cannot be proven.
 Deploy by immutable image digest or verified package checksum. Keep the
 pre-upgrade database backup, prior image digest, configuration, and keys for
 the observation window. Database version 302 changes administrator semantics;
-follow [`MIGRATION-v3.0.1.md`](MIGRATION-v3.0.1.md) before any v2 rollback.
+follow [`MIGRATION-v3.0.1.md`](v3.0.1/MIGRATION-v3.0.1.md) before any v2 rollback.
 
 Historical unpublished tombstones `v2.8.0`, `v2.8.1`, `v2.8.2`, and `v3.0.0`
 remain immutable and must not be reused. The `v3.0.0` candidate run

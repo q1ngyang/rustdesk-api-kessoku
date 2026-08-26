@@ -1,10 +1,10 @@
 # Getting started
 
-**English** | [简体中文](ZH-CN-Getting-Started.md)
+**English** | [简体中文](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Getting-Started)
 
 This guide deploys Kessoku for an existing HBBS/HBBR installation. If no
 HBBS/HBBR exists yet, use the
-[complete Kessoku + Starry tutorial](Complete-Deployment.md). It intentionally
+[complete Kessoku + Starry tutorial](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Complete-Deployment). It intentionally
 keeps strict connection enforcement and Starry configuration writes disabled
 until their separate acceptance steps are complete.
 
@@ -67,6 +67,6 @@ access, logout, and login again.
 5. Start the Control Agent read-only.
 6. Complete supported-client and rollback acceptance before `enforce` or writes.
 
-See [Connection Authentication](Connection-Authentication.md),
-[Starry Control](Starry-Control.md), and
-[Operations and Verification](Operations-and-Verification.md).
+See [Connection Authentication](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Connection-Authentication),
+[Starry Control](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Starry-Control), and
+[Operations and Verification](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Operations-and-Verification).

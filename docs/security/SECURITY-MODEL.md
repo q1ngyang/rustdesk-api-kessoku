@@ -185,7 +185,7 @@ both configured `kessoku-api` and `rustdesk-connect` audiences. The Web Client
 never receives that standard bearer. Its login and grant paths return only a
 short-lived `rustdesk-connect`/`connect:initiate` connection token.
 
-See [WEB-CLIENT.md](WEB-CLIENT.md).
+See [WEB-CLIENT.md](../deployment/WEB-CLIENT.md).
 
 ## Assumptions and residual risks
 
@@ -210,6 +210,6 @@ See [WEB-CLIENT.md](WEB-CLIENT.md).
   incoming mode, file/clipboard/audio, display switching, and non-VP9 codecs.
   No historical WebClient2/V2 assets are included.
 
-See [Security finding closure](docs/wiki/Security-Finding-Closure.md) for the
+See [Security finding closure](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Security-Finding-Closure) for the
 sealed-snapshot boundary, all 23 Kessoku dispositions, and the accepted
 compatibility residual.

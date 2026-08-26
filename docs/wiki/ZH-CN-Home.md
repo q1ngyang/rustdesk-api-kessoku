@@ -1,6 +1,6 @@
 # rustdesk-api-kessoku 中文文档
 
-[English](Home.md) | **简体中文**
+[English](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Home) | **简体中文**
 
 Kessoku 是非官方 RustDesk 账户与管理服务，提供客户端登录接口、用户和设备管理、个人及
 公共地址簿、审计记录、分级管理员权限、内置管理后台，以及可选的浏览器远程控制页面。
@@ -30,16 +30,16 @@ HBBS/HBBR 使用；为了获得安全 TCP、按地理位置选择中继服务器
 
 | 你的情况 | 建议阅读 |
 | --- | --- |
-| 已有官方或第三方 HBBS/HBBR，只需要增加账户 API | [快速开始：单独部署 Kessoku](ZH-CN-Getting-Started.md) |
-| 从空白服务器搭建 API + HBBS + HBBR | [完整部署：Kessoku + Starry](ZH-CN-Complete-Deployment.md) |
-| 为现有中心增加一台独立 HBBR | [纯中继节点部署](ZH-CN-Relay-Only-Deployment.md) |
-| 需要查询 Compose、目录和更新命令 | [Docker 部署参考](ZH-CN-Docker-Deployment.md) |
-| 需要配置域名、HTTPS、Nginx 或防火墙 | [反向代理与防火墙](ZH-CN-Reverse-Proxy-and-Firewall.md) |
-| 需要查某个 YAML 参数 | [配置参数参考](ZH-CN-Configuration-Reference.md) |
-| 需要配置 RustDesk 客户端或浏览器远控 | [客户端使用方法](ZH-CN-Web-Client.md) |
-| 需要启用 Starry 连接令牌校验 | [连接认证](ZH-CN-Connection-Authentication.md) |
-| 需要在后台查看或修改 Starry 配置 | [Starry 管理](ZH-CN-Starry-Control.md) |
-| 需要备份、巡检、升级或排障 | [日常运维](ZH-CN-Operations-and-Verification.md) · [升级与回退](ZH-CN-Upgrade-and-Rollback.md) · [常见问题](ZH-CN-Troubleshooting.md) |
+| 已有官方或第三方 HBBS/HBBR，只需要增加账户 API | [快速开始：单独部署 Kessoku](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Getting-Started) |
+| 从空白服务器搭建 API + HBBS + HBBR | [完整部署：Kessoku + Starry](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Complete-Deployment) |
+| 为现有中心增加一台独立 HBBR | [纯中继节点部署](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Relay-Only-Deployment) |
+| 需要查询 Compose、目录和更新命令 | [Docker 部署参考](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Docker-Deployment) |
+| 需要配置域名、HTTPS、Nginx 或防火墙 | [反向代理与防火墙](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Reverse-Proxy-and-Firewall) |
+| 需要查某个 YAML 参数 | [配置参数参考](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Configuration-Reference) |
+| 需要配置 RustDesk 客户端或浏览器远控 | [客户端使用方法](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Web-Client) |
+| 需要启用 Starry 连接令牌校验 | [连接认证](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Connection-Authentication) |
+| 需要在后台查看或修改 Starry 配置 | [Starry 管理](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Starry-Control) |
+| 需要备份、巡检、升级或排障 | [日常运维](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Operations-and-Verification) · [升级与回退](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Upgrade-and-Rollback) · [常见问题](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Troubleshooting) |
 
 ## 推荐部署原则
 

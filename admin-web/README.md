@@ -2,7 +2,7 @@
 
 本目录是 `rustdesk-api-kessoku` v3.0.1 开发线的内置 Vue 3 管理前端源码，直接延续本仓库 v2.8.3 已整合并调整过的前端。它与 Go 后端在同一提交中审核、测试和发布，不依赖独立前端仓库、外部前端分支或 `lejianwen/rustdesk-api-web`。
 
-v3.0.1 的界面设计、响应式行为、企业管理员权限边界和改造理由见 [UI-REDESIGN-v3.0.1.zh-CN.md](UI-REDESIGN-v3.0.1.zh-CN.md)。视觉部分延续既有 Vue 技术路线；权限部分新增 `user/admin/super_admin` 三层角色和服务端资源范围校验，不改变 RustDesk/Starry 安全协议。
+v3.0.1 的界面设计、响应式行为、企业管理员权限边界和改造理由见 [UI-REDESIGN-v3.0.1.zh-CN.md](../docs/development/UI-REDESIGN-v3.0.1.zh-CN.md)。视觉部分延续既有 Vue 技术路线；权限部分新增 `user/admin/super_admin` 三层角色和服务端资源范围校验，不改变 RustDesk/Starry 安全协议。
 
 品牌 SVG 位于 `src/assets/brand/`：icon 用于 favicon、侧栏项目标识和通用 KESSOKU 身份；完整 StarryLinks Logo 仅用于登录、STARRY 节点控制和关于界面。`light`/`dark` 文件由主题状态自动选择。
 

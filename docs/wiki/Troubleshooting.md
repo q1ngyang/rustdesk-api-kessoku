@@ -1,6 +1,6 @@
 # Troubleshooting
 
-**English** | [简体中文](ZH-CN-Troubleshooting.md)
+**English** | [简体中文](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Troubleshooting)
 
 Identify the failing layer first: Compose, Kessoku API, account login, HBBS
 signalling, HBBR Relay, WSS, browser client, or advanced authentication. Change
