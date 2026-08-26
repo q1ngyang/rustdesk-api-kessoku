@@ -20,3 +20,17 @@ c5b43fae08db41dbcd15ccfa68b2b5a2f9563551:README.md:generic-api-key:309
 c5b43fae08db41dbcd15ccfa68b2b5a2f9563551:README.md:generic-api-key:325
 c5b43fae08db41dbcd15ccfa68b2b5a2f9563551:README_EN.md:generic-api-key:317
 c5b43fae08db41dbcd15ccfa68b2b5a2f9563551:README_EN.md:generic-api-key:333
+
+# Reviewed documentation-only false positives in the previous Wiki update.
+# All eight findings are the public RFC 6455 section 1.2 WebSocket handshake
+# example nonce (not an API credential): https://www.rfc-editor.org/rfc/rfc6455#section-1.2
+# Current examples generate a fresh nonce with openssl. Retain exact historical
+# fingerprints only; do not exempt future commits, whole paths, or scanner rules.
+605ff0572d1c53e2265d65796c607e714193e46b:docs/wiki/ZH-CN-Troubleshooting.md:generic-api-key:136
+605ff0572d1c53e2265d65796c607e714193e46b:docs/wiki/Complete-Deployment.md:generic-api-key:290
+605ff0572d1c53e2265d65796c607e714193e46b:docs/wiki/ZH-CN-Reverse-Proxy-and-Firewall.md:generic-api-key:219
+605ff0572d1c53e2265d65796c607e714193e46b:docs/wiki/ZH-CN-Relay-Only-Deployment.md:generic-api-key:337
+605ff0572d1c53e2265d65796c607e714193e46b:docs/wiki/Reverse-Proxy-and-Firewall.md:generic-api-key:198
+605ff0572d1c53e2265d65796c607e714193e46b:docs/wiki/ZH-CN-Complete-Deployment.md:generic-api-key:370
+605ff0572d1c53e2265d65796c607e714193e46b:docs/wiki/Relay-Only-Deployment.md:generic-api-key:248
+605ff0572d1c53e2265d65796c607e714193e46b:docs/wiki/Troubleshooting.md:generic-api-key:118

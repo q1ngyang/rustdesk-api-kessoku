@@ -334,7 +334,7 @@ curl --http1.1 --include --max-time 5 \
   -H 'Connection: Upgrade' \
   -H 'Upgrade: websocket' \
   -H 'Sec-WebSocket-Version: 13' \
-  -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' \
+  -H "Sec-WebSocket-Key: $(openssl rand -base64 16)" \
   https://relay-1.example.com/ws/relay
 ```
 

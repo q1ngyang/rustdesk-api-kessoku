@@ -367,7 +367,7 @@ for path in ws/id ws/relay; do
     -H 'Connection: Upgrade' \
     -H 'Upgrade: websocket' \
     -H 'Sec-WebSocket-Version: 13' \
-    -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' \
+    -H "Sec-WebSocket-Key: $(openssl rand -base64 16)" \
     "https://rustdesk.example.com/$path"
 done
 ```
