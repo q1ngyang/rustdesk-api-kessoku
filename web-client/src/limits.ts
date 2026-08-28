@@ -1,6 +1,7 @@
 export const LIMITS = Object.freeze({
   websocketFrame: 16 * 1024 * 1024,
   controlText: 4 * 1024,
+  chatText: 2 * 1024,
   peerId: 128,
   token: 4 * 1024,
   passwordBytes: 4 * 1024,
@@ -9,6 +10,9 @@ export const LIMITS = Object.freeze({
   cursorDimension: 512,
   cursorPixels: 262_144,
   cursorEncodedBytes: 1_052_672,
+  disabledChannelBytes: 1_052_672,
+  clipboardFormats: 256,
+  clipboardFiles: 1_024,
   queuedVideoChunks: 32,
   encodedVideoChunk: 8 * 1024 * 1024,
   handshakeTimeoutMs: 12_000,

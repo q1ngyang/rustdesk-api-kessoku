@@ -11,7 +11,7 @@ import (
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/global"
 )
 
-func TestWebClientCORSIsExactAndCredentialless(t *testing.T) {
+func TestWebClientCORSIsExactAndAllowsOnlySessionCredentials(t *testing.T) {
 	oldConfig := global.Config
 	t.Cleanup(func() { global.Config = oldConfig })
 	global.Config.WebClient = config.WebClient{
@@ -33,8 +33,8 @@ func TestWebClientCORSIsExactAndCredentialless(t *testing.T) {
 	if recorder.Code != http.StatusNoContent || recorder.Header().Get("Access-Control-Allow-Origin") != "https://client.example.test" || recorder.Header().Get("Cache-Control") != "no-store" {
 		t.Fatalf("valid preflight = %d %v", recorder.Code, recorder.Header())
 	}
-	if recorder.Header().Get("Access-Control-Allow-Credentials") != "" || stringsContainsFold(recorder.Header().Get("Access-Control-Allow-Headers"), "api-token") {
-		t.Fatalf("CORS permits credentials or admin header: %v", recorder.Header())
+	if recorder.Header().Get("Access-Control-Allow-Credentials") != "true" || stringsContainsFold(recorder.Header().Get("Access-Control-Allow-Headers"), "api-token") {
+		t.Fatalf("CORS did not allow the session cookie safely: %v", recorder.Header())
 	}
 
 	sameOrigin := httptest.NewRequest(http.MethodPost, "/login", nil)

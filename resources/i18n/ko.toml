@@ -55,17 +55,17 @@ other = "구성이 존재하지 않습니다."
 
 #授权过期
 [OauthExpired]
-description = "Oauth expired."
+description = "OAuth expired."
 one = "인증이 만료되었습니다. 다시 승인해 주세요."
 other = "인증이 만료되었습니다. 다시 승인해 주세요."
 
 [OauthFailed]
-description = "Oauth failed."
+description = "OAuth failed."
 one = "인증에 실패했습니다."
 other = "인증에 실패했습니다."
 
 [OauthHasBindOtherUser]
-description = "Oauth has bind other user."
+description = "OAuth has bind other user."
 one = "권한이 다른 사용자에게 바인딩되었습니다."
 other = "권한이 다른 사용자에게 바인딩되었습니다."
 
@@ -83,31 +83,31 @@ description = "Bind success."
 one = "바인딩 성공."
 other = "바인딩 성공."
 [OauthHasBeenSuccess]
-description = "Oauth has been success."
+description = "OAuth has been success."
 one = "인증이 완료되었습니다."
 other = "인증이 완료되었습니다."
 [OauthSuccess]
-description = "Oauth success."
+description = "OAuth success."
 one = "인증 성공."
 other = "인증 성공."
 [OauthRegisterSuccess]
-description = "Oauth register success."
+description = "OAuth register success."
 one = "인증 등록이 완료되었습니다."
 other = "인증 등록이 완료되었습니다."
 [OauthRegisterFailed]
-description = "Oauth register failed."
+description = "OAuth register failed."
 one = "인증 등록에 실패했습니다."
 other = "인증 등록에 실패했습니다."
 [GetOauthTokenError]
-description = "Get oauth token error."
+description = "Get OAuth token error."
 one = "인증 토큰을 획득하지 못했습니다."
 other = "인증 토큰을 획득하지 못했습니다."
 [GetOauthUserInfoError]
-description = "Get oauth user info error."
+description = "Get OAuth user info error."
 one = "인증된 사용자 정보를 획득하지 못했습니다."
 other = "인증된 사용자 정보를 획득하지 못했습니다."
 [DecodeOauthUserInfoError]
-description = "Decode oauth user info error."
+description = "Decode OAuth user info error."
 one = "인증된 사용자 정보를 구문 분석하지 못했습니다."
 other = "인증된 사용자 정보를 구문 분석하지 못했습니다."
 

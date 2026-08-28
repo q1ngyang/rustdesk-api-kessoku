@@ -7,6 +7,8 @@ const (
 
 type AuditConn struct {
 	IdModel
+	UserId    uint   `json:"user_id" gorm:"default:0;not null;index"`
+	Client    string `json:"client" gorm:"size:32;default:'';not null;index"`
 	Action    string `json:"action" gorm:"default:'';not null;"`
 	ConnId    int64  `json:"conn_id" gorm:"default:0;not null;index"`
 	PeerId    string `json:"peer_id" gorm:"default:'';not null;index"`

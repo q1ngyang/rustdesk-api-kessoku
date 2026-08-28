@@ -33,9 +33,8 @@ func (ct *LoginLog) List(c *gin.Context) {
 		return
 	}
 	u := service.AllService.UserService.CurUser(c)
-	res := service.AllService.LoginLogService.List(query.Page, query.PageSize, func(tx *gorm.DB) {
-		tx.Where("user_id = ? and is_deleted = ?", u.Id, model.IsDeletedNo)
-		tx.Order("id desc")
+	res := service.AllService.LoginLogService.List(query.Page, query.PageSize, func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("user_id = ? and is_deleted = ?", u.Id, model.IsDeletedNo).Order("id desc")
 	})
 	response.Success(c, res)
 }

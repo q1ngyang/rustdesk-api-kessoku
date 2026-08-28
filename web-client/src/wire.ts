@@ -1,7 +1,7 @@
 import { utf8 } from "./bytes";
 import { BinaryReader } from "@bufbuild/protobuf/wire";
 import { LIMITS } from "./limits";
-import type { DisplayInfo, Message as AppMessage, PeerInfo, RelayResponse, RendezvousMessage as RendezvousEnvelope } from "./generated/kessoku_wire";
+import type { Cliprdr, DisplayInfo, Message as AppMessage, PeerInfo, RelayResponse, RendezvousMessage as RendezvousEnvelope } from "./generated/kessoku_wire";
 
 export function validatePeerId(value: string): string {
   if (value.length === 0 || value.length > LIMITS.peerId || !/^[A-Za-z0-9_-]+$/.test(value)) {
@@ -52,13 +52,66 @@ export function countAppVariants(message: AppMessage): number {
     message.loginResponse,
     message.hash,
     message.mouseEvent,
+    message.audioFrame,
     message.cursorData,
     message.cursorPosition,
     message.cursorId,
     message.keyEvent,
+    message.clipboard,
     message.misc,
+    message.cliprdr,
     message.peerInfo,
   ].filter((value) => value !== undefined).length;
+}
+
+function validateCliprdr(message: Cliprdr): void {
+  const variants = [
+    message.ready,
+    message.formatList,
+    message.formatListResponse,
+    message.formatDataRequest,
+    message.formatDataResponse,
+    message.fileContentsRequest,
+    message.fileContentsResponse,
+    message.tryEmpty,
+    message.files,
+  ].filter((value) => value !== undefined).length;
+  if (variants !== 1) throw new Error("Peer supplied an invalid Cliprdr message");
+  if (message.formatList !== undefined) {
+    if (message.formatList.formats.length > LIMITS.clipboardFormats) throw new Error("Peer supplied too many clipboard formats");
+    for (const format of message.formatList.formats) boundedText(format.format, "Clipboard format");
+  }
+  if (message.formatDataResponse !== undefined && message.formatDataResponse.formatData.byteLength > LIMITS.disabledChannelBytes) {
+    throw new Error("Peer supplied an oversized clipboard frame");
+  }
+  if (message.fileContentsResponse !== undefined && message.fileContentsResponse.requestedData.byteLength > LIMITS.disabledChannelBytes) {
+    throw new Error("Peer supplied an oversized clipboard file frame");
+  }
+  if (message.files !== undefined) {
+    if (message.files.files.length > LIMITS.clipboardFiles) throw new Error("Peer supplied too many clipboard files");
+    for (const file of message.files.files) boundedText(file.name, "Clipboard file name");
+  }
+}
+
+// Audio and clipboard are explicitly disabled in LoginRequest. Some native
+// peers start these services before applying that option, so consume only
+// tightly bounded bootstrap traffic and never expose it to the page.
+export function validateDisabledSideChannel(message: AppMessage): void {
+  const variants = Number(message.audioFrame !== undefined) + Number(message.clipboard !== undefined) + Number(message.cliprdr !== undefined);
+  if (variants !== 1) throw new Error("Peer supplied an invalid disabled channel message");
+  if (message.audioFrame !== undefined && message.audioFrame.data.byteLength > LIMITS.disabledChannelBytes) {
+    throw new Error("Peer supplied an oversized audio frame");
+  }
+  if (message.clipboard !== undefined) {
+    if (message.clipboard.content.byteLength > LIMITS.disabledChannelBytes) throw new Error("Peer supplied an oversized clipboard frame");
+    boundedText(message.clipboard.specialName, "Clipboard format name");
+    if (!Number.isInteger(message.clipboard.width) || !Number.isInteger(message.clipboard.height) ||
+      message.clipboard.width < 0 || message.clipboard.height < 0 ||
+      message.clipboard.width > LIMITS.displayDimension || message.clipboard.height > LIMITS.displayDimension) {
+      throw new Error("Peer supplied invalid clipboard dimensions");
+    }
+  }
+  if (message.cliprdr !== undefined) validateCliprdr(message.cliprdr);
 }
 
 export function topLevelFieldNumbers(input: Uint8Array): number[] {

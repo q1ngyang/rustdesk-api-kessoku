@@ -75,6 +75,9 @@ func ServerControlBind(adg *gin.RouterGroup) {
 	group.GET("/instances/:id/config/history", controller.ConfigHistory)
 	group.POST("/instances/:id/config/rollback", controller.RollbackConfig)
 	group.POST("/instances/:id/runtime/reload", controller.ReloadRuntime)
+	group.GET("/instances/:id/logs/sources", controller.LogSources)
+	group.GET("/instances/:id/logs", controller.Logs)
+	group.POST("/instances/:id/logs/level", controller.SetLogLevel)
 	group.GET("/audit-events", controller.AuditEvents)
 }
 
@@ -110,10 +113,17 @@ func UserBind(rg *gin.RouterGroup) {
 	{
 		cont := &admin.User{}
 		aR.GET("/current", cont.Current)
+		aR.POST("/profile", cont.UpdateCurrentProfile)
+		aR.POST("/preferences", cont.UpdatePreferences)
 		aR.POST("/changeCurPwd", cont.ChangeCurPwd)
 		aR.POST("/myOauth", cont.MyOauth)
 		//aR.GET("/myPeer", cont.MyPeer)
 		aR.POST("/groupUsers", cont.GroupUsers)
+		aR.GET("/two-factor", cont.TwoFactorStatus)
+		aR.POST("/two-factor/begin", cont.BeginTwoFactor)
+		aR.POST("/two-factor/confirm", cont.ConfirmTwoFactor)
+		aR.POST("/two-factor/disable", cont.DisableTwoFactor)
+		aR.POST("/avatar", cont.UploadAvatar)
 	}
 	aRP := rg.Group("/user").Use(middleware.AdminPrivilege())
 	{
@@ -282,6 +292,16 @@ func ConfigBind(rg *gin.RouterGroup) {
 
 	aR.Use(middleware.BackendUserAuth())
 	aR.GET("/app", rs.AppConfig)
+	aR.GET("/about", rs.About)
+	aR.GET("/geoip/lookup", rs.GeoIPLookup)
+	super := aR.Group("/branding").Use(middleware.SuperAdminPrivilege())
+	super.GET("", rs.Branding)
+	super.POST("", rs.UpdateBranding)
+	super.POST("/upload", rs.UploadBrandAsset)
+	system := aR.Group("/system-settings").Use(middleware.SuperAdminPrivilege())
+	system.GET("", rs.SystemSettings)
+	system.POST("", rs.UpdateSystemSettings)
+	system.POST("/geoip/update", rs.UpdateGeoIPDatabase)
 
 }
 

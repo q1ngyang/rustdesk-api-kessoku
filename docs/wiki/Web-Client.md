@@ -2,7 +2,7 @@
 
 **English** | [简体中文](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Web-Client)
 
-Kessoku v3.0.1 builds its MIT-licensed browser client from the repository's
+Kessoku v3.0.2 builds its MIT-licensed browser client from the repository's
 `web-client/` source and packages it as `resources/client`. The management UI
 in `admin-web/` remains a separate application. Historical `resources/web`,
 `resources/web2`, WebClient2/V2, and remote browser-client downloads are

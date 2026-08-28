@@ -154,6 +154,10 @@ definitions:
         type: string
       nickname:
         type: string
+      preference_language:
+        type: string
+      preference_theme:
+        type: string
       role:
         $ref: '#/definitions/model.UserRole'
       route_names:
@@ -342,14 +346,26 @@ definitions:
         type: string
       captcha_id:
         type: string
+      challenge:
+        maxLength: 128
+        type: string
+      device_id:
+        maxLength: 128
+        type: string
       password:
+        maxLength: 128
         type: string
       platform:
         type: string
+      tfa_code:
+        maxLength: 16
+        type: string
       username:
         type: string
+      uuid:
+        maxLength: 128
+        type: string
     required:
-    - password
     - username
     type: object
   model.AddressBook:
@@ -497,6 +513,8 @@ definitions:
     properties:
       action:
         type: string
+      client:
+        type: string
       close_time:
         type: integer
       conn_id:
@@ -519,6 +537,8 @@ definitions:
         type: integer
       updated_at:
         type: string
+      user_id:
+        type: integer
       uuid:
         type: string
     type: object
@@ -818,6 +838,14 @@ definitions:
         type: boolean
       nickname:
         type: string
+      preference_language:
+        description: |-
+          Presentation preferences are account scoped so the administration
+          console and a separately hosted WebClient can stay in sync without
+          attempting to share cookies across unrelated domains.
+        type: string
+      preference_theme:
+        type: string
       remark:
         type: string
       role:
@@ -856,7 +884,13 @@ definitions:
     properties:
       auth_version:
         type: integer
+      client:
+        type: string
       created_at:
+        type: string
+      created_ip:
+        type: string
+      credential_id:
         type: string
       device_id:
         type: string
@@ -871,6 +905,8 @@ definitions:
       jti:
         type: string
       kid:
+        type: string
+      platform:
         type: string
       revoked_at:
         type: integer
@@ -1244,6 +1280,11 @@ definitions:
         items:
           type: string
         type: array
+      version:
+        description: |-
+          Version is optional in Control v1. Current Starry versions may omit it;
+          Kessoku reports that explicitly instead of guessing from the center.
+        type: string
       websocket:
         $ref: '#/definitions/starrycontrol.WebSocketRelayStatus'
     type: object

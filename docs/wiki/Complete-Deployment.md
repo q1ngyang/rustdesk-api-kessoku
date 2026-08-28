@@ -132,7 +132,7 @@ STARRY_DATA_DIR=/opt/rustdesk-stack/data/starry
 Keep explicit release versions:
 
 ```dotenv
-KESSOKU_IMAGE=ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.1
+KESSOKU_IMAGE=ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.2
 STARRY_IMAGE=ghcr.io/q1ngyang/rustdesk-server-starry
 STARRY_VERSION=1.1.16-patch-v1.2.0
 ```
@@ -257,7 +257,7 @@ docker compose --env-file .env -f compose.yaml exec kessoku-api \
   --password-file /run/secrets/bootstrap-admin-password
 ```
 
-Sign in to `https://api.example.com/_admin/` as `admin`, rotate the password in
+Sign in to `https://api.example.com/dash/` as `admin`, rotate the password in
 the UI, store it in a password manager, then remove the one-use password file.
 Create a normal user in the administration UI.
 

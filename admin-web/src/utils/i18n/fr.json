@@ -186,7 +186,7 @@
     "One": "Opération réussie, fermer après 3 secondes"
   },
   "ConfirmOauth": {
-    "One": "Confirmer Oauth"
+    "One": "Confirmer OAuth"
   },
   "View": {
     "One": "Informations"
@@ -231,7 +231,7 @@
     "One": "Etiquettes"
   },
   "OauthManage": {
-    "One": "Oauth"
+    "One": "OAuth"
   },
   "LoginLog": {
     "One": "Journal de connexion"
@@ -529,6 +529,12 @@
   "You can reference export file": {
     "One": "Vous pouvez vous référer au fichier d'exportation"
   },
+  "GeoIPUpdateStarted": { "One": "La mise à jour MMDB a démarré ; vous serez informé à la fin" },
+  "GeoIPUpdateInProgress": { "One": "Une mise à jour MMDB est déjà en cours ; vous serez informé à la fin" },
+  "GeoIPUpdateSucceeded": { "One": "Les bases MMDB ont été mises à jour" },
+  "GeoIPUpdateFailed": { "One": "Échec de la mise à jour MMDB : {message}" },
+  "GeoIPUpdateStatusTimeout": { "One": "La mise à jour MMDB continue en arrière-plan. Vérifiez son état plus tard." },
+  "GeoIPUpdateNotStarted": { "One": "La mise à jour MMDB n’a pas pu démarrer" },
   "Remark": {
     "One": "Remarque"
   }

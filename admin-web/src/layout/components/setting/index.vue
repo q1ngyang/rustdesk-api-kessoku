@@ -13,7 +13,7 @@
     </el-dropdown>
     <el-dropdown trigger="click">
       <button class="setting__user" type="button">
-        <span class="setting__avatar">{{ initial }}</span><span class="setting__name">{{ user.username }}</span><el-icon><ArrowDown/></el-icon>
+        <span class="setting__avatar"><img v-if="user.avatar" :src="user.avatar" alt=""/><template v-else>{{ initial }}</template></span><span class="setting__name">{{ user.username }}</span><el-icon><ArrowDown/></el-icon>
       </button>
       <template #dropdown>
         <el-dropdown-menu>
@@ -29,7 +29,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDark } from '@vueuse/core'
 import { ArrowDown, Guide, InfoFilled, Lock, Moon, Sunny, SwitchButton, User } from '@element-plus/icons-vue'
@@ -37,12 +37,30 @@ import { useUserStore } from '@/store/user'
 import { useAppStore } from '@/store/app'
 import changePwdDialog from '@/components/changePwdDialog.vue'
 import { T } from '@/utils/i18n'
+import { writeSharedPreference } from '@/utils/themeAssets'
+import { updatePreferences } from '@/api/user'
+import { getToken } from '@/utils/auth'
 
 const user = useUserStore()
 const appStore = useAppStore()
 const router = useRouter()
 const changePwdVisible = ref(false)
 const isDark = useDark({ storageKey: 'kessoku-theme' })
+const applyingAccountTheme = ref(false)
+watch(isDark, value => {
+  const theme = value ? 'dark' : 'light'
+  writeSharedPreference('kessoku-theme', theme)
+  if (!applyingAccountTheme.value && getToken()) void updatePreferences({ theme }).catch(() => undefined)
+})
+const applyAccountTheme = event => {
+  const theme = event.detail?.theme
+  if (theme !== 'light' && theme !== 'dark') return
+  applyingAccountTheme.value = true
+  isDark.value = theme === 'dark'
+  void nextTick(() => { applyingAccountTheme.value = false })
+}
+onMounted(() => window.addEventListener('kessoku:account-theme', applyAccountTheme))
+onBeforeUnmount(() => window.removeEventListener('kessoku:account-theme', applyAccountTheme))
 const initial = computed(() => (user.username || 'K').slice(0, 1).toUpperCase())
 const logout = () => { user.logout(); window.location.reload() }
 const showChangePwd = () => { changePwdVisible.value = true }
@@ -59,5 +77,6 @@ const toAbout = () => router.push({ name: 'About' })
 .setting__user { display: flex; min-width: 0; height: 42px; align-items: center; gap: 8px; padding: 4px 8px 4px 5px; border-radius: 14px; }
 .setting__avatar { display: grid; width: 32px; height: 32px; flex: 0 0 auto; place-items: center; border-radius: 10px; background: linear-gradient(145deg, var(--primary), #8467ef); color: white; font-size: 12px; font-weight: 800; }
 .setting__name { max-width: 120px; overflow: hidden; color: var(--text-primary); font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.setting__avatar { overflow: hidden; }.setting__avatar img { width: 100%; height: 100%; object-fit: cover; }
 @media (max-width: 600px) { .setting { gap: 1px; }.setting__name,.setting__user > .el-icon { display: none; }.setting__user { width: 38px; padding: 3px; }.setting__icon { width: 34px; } }
 </style>

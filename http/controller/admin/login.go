@@ -36,7 +36,11 @@ func (ct *Login) Login(c *gin.Context) {
 	// 检查登录限制
 	loginLimiter := global.LoginLimiter
 	clientIp := c.ClientIP()
-	_, needCaptcha := loginLimiter.CheckSecurityStatus(clientIp)
+	banned, needCaptcha := loginLimiter.CheckSecurityStatus(clientIp)
+	if banned {
+		response.Fail(c, 101, response.TranslateMsg(c, "LoginBanned"))
+		return
+	}
 
 	f := &admin.Login{}
 	err := c.ShouldBindJSON(f)
@@ -55,17 +59,26 @@ func (ct *Login) Login(c *gin.Context) {
 		return
 	}
 
-	// 检查是否需要验证码
-	if needCaptcha {
+	secondFactor := f.Challenge != "" || f.TfaCode != ""
+	// A valid one-time challenge already proves completion of the password and
+	// CAPTCHA stage. It remains bound to this admin client and platform.
+	if needCaptcha && !secondFactor {
 		if f.CaptchaId == "" || f.Captcha == "" || !loginLimiter.VerifyCaptcha(f.CaptchaId, f.Captcha) {
 			response.Fail(c, 101, response.TranslateMsg(c, "CaptchaError"))
 			return
 		}
 	}
 
-	u := service.AllService.UserService.InfoByUsernamePassword(f.Username, f.Password)
+	var u *model.User
+	if secondFactor {
+		u, err = service.AllService.TwoFactorService.CompleteLoginChallenge(f.Challenge, f.Username, f.TfaCode, service.TwoFactorChallengeBinding{Client: model.LoginLogClientWebAdmin, DeviceID: f.DeviceID, UUID: f.UUID, Platform: f.Platform})
+	} else if f.Password != "" {
+		u = service.AllService.UserService.InfoByUsernamePassword(f.Username, f.Password)
+	} else {
+		u = &model.User{}
+	}
 
-	if u.Id == 0 {
+	if err != nil || u == nil || u.Id == 0 {
 		global.Logger.Warn(fmt.Sprintf("Login Fail: %s %s %s", "UsernameOrPasswordError", c.RemoteIP(), clientIp))
 		loginLimiter.RecordFailedAttempt(clientIp)
 		if _, needCaptcha = loginLimiter.CheckSecurityStatus(clientIp); needCaptcha {
@@ -84,11 +97,21 @@ func (ct *Login) Login(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "UserDisabled"))
 		return
 	}
+	if !secondFactor && service.AllService.TwoFactorService.EnabledForUser(u.Id) {
+		challenge, err := service.AllService.TwoFactorService.CreateLoginChallenge(u, service.TwoFactorChallengeBinding{Client: model.LoginLogClientWebAdmin, DeviceID: f.DeviceID, UUID: f.UUID, Platform: f.Platform})
+		if err != nil {
+			response.Fail(c, 101, response.TranslateMsg(c, "SystemError"))
+			return
+		}
+		response.Success(c, gin.H{"requires_two_factor": true, "challenge": challenge})
+		return
+	}
 
 	ut := service.AllService.UserService.Login(u, &model.LoginLog{
 		UserId:   u.Id,
 		Client:   model.LoginLogClientWebAdmin,
-		Uuid:     "", //must be empty
+		DeviceId: f.DeviceID,
+		Uuid:     f.UUID,
 		Ip:       clientIp,
 		Type:     model.LoginLogTypeAccount,
 		Platform: f.Platform,

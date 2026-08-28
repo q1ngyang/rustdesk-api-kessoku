@@ -35,9 +35,9 @@
           :label="`${label || 'item'} ${index + 1}`"
           @update:model-value="updateArrayItem(index, $event)"
         />
-        <el-button type="danger" plain size="small" @click="removeArrayItem(index)">Remove</el-button>
+        <el-button type="danger" plain size="small" @click="removeArrayItem(index)">{{ T('Remove') }}</el-button>
       </el-card>
-      <el-button plain size="small" @click="addArrayItem">Add {{ label || 'item' }}</el-button>
+      <el-button plain size="small" @click="addArrayItem">{{ T('AddItem', { item: label || T('Item') }) }}</el-button>
     </template>
 
     <el-form-item v-else :label="label" :required="required">
@@ -45,6 +45,7 @@
         v-if="effectiveSchema.enum"
         :model-value="modelValue"
         clearable
+        :disabled="effectiveSchema.readOnly || effectiveSchema.const !== undefined"
         @update:model-value="updateScalar"
       >
         <el-option v-for="option in effectiveSchema.enum" :key="String(option)" :label="String(option)" :value="option" />
@@ -52,6 +53,7 @@
       <el-switch
         v-else-if="kind === 'boolean'"
         :model-value="Boolean(modelValue)"
+        :disabled="effectiveSchema.readOnly || effectiveSchema.const !== undefined"
         @update:model-value="updateScalar"
       />
       <el-input-number
@@ -59,12 +61,14 @@
         :model-value="modelValue"
         :min="effectiveSchema.minimum"
         :max="effectiveSchema.maximum"
+        :step="effectiveSchema.multipleOf"
+        :disabled="effectiveSchema.readOnly || effectiveSchema.const !== undefined"
         @update:model-value="updateScalar"
       />
       <el-input
         v-else
         :model-value="modelValue == null ? '' : String(modelValue)"
-        :disabled="effectiveSchema.const !== undefined"
+        :disabled="effectiveSchema.readOnly || effectiveSchema.const !== undefined"
         @update:model-value="updateScalar"
       />
       <div v-if="effectiveSchema.description" class="description">{{ effectiveSchema.description }}</div>
@@ -74,6 +78,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { T } from '@/utils/i18n'
 
 const props = defineProps({
   schema: { type: Object, default: () => ({}) },
@@ -102,8 +107,32 @@ function matchesCondition (condition, value) {
     const candidate = value?.[key]
     if (rule.const !== undefined) return candidate === rule.const
     if (rule.enum) return rule.enum.includes(candidate)
+    if (rule.type && candidate !== undefined) return valueMatchesType(candidate, rule.type)
     return true
   })
+}
+
+function valueMatchesType (value, type) {
+  const types = Array.isArray(type) ? type : [type]
+  return types.some(candidate => {
+    if (candidate === 'null') return value == null
+    if (candidate === 'array') return Array.isArray(value)
+    if (candidate === 'object') return value !== null && typeof value === 'object' && !Array.isArray(value)
+    if (candidate === 'integer') return Number.isInteger(value)
+    if (candidate === 'number') return typeof value === 'number'
+    return typeof value === candidate
+  })
+}
+
+function variantScore (schema, value) {
+  const resolved = materialize(schema, value)
+  let score = 0
+  if (resolved.type && valueMatchesType(value, resolved.type)) score += 4
+  if (resolved.const !== undefined && value === resolved.const) score += 8
+  if (resolved.enum?.includes(value)) score += 6
+  if (resolved.required?.every(key => value && Object.prototype.hasOwnProperty.call(value, key))) score += resolved.required.length * 2
+  if (matchesCondition(resolved, value)) score += 1
+  return score
 }
 
 function mergeSchema (base, addition) {
@@ -116,6 +145,8 @@ function mergeSchema (base, addition) {
 }
 
 function materialize (input, value, seen = new Set()) {
+	if (input === true) return {}
+	if (input === false || !input || typeof input !== 'object') return {}
   let result = { ...(input || {}) }
   if (result.$ref && !seen.has(result.$ref)) {
     const nextSeen = new Set(seen)
@@ -129,17 +160,42 @@ function materialize (input, value, seen = new Set()) {
       : clause
     if (selected) result = mergeSchema(result, materialize(selected, value, seen))
   }
+	for (const variants of [result.oneOf, result.anyOf]) {
+	  if (!Array.isArray(variants) || variants.length === 0) continue
+	  const selected = [...variants].sort((left, right) => variantScore(right, value) - variantScore(left, value))[0]
+	  result = mergeSchema(result, materialize(selected, value, seen))
+	}
+	delete result.allOf
+	delete result.oneOf
+	delete result.anyOf
   return result
 }
 
 const effectiveSchema = computed(() => materialize(props.schema, props.modelValue))
-const kind = computed(() => effectiveSchema.value.type || (effectiveSchema.value.properties ? 'object' : 'string'))
+const kind = computed(() => {
+  const type = effectiveSchema.value.type
+  if (Array.isArray(type)) return type.find(candidate => candidate !== 'null' && valueMatchesType(props.modelValue, candidate)) || type.find(candidate => candidate !== 'null') || 'string'
+  return type || (effectiveSchema.value.properties || objectValue.value && Object.keys(objectValue.value).length ? 'object' : 'string')
+})
 const objectValue = computed(() => props.modelValue && typeof props.modelValue === 'object' && !Array.isArray(props.modelValue) ? props.modelValue : {})
 const arrayValue = computed(() => Array.isArray(props.modelValue) ? props.modelValue : [])
 const requiredProperties = computed(() => effectiveSchema.value.required || [])
-const propertyEntries = computed(() => Object.entries(effectiveSchema.value.properties || {})
-  .filter(([, schema]) => schema !== false)
-  .map(([name, schema]) => ({ name, schema })))
+function inferSchema (value) {
+  if (Array.isArray(value)) return { type: 'array', items: value.length ? inferSchema(value[0]) : {} }
+  if (value !== null && typeof value === 'object') return { type: 'object', additionalProperties: true }
+  if (typeof value === 'boolean') return { type: 'boolean' }
+  if (typeof value === 'number') return { type: Number.isInteger(value) ? 'integer' : 'number' }
+  return { type: 'string' }
+}
+const propertyEntries = computed(() => {
+  const declared = effectiveSchema.value.properties || {}
+  const names = [...new Set([...Object.keys(declared), ...Object.keys(objectValue.value)])]
+  return names.filter(name => declared[name] !== false).map(name => {
+    const additional = effectiveSchema.value.additionalProperties
+    const fallback = additional && typeof additional === 'object' ? additional : inferSchema(objectValue.value[name])
+    return { name, schema: declared[name] || fallback }
+  })
+})
 const jsonValue = computed(() => JSON.stringify(objectValue.value, null, 2))
 
 function defaultValue (schema) {

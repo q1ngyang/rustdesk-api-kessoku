@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strings"
 	"sync"
 	"testing"
 )
@@ -9,6 +10,9 @@ import (
 func TestGetAppVersion(t *testing.T) {
 	s := &AppService{}
 	v := s.GetAppVersion()
+	if v != strings.TrimSpace(v) {
+		t.Fatalf("app version contains surrounding whitespace: %q", v)
+	}
 	// 打印结果
 	t.Logf("App Version: %s", v)
 }

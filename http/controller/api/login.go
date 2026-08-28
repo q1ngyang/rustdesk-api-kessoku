@@ -3,6 +3,8 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/global"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/request/api"
@@ -10,7 +12,6 @@ import (
 	apiResp "github.com/q1ngyang/rustdesk-api-kessoku/v3/http/response/api"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
-	"net/http"
 )
 
 type Login struct {
@@ -60,9 +61,18 @@ func (l *Login) Login(c *gin.Context) {
 		return
 	}
 
-	u := service.AllService.UserService.InfoByUsernamePassword(f.Username, f.Password)
+	binding := service.TwoFactorChallengeBinding{Client: f.DeviceInfo.Type, DeviceID: f.Id, UUID: f.Uuid, Platform: f.DeviceInfo.Os}
+	secondFactor := f.Type == "email_code" || f.Type == "tfa_code"
+	var u *model.User
+	if secondFactor {
+		u, err = service.AllService.TwoFactorService.CompleteLoginChallenge(f.Secret, f.Username, f.TfaCode, binding)
+	} else if f.Password != "" {
+		u = service.AllService.UserService.InfoByUsernamePassword(f.Username, f.Password)
+	} else {
+		u = &model.User{}
+	}
 
-	if u.Id == 0 {
+	if err != nil || u == nil || u.Id == 0 {
 		loginLimiter.RecordFailedAttempt(clientIp)
 		global.Logger.Warn(fmt.Sprintf("Login Fail: %s %s %s", "UsernameOrPasswordError", c.RemoteIP(), c.ClientIP()))
 		response.Error(c, response.TranslateMsg(c, "UsernameOrPasswordError"))
@@ -71,6 +81,15 @@ func (l *Login) Login(c *gin.Context) {
 
 	if !service.AllService.UserService.CheckUserEnable(u) {
 		response.Error(c, response.TranslateMsg(c, "UserDisabled"))
+		return
+	}
+	if !secondFactor && service.AllService.TwoFactorService.EnabledForUser(u.Id) {
+		challenge, err := service.AllService.TwoFactorService.CreateLoginChallenge(u, binding)
+		if err != nil {
+			response.Error(c, response.TranslateMsg(c, "SystemError"))
+			return
+		}
+		c.JSON(http.StatusOK, apiResp.LoginRes{Type: "email_check", Secret: challenge, TfaType: "tfa_check", User: *(&apiResp.UserPayload{}).FromUser(u)})
 		return
 	}
 

@@ -7,7 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"regexp"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/config"
@@ -18,6 +23,7 @@ import (
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model/custom_types"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 	"gorm.io/gorm"
 )
 
@@ -29,6 +35,33 @@ type ServerControlInstance struct {
 	Available bool   `json:"available"`
 	ErrorCode string `json:"error_code,omitempty"`
 }
+
+type ControlLogSource struct {
+	ID           string `json:"id"`
+	Label        string `json:"label"`
+	Component    string `json:"component"`
+	InstanceID   string `json:"instance_id"`
+	Available    bool   `json:"available"`
+	LevelMutable bool   `json:"level_mutable"`
+	CurrentLevel string `json:"current_level,omitempty"`
+}
+
+type ControlLogEntry struct {
+	Sequence int    `json:"sequence"`
+	Level    string `json:"level"`
+	Text     string `json:"text"`
+}
+
+type ControlLogResult struct {
+	Source    ControlLogSource  `json:"source"`
+	Entries   []ControlLogEntry `json:"entries"`
+	Truncated bool              `json:"truncated"`
+}
+
+var (
+	bearerLogValue     = regexp.MustCompile(`(?i)(authorization\s*:\s*bearer\s+)[^\s,;]+`)
+	structuredLogValue = regexp.MustCompile(`(?i)(["']?(?:access[_ -]?token|refresh[_ -]?token|api[_ -]?token|client[_ -]?secret|password|control[_ -]?token|session[_ -]?cookie|private[_ -]?key)["']?\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;}]+)`)
+)
 
 type StarryControlService struct {
 	config       config.ServerControl
@@ -295,6 +328,174 @@ func (s *StarryControlService) AuditEvents(ctx context.Context, page, pageSize u
 		}
 		return result, nil
 	})
+}
+
+func (s *StarryControlService) LogSources(ctx context.Context, instanceID string) ([]ControlLogSource, error) {
+	return auditedControlCall(s, ctx, "server_control.logs.sources", instanceID, nil, func() ([]ControlLogSource, error) {
+		if _, exists := s.instances[instanceID]; !exists {
+			return nil, starrycontrol.ErrInstanceNotFound
+		}
+		result := make([]ControlLogSource, 0, len(s.config.LogSources))
+		for _, source := range s.config.LogSources {
+			if source.InstanceID != "" && source.InstanceID != "*" && source.InstanceID != instanceID {
+				continue
+			}
+			item := s.publicLogSource(source)
+			file, err := openControlLog(filepath.Join(s.config.LogDirectory, source.File))
+			if err == nil {
+				item.Available = true
+				_ = file.Close()
+			}
+			result = append(result, item)
+		}
+		return result, nil
+	})
+}
+
+func (s *StarryControlService) Logs(ctx context.Context, instanceID, sourceID string, limit int) (ControlLogResult, error) {
+	return auditedControlCall(s, ctx, "server_control.logs.read", instanceID, map[string]interface{}{"source_id": sourceID, "limit": limit}, func() (ControlLogResult, error) {
+		source, err := s.logSource(instanceID, sourceID)
+		if err != nil {
+			return ControlLogResult{}, err
+		}
+		if limit < 1 {
+			limit = 400
+		}
+		if limit > 2000 {
+			limit = 2000
+		}
+		path := filepath.Join(s.config.LogDirectory, source.File)
+		file, err := openControlLog(path)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return ControlLogResult{Source: s.publicLogSource(source), Entries: []ControlLogEntry{}}, nil
+			}
+			return ControlLogResult{}, err
+		}
+		defer file.Close()
+		const maximumRead = int64(2 << 20)
+		stat, err := file.Stat()
+		if err != nil {
+			return ControlLogResult{}, err
+		}
+		start := stat.Size() - maximumRead
+		truncated := start > 0
+		if start < 0 {
+			start = 0
+		}
+		if _, err := file.Seek(start, io.SeekStart); err != nil {
+			return ControlLogResult{}, err
+		}
+		data, err := io.ReadAll(io.LimitReader(file, maximumRead))
+		if err != nil {
+			return ControlLogResult{}, err
+		}
+		if start > 0 {
+			if index := strings.IndexByte(string(data), '\n'); index >= 0 {
+				data = data[index+1:]
+			}
+		}
+		lines := strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n")
+		if len(lines) > 0 && lines[len(lines)-1] == "" {
+			lines = lines[:len(lines)-1]
+		}
+		if len(lines) > limit {
+			lines = lines[len(lines)-limit:]
+			truncated = true
+		}
+		entries := make([]ControlLogEntry, 0, len(lines))
+		for index, line := range lines {
+			if len(line) > 16<<10 {
+				line = line[:16<<10] + "…"
+				truncated = true
+			}
+			line = redactLogLine(line)
+			entries = append(entries, ControlLogEntry{Sequence: index + 1, Level: detectLogLevel(line), Text: line})
+		}
+		public := s.publicLogSource(source)
+		public.Available = true
+		return ControlLogResult{Source: public, Entries: entries, Truncated: truncated}, nil
+	})
+}
+
+func (s *StarryControlService) SetLogLevel(ctx context.Context, instanceID, sourceID, level string) (ControlLogSource, error) {
+	return auditedControlCall(s, ctx, "server_control.logs.level.update", instanceID, map[string]interface{}{"source_id": sourceID, "level": level}, func() (ControlLogSource, error) {
+		if s.config.ReadOnly {
+			return ControlLogSource{}, starrycontrol.ErrReadOnly
+		}
+		source, err := s.logSource(instanceID, sourceID)
+		if err != nil {
+			return ControlLogSource{}, err
+		}
+		if source.Component != "kessoku" || s.logger == nil {
+			return ControlLogSource{}, starrycontrol.ErrRequestInvalid
+		}
+		parsed, err := logrus.ParseLevel(strings.ToLower(level))
+		if err != nil || parsed < logrus.PanicLevel || parsed > logrus.TraceLevel {
+			return ControlLogSource{}, starrycontrol.ErrRequestInvalid
+		}
+		s.logger.SetLevel(parsed)
+		result := s.publicLogSource(source)
+		result.Available = true
+		return result, nil
+	})
+}
+
+func (s *StarryControlService) logSource(instanceID, sourceID string) (config.ControlLogSource, error) {
+	if _, exists := s.instances[instanceID]; !exists {
+		return config.ControlLogSource{}, starrycontrol.ErrInstanceNotFound
+	}
+	for _, source := range s.config.LogSources {
+		if source.ID == sourceID && (source.InstanceID == "" || source.InstanceID == "*" || source.InstanceID == instanceID) {
+			return source, nil
+		}
+	}
+	return config.ControlLogSource{}, starrycontrol.ErrRequestInvalid
+}
+
+func (s *StarryControlService) publicLogSource(source config.ControlLogSource) ControlLogSource {
+	result := ControlLogSource{ID: source.ID, Label: source.Label, Component: source.Component, InstanceID: source.InstanceID, LevelMutable: source.Component == "kessoku"}
+	if result.LevelMutable && s.logger != nil {
+		result.CurrentLevel = s.logger.GetLevel().String()
+	}
+	return result
+}
+
+func detectLogLevel(line string) string {
+	upper := strings.ToUpper(line)
+	for _, level := range []string{"PANIC", "FATAL", "ERROR", "WARN", "DEBUG", "TRACE", "INFO"} {
+		if strings.Contains(upper, level) {
+			return strings.ToLower(level)
+		}
+	}
+	return "info"
+}
+
+func redactLogLine(line string) string {
+	line = bearerLogValue.ReplaceAllString(line, "$1[REDACTED]")
+	return structuredLogValue.ReplaceAllString(line, "$1[REDACTED]")
+}
+
+func openControlLog(path string) (*os.File, error) {
+	fd, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW|unix.O_NONBLOCK, 0)
+	if err != nil {
+		return nil, err
+	}
+	file := os.NewFile(uintptr(fd), path)
+	if file == nil {
+		_ = unix.Close(fd)
+		return nil, errors.New("open log file")
+	}
+	info, err := file.Stat()
+	if err != nil {
+		_ = file.Close()
+		return nil, err
+	}
+	if !info.Mode().IsRegular() {
+		_ = file.Close()
+		return nil, errors.New("configured log source is not a regular file")
+	}
+	return file, nil
 }
 
 func (s *StarryControlService) provider(instanceID string, mutatesActiveConfig bool) (starrycontrol.ServerControlProvider, error) {

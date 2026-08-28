@@ -117,6 +117,10 @@ export function useChangePwd () {
     const input = await ElMessageBox.prompt(T('PleaseInputNewPassword'), T('ResetPassword'), {
       confirmButtonText: T('Confirm'),
       cancelButtonText: T('Cancel'),
+	  customClass: 'compact-message-box',
+	  inputType: 'password',
+	  inputPattern: /^.{12,128}$/,
+	  inputErrorMessage: T('PasswordLengthInvalid'),
     }).catch(_ => false)
     if (!input) {
       return
@@ -124,6 +128,7 @@ export function useChangePwd () {
     const confirm = await ElMessageBox.confirm(T('Confirm?', { param: T('ResetPassword') }), {
       confirmButtonText: T('Confirm'),
       cancelButtonText: T('Cancel'),
+	  customClass: 'compact-message-box',
     }).catch(_ => false)
     if (!confirm) {
       return

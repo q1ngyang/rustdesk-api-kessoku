@@ -25,7 +25,8 @@ purpose.
 | [operations/](operations/) | Operator and rollback runbooks |
 | [security/](security/) | Security model and trust boundaries |
 | [releases/](releases/) | Release procedure, checklist, and migration history |
-| [releases/v3.0.1/](releases/v3.0.1/) | v3.0.1 release notes and migration guide |
+| [releases/v3.0.2/](releases/v3.0.2/) | Current v3.0.2 release notes and migration guide |
+| [releases/v3.0.1/](releases/v3.0.1/) | Withdrawn v3.0.1 historical release documents |
 | [releases/v2.8.3/](releases/v2.8.3/) | Historical v2.8.3 release notes |
 | [development/](development/) | UI design, protocol details, provenance, and documentation maintenance |
 | [api/](api/) and [admin/](admin/) | Generated API documentation; keep these paths stable for Go imports |

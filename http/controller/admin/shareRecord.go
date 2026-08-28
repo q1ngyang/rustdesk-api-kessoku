@@ -31,10 +31,11 @@ func (sr *ShareRecord) List(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
-	res := service.AllService.ShareRecordService.List(query.Page, query.PageSize, func(tx *gorm.DB) {
+	res := service.AllService.ShareRecordService.List(query.Page, query.PageSize, func(tx *gorm.DB) *gorm.DB {
 		if query.UserId > 0 {
-			tx.Where("user_id = ?", query.UserId)
+			tx = tx.Where("user_id = ?", query.UserId)
 		}
+		return tx.Order("id desc")
 	})
 	response.Success(c, res)
 }

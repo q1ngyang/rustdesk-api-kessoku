@@ -6877,6 +6877,12 @@ const docTemplateadmin = `{
                 "nickname": {
                     "type": "string"
                 },
+                "preference_language": {
+                    "type": "string"
+                },
+                "preference_theme": {
+                    "type": "string"
+                },
                 "role": {
                     "$ref": "#/definitions/model.UserRole"
                 },
@@ -7155,7 +7161,6 @@ const docTemplateadmin = `{
         "github_com_q1ngyang_rustdesk-api-kessoku_v3_http_request_admin.Login": {
             "type": "object",
             "required": [
-                "password",
                 "username"
             ],
             "properties": {
@@ -7165,14 +7170,31 @@ const docTemplateadmin = `{
                 "captcha_id": {
                     "type": "string"
                 },
+                "challenge": {
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "device_id": {
+                    "type": "string",
+                    "maxLength": 128
+                },
                 "password": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 128
                 },
                 "platform": {
                     "type": "string"
                 },
+                "tfa_code": {
+                    "type": "string",
+                    "maxLength": 16
+                },
                 "username": {
                     "type": "string"
+                },
+                "uuid": {
+                    "type": "string",
+                    "maxLength": 128
                 }
             }
         },
@@ -7392,6 +7414,9 @@ const docTemplateadmin = `{
                 "action": {
                     "type": "string"
                 },
+                "client": {
+                    "type": "string"
+                },
                 "close_time": {
                     "type": "integer"
                 },
@@ -7424,6 +7449,9 @@ const docTemplateadmin = `{
                 },
                 "updated_at": {
                     "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
                 },
                 "uuid": {
                     "type": "string"
@@ -7871,6 +7899,13 @@ const docTemplateadmin = `{
                 "nickname": {
                     "type": "string"
                 },
+                "preference_language": {
+                    "description": "Presentation preferences are account scoped so the administration\nconsole and a separately hosted WebClient can stay in sync without\nattempting to share cookies across unrelated domains.",
+                    "type": "string"
+                },
+                "preference_theme": {
+                    "type": "string"
+                },
                 "remark": {
                     "type": "string"
                 },
@@ -7927,7 +7962,16 @@ const docTemplateadmin = `{
                 "auth_version": {
                     "type": "integer"
                 },
+                "client": {
+                    "type": "string"
+                },
                 "created_at": {
+                    "type": "string"
+                },
+                "created_ip": {
+                    "type": "string"
+                },
+                "credential_id": {
                     "type": "string"
                 },
                 "device_id": {
@@ -7949,6 +7993,9 @@ const docTemplateadmin = `{
                     "type": "string"
                 },
                 "kid": {
+                    "type": "string"
+                },
+                "platform": {
                     "type": "string"
                 },
                 "revoked_at": {
@@ -8521,6 +8568,10 @@ const docTemplateadmin = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "version": {
+                    "description": "Version is optional in Control v1. Current Starry versions may omit it;\nKessoku reports that explicitly instead of guessing from the center.",
+                    "type": "string"
                 },
                 "websocket": {
                     "$ref": "#/definitions/starrycontrol.WebSocketRelayStatus"

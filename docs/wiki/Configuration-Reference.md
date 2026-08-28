@@ -25,6 +25,8 @@ RUSTDESK_API_AUTH_INTERNAL_REQUEST_TIMEOUT
 | `auth` | EdDSA token profile and internal mTLS API | Enable only after keys/PKI are mounted and migration is rehearsed. |
 | `server-control` | Fixed Starry Control Agent instances | Read-only, legacy commands off, no instance until credentials are ready. |
 | `web-client` | Built-in browser client listener, origins, WSS map, public key, generation, grant TTL | `disabled`; when enabled, separate HTTPS origin and loopback listener. |
+| `media` | Persistent deployment-brand and avatar images | Keep under the mounted `/app/data` volume; raster images only. |
+| `two-factor` | TOTP issuer, encrypted-secret key file, and login challenge lifetime | Enabled; key under `/app/data`, five-minute challenges. |
 | `ldap`/OAuth | Optional identity providers | TLS verification and least privilege; no example password. |
 
 ## Authentication files
@@ -35,6 +37,20 @@ requires its server certificate/key, a Starry client CA, and at least one exact
 allowed URI or DNS SAN.
 
 Missing or invalid required material fails startup when the profile is enabled.
+
+## Branding media and two-factor authentication
+
+`media.directory` defaults to `./data/media`; uploads are renamed by the
+server, restricted to verified PNG/JPEG/WebP files, capped by
+`media.max-image-bytes`, and served under `/media/`. Keep this directory on the
+persistent data volume.
+
+`two-factor.enabled` defaults to `true`. On first startup Kessoku creates an
+exactly 32-byte mode-0600 key at `two-factor.key-file` and uses AES-GCM to
+encrypt TOTP secrets in the database. Back up the key together with the
+database: losing it makes enabled TOTP registrations unverifiable. The
+`issuer` appears in authenticator apps; `challenge-ttl` must be one to ten
+minutes. Enabling or disabling TOTP revokes all existing sessions.
 
 ## Database transport
 
@@ -82,6 +98,28 @@ Each enabled instance fixes:
 
 The browser cannot override these values. `server-control.read-only: true` is
 the normal profile outside an approved configuration window.
+
+The optional diagnostics viewer is a deployment-owned allowlist. Set one
+absolute `log-directory`, then add `log-sources` entries containing a unique
+`id`, display `label`, component (`kessoku`, `starry`, `relay`, or
+`control-agent`), optional configured `instance-id`, and a simple `file` name.
+Paths, traversal, and browser-provided filenames are rejected. Kessoku reads
+only a bounded newest window and redacts common authorization, token,
+password, session-cookie, client-secret, and private-key values before display
+or export. Keep older logs and retention policy in the deployment logging
+system. Kessoku's process log level may be changed while control writes are
+enabled; Starry patch v1.2 still requires changing deployment `RUST_LOG` and a
+maintenance restart.
+
+## Operator-managed system settings
+
+Super administrators manage the workspace announcement and IP information
+database under **System settings** in `/dash/`. GeoIP sources must be public
+HTTPS MMDB URLs; downloads are limited to 128 MiB, validated before atomic
+replacement, and refreshed every 1–2160 hours. The default City and ASN files
+come from the P3TERX GeoLite mirror. These values are stored in the database,
+not in deployment branding or YAML. Persist and back up `/app/data`, which also
+contains the downloaded `geoip` directory.
 
 ## Built-in Web Client
 

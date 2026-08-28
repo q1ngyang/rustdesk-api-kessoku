@@ -192,7 +192,7 @@
     "One": "裝置"
   },
   "ChangeLang": {
-    "One": "ToEnglish"
+    "One": "切換語言"
   },
   "My": {
     "One": "我的"
@@ -228,7 +228,7 @@
     "One": "標籤管理"
   },
   "OauthManage": {
-    "One": "Oauth 管理"
+    "One": "OAuth 管理"
   },
   "LoginLog": {
     "One": "登入日誌"
@@ -553,8 +553,8 @@
   "LightMode": { "One": "淺色模式" },
   "DarkMode": { "One": "深色模式" },
   "SecureManagementConsole": { "One": "安全管理控制台" },
-  "WelcomeToKessoku": { "One": "清晰管理每一次連線。" },
-  "AuthIntroduction": { "One": "在專注且支援各種螢幕的工作區中管理裝置、身分與 RustDesk 服務。" },
+  "WelcomeToKessoku": { "One": "清晰管理每一次遠端連線" },
+  "AuthIntroduction": { "One": "集中管理裝置、使用者、通訊錄與服務狀態，安全發起並稽核 RustDesk 遠端連線" },
   "UnifiedDeviceManagement": { "One": "統一管理裝置與通訊錄" },
   "ServerHealthAtAGlance": { "One": "快速掌握服務健康與中繼狀態" },
   "ExistingPermissionModel": { "One": "面向企業的分層權限與資源隔離" },
@@ -632,7 +632,7 @@
   "SaveAccessScope": { "One": "儲存管理範圍" },
   "CurrentGroupRetained": { "One": "保留目前使用者群組" },
   "About": { "One": "關於" },
-  "AboutDescription": { "One": "針對多端最佳化的 RustDesk 管理體驗，僅在兩個專案產生關聯的介面顯示 StarryLinks 品牌。" },
+  "AboutDescription": { "One": "RustDesk API Kessoku 提供使用者、裝置、通訊錄、稽核與品牌管理；RustDesk Server Starry 在官方服務端基礎上提供安全控制、智慧中繼與 WebSocket 連線能力。" },
   "ProjectIdentity": { "One": "專案識別" },
   "ProjectIdentityDescription": { "One": "管理介面統一使用專案圖示，並與 KESSOKU 名稱搭配顯示。" },
   "ResponsiveInterface": { "One": "響應式介面" },
@@ -640,5 +640,12 @@
   "ResponsiveInterfaceDescription": { "One": "核心操作會依可用空間調整版面，同時維持既有權限模型。" },
   "ThemeAdaptation": { "One": "主題適配" },
   "LightAndDark": { "One": "一般 · 夜間" },
-  "ThemeAdaptationDescription": { "One": "介面會依目前主題自動選擇專用的明暗版本圖稿。" }
+  "ThemeAdaptationDescription": { "One": "介面會依目前主題自動選擇專用的明暗版本圖稿。" },
+  "GeoIPUpdateStarted": { "One": "MMDB 更新已開始，完成後會自動通知" },
+  "GeoIPUpdateInProgress": { "One": "MMDB 正在更新，完成後會自動通知" },
+  "GeoIPUpdateSucceeded": { "One": "MMDB 資料庫更新成功" },
+  "GeoIPUpdateFailed": { "One": "MMDB 資料庫更新失敗：{message}" },
+  "GeoIPUpdateStatusTimeout": { "One": "MMDB 更新仍在背景執行，請稍後再次查看狀態" },
+  "GeoIPUpdateNotStarted": { "One": "未能啟動 MMDB 更新" },
+  "Enable": { "One": "啟用" }, "Disable": { "One": "停用" }
 }

@@ -1,10 +1,10 @@
-rustdesk-api-kessoku (3.0.1-1) UNRELEASED; urgency=medium
+rustdesk-api-kessoku (3.0.2-1) UNRELEASED; urgency=high
 
-  * Add the responsive Kessoku administration interface.
-  * Add scoped enterprise administrators and database version 302.
-  * Migrate the Go module path to /v3.
+  * Replace withdrawn v3.0.1 as the first supported Kessoku v3 release.
+  * Fix administration navigation, client reporting, WebClient sessions, and audit records.
+  * Add centralized themed branding, TOTP, GeoIP, avatars, and database version 309.
 
- -- q1ngyang <q1ngyang@users.noreply.github.com>  Tue, 25 Aug 2026 12:00:00 +0800
+ -- q1ngyang <q1ngyang@users.noreply.github.com>  Fri, 28 Aug 2026 14:00:00 +0800
 
 rustdesk-api-kessoku (2.8.3-1) UNRELEASED; urgency=medium
 

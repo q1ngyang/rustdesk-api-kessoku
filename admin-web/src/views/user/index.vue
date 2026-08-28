@@ -14,20 +14,20 @@
     </el-card>
     <el-card class="list-body" shadow="hover">
       <el-table :data="listRes.list" v-loading="listRes.loading" border>
-        <el-table-column prop="id" label="ID" align="center"></el-table-column>
-        <el-table-column prop="username" :label="T('Username')" align="center"/>
-        <el-table-column prop="email" :label="T('Email')" align="center"/>
-        <el-table-column prop="nickname" :label="T('Nickname')" align="center"/>
+        <el-table-column prop="id" label="ID" align="center" width="72"/>
+        <el-table-column prop="username" :label="T('Username')" align="center" width="132" show-overflow-tooltip/>
+        <el-table-column prop="nickname" :label="T('Nickname')" align="center" width="132" show-overflow-tooltip/>
+        <el-table-column prop="email" :label="T('Email')" align="center" min-width="190" show-overflow-tooltip/>
         <el-table-column prop="role" :label="T('Role')" align="center" width="140">
           <template #default="{row}"><el-tag :type="roleType(row.role)" effect="light">{{ T(roleLabel(row.role)) }}</el-tag></template>
         </el-table-column>
-        <el-table-column :label="T('Group')" align="center">
+        <el-table-column :label="T('Group')" align="center" width="128">
           <template #default="{row}">
             <span v-if="row.group_id"> <el-tag>{{ listRes.groups?.find(g => g.id === row.group_id)?.name || `#${row.group_id}` }} </el-tag> </span>
             <span v-else> - </span>
           </template>
         </el-table-column>
-        <el-table-column :label="T('Status')" align="center">
+        <el-table-column :label="T('Status')" align="center" width="88">
           <template #default="{row}">
             <el-switch v-model="row.status"
                        :active-value="ENABLE_STATUS"
@@ -36,18 +36,23 @@
             ></el-switch>
           </template>
         </el-table-column>
-        <el-table-column prop="remark" :label="T('Remark')" align="center"/>
-        <el-table-column prop="created_at" :label="T('CreatedAt')" align="center"/>
-        <el-table-column prop="updated_at" :label="T('UpdatedAt')" align="center"/>
-        <el-table-column :label="T('Actions')" align="center" min-width="520" class-name="table-actions" fixed="right">
+        <el-table-column prop="remark" :label="T('Remark')" align="center" min-width="160" show-overflow-tooltip/>
+        <el-table-column prop="created_at" :label="T('CreatedAt')" align="center" width="154"/>
+        <el-table-column prop="updated_at" :label="T('UpdatedAt')" align="center" width="154"/>
+        <el-table-column :label="T('Actions')" align="center" width="176" class-name="table-actions" fixed="right">
           <template #default="{row}">
-            <el-button v-if="isSuperAdmin" @click="toTag(row)">{{ T('UserTags') }}</el-button>
-            <el-button v-if="isSuperAdmin" @click="toAddressBook(row)">{{ T('UserAddressBook') }}</el-button>
-            <el-button v-if="isSuperAdmin && row.role === 'admin'" type="primary" plain @click="toAccess(row)">{{ T('AccessScope') }}</el-button>
             <el-button @click="toEdit(row)">{{ T('Edit') }}</el-button>
-            <el-button type="warning" @click="changePass(row)">{{ T('ResetPassword') }}</el-button>
-            <el-button @click="revoke(row)">{{ T('RevokeSessions') }}</el-button>
-            <el-button v-if="isSuperAdmin" type="danger" @click="remove(row)">{{ T('Delete') }}</el-button>
+            <el-dropdown trigger="click" @command="command => handleUserAction(command, row)">
+              <el-button>{{ T('More') }}<el-icon class="el-icon--right"><ArrowDown/></el-icon></el-button>
+              <template #dropdown><el-dropdown-menu>
+                <el-dropdown-item v-if="isSuperAdmin" command="tags">{{ T('UserTags') }}</el-dropdown-item>
+                <el-dropdown-item v-if="isSuperAdmin" command="address">{{ T('UserAddressBook') }}</el-dropdown-item>
+                <el-dropdown-item v-if="isSuperAdmin && row.role === 'admin'" command="access">{{ T('AccessScope') }}</el-dropdown-item>
+                <el-dropdown-item command="password" divided>{{ T('ResetPassword') }}</el-dropdown-item>
+                <el-dropdown-item command="revoke">{{ T('RevokeSessions') }}</el-dropdown-item>
+                <el-dropdown-item v-if="isSuperAdmin" command="delete" divided>{{ T('Delete') }}</el-dropdown-item>
+              </el-dropdown-menu></template>
+            </el-dropdown>
           </template>
         </el-table-column>
       </el-table>
@@ -72,6 +77,7 @@
   import { ElMessageBox, ElMessage } from 'element-plus'
   import { computed, onMounted, watch } from 'vue'
   import { useUserStore } from '@/store/user'
+  import { ArrowDown } from '@element-plus/icons-vue'
   //列表
   const {
     listRes,
@@ -122,10 +128,19 @@
   }
 
   const revoke = async row => {
-    const confirmed = await ElMessageBox.confirm(T('Confirm?', { param: T('RevokeSessions') }), { confirmButtonText: T('Confirm'), cancelButtonText: T('Cancel'), type: 'warning' }).catch(() => false)
+    const confirmed = await ElMessageBox.confirm(T('Confirm?', { param: T('RevokeSessions') }), { confirmButtonText: T('Confirm'), cancelButtonText: T('Cancel'), type: 'warning', customClass: 'compact-message-box' }).catch(() => false)
     if (!confirmed) return
     const res = await revokeSessions({ id: row.id }).catch(() => false)
     if (res) ElMessage.success(T('OperationSuccess'))
+  }
+
+  const handleUserAction = (command, row) => {
+    if (command === 'tags') toTag(row)
+    if (command === 'address') toAddressBook(row)
+    if (command === 'access') toAccess(row)
+    if (command === 'password') changePass(row)
+    if (command === 'revoke') revoke(row)
+    if (command === 'delete') remove(row)
   }
 
 </script>

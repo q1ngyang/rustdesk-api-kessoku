@@ -12,17 +12,16 @@ import (
 type AuditService struct {
 }
 
-func (as *AuditService) AuditConnList(page, pageSize uint, where func(tx *gorm.DB)) (res *model.AuditConnList) {
+func (as *AuditService) AuditConnList(page, pageSize uint, where func(tx *gorm.DB) *gorm.DB) (res *model.AuditConnList) {
 	res = &model.AuditConnList{}
 	res.Page = int64(page)
 	res.PageSize = int64(pageSize)
 	tx := DB.Model(&model.AuditConn{})
 	if where != nil {
-		where(tx)
+		tx = where(tx)
 	}
 	tx.Count(&res.Total)
-	tx.Scopes(Paginate(page, pageSize))
-	tx.Find(&res.AuditConns)
+	tx.Scopes(Paginate(page, pageSize)).Find(&res.AuditConns)
 	return
 }
 
@@ -52,6 +51,31 @@ func (as *AuditService) UpdateAuditConn(u *model.AuditConn) error {
 	return DB.Model(u).Updates(u).Error
 }
 
+func (as *AuditService) CloseWebClientAudit(ctx context.Context, id, userID uint, sessionID string, closeTime int64) error {
+	if id == 0 || userID == 0 || sessionID == "" || closeTime <= 0 {
+		return errors.New("invalid WebClient connection audit close")
+	}
+	query := DB.WithContext(ctx).Model(&model.AuditConn{}).
+		Where("id = ? AND user_id = ? AND client = ? AND session_id = ?", id, userID, model.LoginLogClientWeb, sessionID)
+	result := query.Where("close_time = 0").Update("close_time", closeTime)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 1 {
+		return nil
+	}
+	var count int64
+	if err := DB.WithContext(ctx).Model(&model.AuditConn{}).
+		Where("id = ? AND user_id = ? AND client = ? AND session_id = ?", id, userID, model.LoginLogClientWeb, sessionID).
+		Count(&count).Error; err != nil {
+		return err
+	}
+	if count == 1 {
+		return nil
+	}
+	return errors.New("WebClient connection audit not found")
+}
+
 // InfoByPeerIdAndConnId
 func (as *AuditService) InfoByPeerIdAndConnId(peerId string, connId int64) (res *model.AuditConn) {
 	res = &model.AuditConn{}
@@ -73,17 +97,16 @@ func (as *AuditService) FileInfoById(id uint) (res *model.AuditFile) {
 	return
 }
 
-func (as *AuditService) AuditFileList(page, pageSize uint, where func(tx *gorm.DB)) (res *model.AuditFileList) {
+func (as *AuditService) AuditFileList(page, pageSize uint, where func(tx *gorm.DB) *gorm.DB) (res *model.AuditFileList) {
 	res = &model.AuditFileList{}
 	res.Page = int64(page)
 	res.PageSize = int64(pageSize)
 	tx := DB.Model(&model.AuditFile{})
 	if where != nil {
-		where(tx)
+		tx = where(tx)
 	}
 	tx.Count(&res.Total)
-	tx.Scopes(Paginate(page, pageSize))
-	tx.Find(&res.AuditFiles)
+	tx.Scopes(Paginate(page, pageSize)).Find(&res.AuditFiles)
 	return
 }
 

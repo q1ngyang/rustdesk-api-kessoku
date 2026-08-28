@@ -22,7 +22,7 @@
         <el-table-column :label="T('Peer')" prop="peer_id" align="center" width="120"/>
         <el-table-column :label="T('FromPeer')" prop="from_peer" align="center" width="120"/>
         <el-table-column :label="T('FromName')" prop="from_name" align="center" width="120"/>
-        <el-table-column :label="T('Ip')" prop="ip" align="center" width="120"/>
+        <el-table-column :label="T('Ip')" prop="ip" align="center" width="170"><template #default="{row}"><IpAddress :value="row.ip"/></template></el-table-column>
         <el-table-column prop="type" :label="T('Type')" align="center" width="200">
           <template #default="{row}">
             <el-tag v-if="row.type === 1" type="warning"> {{ T('ToRemote') }}:
@@ -101,6 +101,7 @@
   import { T } from '@/utils/i18n'
   import { sizeFormat } from '@/utils/file'
   import { Right } from '@element-plus/icons-vue'
+  import IpAddress from '@/components/common/IpAddress.vue'
 
   const showDirFileNum = 3
   const {

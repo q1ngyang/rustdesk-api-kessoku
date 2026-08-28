@@ -27,7 +27,7 @@
 ## 推荐域名
 
 ```text
-api.example.com       Kessoku API 和 /_admin/
+api.example.com       Kessoku API 和 /dash/
 client.example.com    Kessoku 浏览器远控
 rustdesk.example.com  HBBS/HBBR 原生地址及 /ws/id、/ws/relay
 ```
@@ -89,7 +89,7 @@ server {
 }
 ```
 
-管理后台位于同一站点的 `/_admin/`，不需要单独的 `location`。不要覆盖 Kessoku 自己输出
+管理后台位于同一站点的 `/dash/`，不需要单独的 `location`。不要覆盖 Kessoku 自己输出
 的内容安全策略、禁止嵌入、禁止嗅探等响应头。
 
 ## 浏览器客户端代理要点

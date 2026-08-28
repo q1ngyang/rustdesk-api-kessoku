@@ -69,43 +69,44 @@
       <el-table :data="listRes.list" v-loading="listRes.loading" border size="small" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" align="center"/>
         <template v-for="c in visibleColumns.filter(cc => cc.visible)" :key="c">
-          <el-table-column v-if="c.name==='id'" prop="id" label="ID" align="center" width="150">
+          <el-table-column v-if="c.name==='id'" prop="id" label="ID" align="center" width="126">
             <template #default="{row}">
               <span>{{ row.id }} <el-icon @click="handleClipboard(row.id, $event)"><CopyDocument/></el-icon></span>
             </template>
           </el-table-column>
-          <el-table-column v-if="c.name==='cpu'" prop="cpu" label="CPU" align="center" width="100" show-overflow-tooltip/>
-          <el-table-column v-if="c.name==='hostname'" prop="hostname" :label="T('Hostname')" align="center" width="120"/>
-          <el-table-column v-if="c.name==='memory'" prop="memory" :label="T('Memory')" align="center" width="120"/>
-          <el-table-column v-if="c.name==='os'" prop="os" :label="T('Os')" align="center" width="120" show-overflow-tooltip/>
-          <el-table-column v-if="c.name==='last_online_time'" prop="last_online_time" :label="T('LastOnlineTime')" align="center" min-width="120">
+          <el-table-column v-if="c.name==='hostname'" prop="hostname" :label="T('Hostname')" align="center" width="150" show-overflow-tooltip/>
+          <el-table-column v-if="c.name==='username'" prop="username" :label="T('Username')" align="center" width="120" show-overflow-tooltip/>
+          <el-table-column v-if="c.name==='group_id'" prop="group_id" :label="T('Group')" align="center" width="120">
+            <template #default="{row}">
+              <span v-if="row.group_id"><el-tag>{{ groupListRes.list?.find(g => g.id === row.group_id)?.name || `#${row.group_id}` }}</el-tag></span>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column v-if="c.name==='alias'" prop="alias" :label="T('Alias')" align="center" width="100" show-overflow-tooltip/>
+          <el-table-column v-if="c.name==='last_online_time'" prop="last_online_time" :label="T('LastOnlineTime')" align="center" width="140">
             <template #default="{row}">
               <div class="last_oline_time">
                 <span> {{ row.last_online_time ? timeAgo(row.last_online_time * 1000) : '-' }}</span> <span class="dot" :class="{red: timeDis(row.last_online_time) >= 60, green: timeDis(row.last_online_time)< 60}"></span>
               </div>
             </template>
           </el-table-column>
-          <el-table-column v-if="c.name==='last_online_ip'" prop="last_online_ip" :label="T('LastOnlineIp')" align="center" min-width="120"/>
-          <el-table-column v-if="c.name==='username'" prop="username" :label="T('Username')" align="center" width="120"/>
-          <el-table-column v-if="c.name==='group_id'" prop="group_id" :label="T('Group')" align="center" width="120">
-            <template #default="{row}">
-              <span v-if="row.group_id"> <el-tag>{{ groupListRes.list?.find(g => g.id === row.group_id)?.name || `#${row.group_id}` }} </el-tag> </span>
-              <span v-else> - </span>
-            </template>
-          </el-table-column>
-          <el-table-column v-if="c.name==='uuid'" prop="uuid" :label="T('Uuid')" align="center" width="120" show-overflow-tooltip/>
-          <el-table-column v-if="c.name==='version'" prop="version" :label="T('Version')" align="center" width="80"/>
-          <el-table-column v-if="c.name==='alias'" prop="alias" :label="T('Alias')" align="center" width="80"/>
+          <el-table-column v-if="c.name==='last_online_ip'" prop="last_online_ip" :label="T('LastOnlineIp')" align="center" min-width="150"><template #default="{row}"><IpAddress :value="row.last_online_ip"/></template></el-table-column>
+          <el-table-column v-if="c.name==='os'" prop="os" :label="T('Os')" align="center" width="136" show-overflow-tooltip/>
+          <el-table-column v-if="c.name==='version'" prop="version" :label="T('Version')" align="center" width="88"/>
+          <el-table-column v-if="c.name==='uuid'" prop="uuid" :label="T('Uuid')" align="center" width="160" show-overflow-tooltip/>
+          <el-table-column v-if="c.name==='cpu'" prop="cpu" label="CPU" align="center" width="160" show-overflow-tooltip/>
+          <el-table-column v-if="c.name==='memory'" prop="memory" :label="T('Memory')" align="center" width="108" show-overflow-tooltip/>
           <el-table-column v-if="c.name==='created_at'" prop="created_at" :label="T('CreatedAt')" align="center" width="150"/>
           <el-table-column v-if="c.name==='updated_at'" prop="updated_at" :label="T('UpdatedAt')" align="center" width="150"/>
         </template>
 
-        <el-table-column :label="T('Actions')" align="center" width="500" class-name="table-actions" fixed="right">
+        <el-table-column :label="T('Actions')" align="center" width="176" class-name="table-actions" fixed="right">
           <template #default="{row}">
             <el-button type="success" @click="connectByClient(row.id)">{{ T('Link') }}</el-button>
-            <el-button type="primary" @click="toAddressBook(row)">{{ T('AddToAddressBook') }}</el-button>
-            <el-button @click="toEdit(row)">{{ T('Edit') }}</el-button>
-            <el-button type="danger" @click="del(row)">{{ T('Delete') }}</el-button>
+            <el-dropdown trigger="click" @command="command => handlePeerAction(command, row)">
+              <el-button>{{ T('More') }}<el-icon class="el-icon--right"><ArrowDown/></el-icon></el-button>
+              <template #dropdown><el-dropdown-menu><el-dropdown-item command="address">{{ T('AddToAddressBook') }}</el-dropdown-item><el-dropdown-item command="edit">{{ T('Edit') }}</el-dropdown-item><el-dropdown-item command="delete" divided>{{ T('Delete') }}</el-dropdown-item></el-dropdown-menu></template>
+            </el-dropdown>
           </template>
         </el-table-column>
       </el-table>
@@ -244,6 +245,7 @@
   import { useRepositories as useCollectionRepositories } from '@/views/address_book/collection'
   import createABForm from '@/views/peer/createABForm.vue'
   import { useUserStore } from '@/store/user'
+  import IpAddress from '@/components/common/IpAddress.vue'
 
   const userStore = useUserStore()
   const isSuperAdmin = computed(() => userStore.role === 'super_admin')
@@ -450,6 +452,11 @@
     clickRow.value = row
     ABFormVisible.value = true
   }
+  const handlePeerAction = (command, row) => {
+    if (command === 'address') toAddressBook(row)
+    if (command === 'edit') toEdit(row)
+    if (command === 'delete') del(row)
+  }
 
   const multipleSelection = ref([])
   const handleSelectionChange = (val) => {
@@ -541,26 +548,26 @@
   const columnSettingVisible = ref(false)
   const allColumns = ref([
     { name: 'id', visible: true, label: 'Id' },
-    { name: 'cpu', visible: true, label: 'Cpu' },
     { name: 'hostname', visible: true, label: 'Hostname' },
-    { name: 'memory', visible: true, label: 'Memory' },
-    { name: 'os', visible: true, label: 'Os' },
-    { name: 'last_online_time', visible: true, label: 'LastOnlineTime' },
-    { name: 'last_online_ip', visible: true, label: 'LastOnlineIp' },
     { name: 'username', visible: true, label: 'Username' },
     { name: 'group_id', visible: true, label: 'Group' },
-    { name: 'uuid', visible: true, label: 'Uuid' },
-    { name: 'version', visible: true, label: 'Version' },
     { name: 'alias', visible: true, label: 'Alias' },
+    { name: 'last_online_time', visible: true, label: 'LastOnlineTime' },
+    { name: 'last_online_ip', visible: true, label: 'LastOnlineIp' },
+    { name: 'os', visible: true, label: 'Os' },
+    { name: 'version', visible: true, label: 'Version' },
+    { name: 'uuid', visible: true, label: 'Uuid' },
+    { name: 'cpu', visible: true, label: 'Cpu' },
+    { name: 'memory', visible: true, label: 'Memory' },
     { name: 'created_at', visible: true, label: 'CreatedAt' },
     { name: 'updated_at', visible: true, label: 'UpdatedAt' },
   ])
-  const visibleColumns = ref(JSON.parse(localStorage.getItem('peer_visible_columns')) || allColumns.value)
+  const visibleColumns = ref(JSON.parse(localStorage.getItem('peer_visible_columns_v2')) || allColumns.value)
   const showColumnSetting = () => {
     columnSettingVisible.value = true
   }
   const saveColumnSetting = () => {
-    localStorage.setItem('peer_visible_columns', JSON.stringify(visibleColumns.value))
+    localStorage.setItem('peer_visible_columns_v2', JSON.stringify(visibleColumns.value))
     ElMessage.success(T('OperationSuccess'))
     columnSettingVisible.value = false
   }

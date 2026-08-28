@@ -42,3 +42,8 @@ admin-web/candidate/
 # derivatives are excluded. Its production dist is rebuilt in the image.
 web-client/node_modules/
 web-client/dist/
+
+# Local integration runtime data contains generated keys, databases, and
+# client profiles. It must never enter a source-build context.
+deploy-local-test/state/
+deploy-local-test/.env

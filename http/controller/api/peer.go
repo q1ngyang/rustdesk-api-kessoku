@@ -54,12 +54,20 @@ func (p *Peer) SysInfo(c *gin.Context) {
 			return
 		}
 	} else {
-		if pe.Uuid == "" || pe.Uuid != f.Uuid {
+		// An administrator may create an ID-only placeholder before the native
+		// client reports its system information.  Bind that empty identity only
+		// after an exact login-log match; once a UUID exists, never let another
+		// device overwrite it.
+		if pe.Uuid != "" && pe.Uuid != f.Uuid {
 			c.String(http.StatusOK, "ID_NOT_FOUND")
 			return
 		}
-		if pe.UserId == 0 {
-			pe.UserId = service.AllService.UserService.FindLatestUserIdFromLoginLogByUuid(pe.Uuid, pe.Id)
+		if pe.Uuid == "" || pe.UserId == 0 {
+			pe.UserId = service.AllService.UserService.FindLatestUserIdFromLoginLogByUuid(f.Uuid, f.Id)
+			if pe.UserId == 0 {
+				c.String(http.StatusOK, "ID_NOT_FOUND")
+				return
+			}
 		}
 		fpe.RowId = pe.RowId
 		fpe.UserId = pe.UserId

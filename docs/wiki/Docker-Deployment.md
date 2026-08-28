@@ -17,7 +17,7 @@ RustDesk client ── HTTPS 443 ── reverse proxy ── Kessoku 21114
                                                 │
 Starry HBBS ── private TLS 1.3/mTLS ────────────┤ 21121 JWKS/introspection
                                                 │
-Admin browser ─ HTTPS /_admin/ ─────────────────┘
+Admin browser ─ HTTPS /dash/ ─────────────────┘
 
 Browser remote client ── separate HTTPS origin ── Kessoku 21122
 
@@ -110,7 +110,7 @@ the entire data directory consistently. MySQL/PostgreSQL deployments require
 vendor-consistent database backups in addition to Kessoku keys, PKI,
 configuration, image digest, and release provenance.
 
-External databases must be configured before the first v3.0.1 start. MySQL
+External databases must be configured before the first v3.0.2 start. MySQL
 requires `tls: "true"`; PostgreSQL requires `sslmode: "verify-full"`. For
 private PKI, place the CA in `secrets/`, mount it read-only under
 `/run/secrets`, and set `mysql.ca-file` or `postgresql.ssl-root-cert` to that

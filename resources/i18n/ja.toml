@@ -1,0 +1,169 @@
+[Test]
+description = "テスト"
+one = "テスト"
+other = "テスト {{.P0}}"
+
+[ParamsError]
+description = "入力内容を確認してください。"
+one = "入力内容を確認してください。"
+other = "入力内容を確認してください。"
+
+[OperationFailed]
+description = "操作に失敗しました。"
+one = "操作に失敗しました。"
+other = "操作に失敗しました。"
+
+[OperationSuccess]
+description = "操作が完了しました。"
+one = "操作が完了しました。"
+other = "操作が完了しました。"
+
+[ItemExists]
+description = "同じ項目がすでに存在します。"
+one = "同じ項目がすでに存在します。"
+other = "同じ項目がすでに存在します。"
+
+[ItemNotFound]
+description = "項目が見つかりません。"
+one = "項目が見つかりません。"
+other = "項目が見つかりません。"
+
+[NoAccess]
+description = "この操作を行う権限がありません。"
+one = "この操作を行う権限がありません。"
+other = "この操作を行う権限がありません。"
+
+[NeedLogin]
+description = "先にログインしてください。"
+one = "先にログインしてください。"
+other = "先にログインしてください。"
+
+[UsernameOrPasswordError]
+description = "ユーザー名またはパスワードが正しくありません。"
+one = "ユーザー名またはパスワードが正しくありません。"
+other = "ユーザー名またはパスワードが正しくありません。"
+
+[SystemError]
+description = "システムエラーが発生しました。"
+one = "システムエラーが発生しました。"
+other = "システムエラーが発生しました。"
+
+[ConfigNotFound]
+description = "設定が見つかりません。"
+one = "設定が見つかりません。"
+other = "設定が見つかりません。"
+
+[OauthExpired]
+description = "OAuth の有効期限が切れました。もう一度お試しください。"
+one = "OAuth の有効期限が切れました。もう一度お試しください。"
+other = "OAuth の有効期限が切れました。もう一度お試しください。"
+
+[OauthFailed]
+description = "OAuth 認証に失敗しました。"
+one = "OAuth 認証に失敗しました。"
+other = "OAuth 認証に失敗しました。"
+
+[OauthHasBindOtherUser]
+description = "この OAuth アカウントは別のユーザーに連携されています。"
+one = "この OAuth アカウントは別のユーザーに連携されています。"
+other = "この OAuth アカウントは別のユーザーに連携されています。"
+
+[ParamIsEmpty]
+description = "{{.P0}} を入力してください。"
+one = "{{.P0}} を入力してください。"
+other = "{{.P0}} を入力してください。"
+
+[BindFail]
+description = "アカウント連携に失敗しました。"
+one = "アカウント連携に失敗しました。"
+other = "アカウント連携に失敗しました。"
+
+[BindSuccess]
+description = "アカウントを連携しました。"
+one = "アカウントを連携しました。"
+other = "アカウントを連携しました。"
+
+[OauthHasBeenSuccess]
+description = "OAuth 認証はすでに完了しています。"
+one = "OAuth 認証はすでに完了しています。"
+other = "OAuth 認証はすでに完了しています。"
+
+[OauthSuccess]
+description = "OAuth 認証が完了しました。"
+one = "OAuth 認証が完了しました。"
+other = "OAuth 認証が完了しました。"
+
+[OauthRegisterSuccess]
+description = "OAuth アカウントを登録しました。"
+one = "OAuth アカウントを登録しました。"
+other = "OAuth アカウントを登録しました。"
+
+[OauthRegisterFailed]
+description = "OAuth アカウントを登録できませんでした。"
+one = "OAuth アカウントを登録できませんでした。"
+other = "OAuth アカウントを登録できませんでした。"
+
+[GetOauthTokenError]
+description = "OAuth トークンを取得できませんでした。"
+one = "OAuth トークンを取得できませんでした。"
+other = "OAuth トークンを取得できませんでした。"
+
+[GetOauthUserInfoError]
+description = "OAuth ユーザー情報を取得できませんでした。"
+one = "OAuth ユーザー情報を取得できませんでした。"
+other = "OAuth ユーザー情報を取得できませんでした。"
+
+[DecodeOauthUserInfoError]
+description = "OAuth ユーザー情報を読み取れませんでした。"
+one = "OAuth ユーザー情報を読み取れませんでした。"
+other = "OAuth ユーザー情報を読み取れませんでした。"
+
+[OldPasswordError]
+description = "現在のパスワードが正しくありません。"
+one = "現在のパスワードが正しくありません。"
+other = "現在のパスワードが正しくありません。"
+
+[DefaultGroup]
+description = "既定グループ"
+one = "既定グループ"
+other = "既定グループ"
+
+[ShareGroup]
+description = "共有グループ"
+one = "共有グループ"
+other = "共有グループ"
+
+[RegisterClosed]
+description = "現在、新規登録を受け付けていません。"
+one = "現在、新規登録を受け付けていません。"
+other = "現在、新規登録を受け付けていません。"
+
+[CaptchaRequired]
+description = "確認コードを入力してください。"
+one = "確認コードを入力してください。"
+other = "確認コードを入力してください。"
+
+[CaptchaError]
+description = "確認コードが正しくありません。"
+one = "確認コードが正しくありません。"
+other = "確認コードが正しくありません。"
+
+[PwdLoginDisabled]
+description = "パスワードログインは無効です。"
+one = "パスワードログインは無効です。"
+other = "パスワードログインは無効です。"
+
+[CannotShareToSelf]
+description = "自分自身には共有できません。"
+one = "自分自身には共有できません。"
+other = "自分自身には共有できません。"
+
+[Banned]
+description = "このアカウントは無効化されています。"
+one = "このアカウントは無効化されています。"
+other = "このアカウントは無効化されています。"
+
+[RegisterSuccessWaitAdminConfirm]
+description = "登録しました。管理者の承認をお待ちください。"
+one = "登録しました。管理者の承認をお待ちください。"
+other = "登録しました。管理者の承認をお待ちください。"

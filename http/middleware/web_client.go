@@ -11,7 +11,9 @@ import (
 )
 
 // WebClientCORS permits only the configured, independently hosted client
-// origin. It never enables cookies and never permits the admin api-token header.
+// origin. Credentials cover the HttpOnly session cookie and non-sensitive
+// presentation-preference cookies; the admin api-token header remains
+// forbidden.
 func WebClientCORS() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Cover authentication failures produced by later middleware as well as
@@ -32,6 +34,7 @@ func WebClientCORS() gin.HandlerFunc {
 			return
 		}
 		c.Header("Access-Control-Allow-Origin", origin)
+		c.Header("Access-Control-Allow-Credentials", "true")
 		c.Header("Vary", "Origin")
 		if c.Request.Method == http.MethodOptions {
 			if c.GetHeader("Access-Control-Request-Method") != http.MethodPost || !allowedWebClientHeaders(c.GetHeader("Access-Control-Request-Headers")) {

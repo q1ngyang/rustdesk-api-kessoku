@@ -110,9 +110,23 @@ func WebClientAPIBind(rg *gin.RouterGroup) {
 	group.OPTIONS("/login", func(c *gin.Context) {})
 	group.OPTIONS("/grants", func(c *gin.Context) {})
 	group.OPTIONS("/logout", func(c *gin.Context) {})
+	group.OPTIONS("/session", func(c *gin.Context) {})
+	group.OPTIONS("/session/grants", func(c *gin.Context) {})
+	group.OPTIONS("/session/establish", func(c *gin.Context) {})
+	group.OPTIONS("/session/logout", func(c *gin.Context) {})
+	group.OPTIONS("/preferences", func(c *gin.Context) {})
+	group.OPTIONS("/connections/audit/start", func(c *gin.Context) {})
+	group.OPTIONS("/connections/audit/finish", func(c *gin.Context) {})
 	group.POST("/login", controller.Login)
 	group.POST("/grants", middleware.RustAuth(), controller.Grant)
 	group.POST("/logout", middleware.WebClientConnectionAuth(), controller.Logout)
+	group.POST("/session", controller.SessionStatus)
+	group.POST("/session/grants", controller.SessionGrant)
+	group.POST("/session/establish", middleware.WebClientConnectionAuth(), controller.SessionEstablish)
+	group.POST("/session/logout", controller.SessionLogout)
+	group.POST("/preferences", controller.Preferences)
+	group.POST("/connections/audit/start", middleware.WebClientConnectionAuth(), controller.AuditConnectionStart)
+	group.POST("/connections/audit/finish", middleware.WebClientConnectionAuth(), controller.AuditConnectionFinish)
 }
 
 func PersonalRoutes(frg *gin.RouterGroup) {

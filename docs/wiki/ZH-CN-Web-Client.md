@@ -10,7 +10,7 @@ Kessoku 同时服务两类客户端：RustDesk 桌面/移动客户端使用账�
 | 设置项 | 示例 | 说明 |
 | --- | --- | --- |
 | ID 服务器 | `rustdesk.example.com` | HBBS；非默认端口时写 `:21116` |
-| API 服务器 | `https://api.example.com` | Kessoku 公网地址，不要写 `/_admin/` 或 `/api` |
+| API 服务器 | `https://api.example.com` | Kessoku 公网地址，不要写 `/dash/` 或 `/api` |
 | Key | `id_ed25519.pub` 的完整单行内容 | HBBS 公钥，不是私钥、登录令牌或商业许可证 |
 | 中继服务器 | Starry 场景留空 | 让 HBBS 动态返回中继；固定填写可能绕过 Starry 选择规则 |
 | 使用 WebSocket | 第一次测试先关闭 | 服务器 WSS 验证完成后再逐端开启 |
@@ -31,7 +31,7 @@ Kessoku 同时服务两类客户端：RustDesk 桌面/移动客户端使用账�
 
 ## 内置浏览器客户端能做什么
 
-Kessoku `v3.0.1` 内置浏览器远控页面，当前支持：
+Kessoku `v3.0.2` 内置浏览器远控页面，当前支持：
 
 - 用户名和密码登录；
 - 输入目标 RustDesk ID 和被控端密码；

@@ -106,7 +106,7 @@ editor .env
 至少修改以下内容：
 
 ```dotenv
-KESSOKU_IMAGE=ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.1
+KESSOKU_IMAGE=ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.2
 KESSOKU_PUBLIC_URL=https://api.example.com
 
 RUSTDESK_ID_SERVER=rustdesk.example.com:21116
@@ -276,7 +276,7 @@ docker compose --env-file .env -f compose.yaml exec kessoku-api \
   --password-file /run/secrets/bootstrap-admin-password
 ```
 
-把密码保存到密码管理器，然后登录 `https://api.example.com/_admin/`，用户名为 `admin`。
+把密码保存到密码管理器，然后登录 `https://api.example.com/dash/`，用户名为 `admin`。
 登录后立即在后台再次修改密码，确认成功后删除一次性密码文件：
 
 ```sh

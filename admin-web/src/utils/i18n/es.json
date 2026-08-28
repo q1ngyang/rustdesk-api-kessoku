@@ -192,7 +192,7 @@
     "One": "Dispositivo"
   },
   "ChangeLang": {
-    "One": "Cambiar a chino"
+    "One": "Cambiar idioma"
   },
   "My": {
     "One": "Mi"
@@ -523,6 +523,12 @@
   "You can reference export file": {
     "One": "Puede hacer referencia al archivo de exportación"
   },
+  "GeoIPUpdateStarted": { "One": "La actualización de MMDB ha comenzado; se avisará al finalizar" },
+  "GeoIPUpdateInProgress": { "One": "Ya hay una actualización de MMDB en curso; se avisará al finalizar" },
+  "GeoIPUpdateSucceeded": { "One": "Las bases MMDB se actualizaron correctamente" },
+  "GeoIPUpdateFailed": { "One": "Error al actualizar MMDB: {message}" },
+  "GeoIPUpdateStatusTimeout": { "One": "La actualización de MMDB continúa en segundo plano. Compruebe el estado más tarde." },
+  "GeoIPUpdateNotStarted": { "One": "No se pudo iniciar la actualización de MMDB" },
   "Remark": {
     "One": "Remark"
   }

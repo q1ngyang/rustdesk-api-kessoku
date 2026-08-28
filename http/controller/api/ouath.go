@@ -233,7 +233,7 @@ func (o *Oauth) OauthCallback(c *gin.Context) {
 					c.HTML(http.StatusOK, "oauth_fail.html", gin.H{"message": "OauthFailed"})
 					return
 				}
-				c.Redirect(http.StatusFound, "/_admin/#/oauth/bind/"+cacheKey)
+				c.Redirect(http.StatusFound, "/dash/#/oauth/bind/"+cacheKey)
 				return
 			}
 
@@ -261,7 +261,7 @@ func (o *Oauth) OauthCallback(c *gin.Context) {
 				Type:     model.LoginLogTypeOauth,
 				Platform: oauthService.DeviceOs,
 			})*/
-			c.Redirect(http.StatusFound, "/_admin/#/")
+			c.Redirect(http.StatusFound, "/dash/#/")
 			return
 		}
 		c.HTML(http.StatusOK, "oauth_success.html", gin.H{

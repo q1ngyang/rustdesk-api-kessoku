@@ -186,13 +186,13 @@
     "One": "Операция выполнена успешно, закройте через 3 секунды"
   },
   "ConfirmOauth": {
-    "One": "Подтвердить Oauth"
+    "One": "Подтвердить OAuth"
   },
   "Device": {
     "One": "Устройство"
   },
   "ChangeLang": {
-    "One": "Переключить на китайский"
+    "One": "Сменить язык"
   },
   "My": {
     "One": "Мой"
@@ -228,7 +228,7 @@
     "One": "Теги"
   },
   "OauthManage": {
-    "One": "Oauth"
+    "One": "OAuth"
   },
   "LoginLog": {
     "One": "Журнал входов"
@@ -526,6 +526,12 @@
   "You can reference export file": {
     "One": "Вы можете ссылаться на экспортируемый файл"
   },
+  "GeoIPUpdateStarted": { "One": "Обновление MMDB запущено; о завершении будет сообщено автоматически" },
+  "GeoIPUpdateInProgress": { "One": "Обновление MMDB уже выполняется; о завершении будет сообщено автоматически" },
+  "GeoIPUpdateSucceeded": { "One": "Базы MMDB успешно обновлены" },
+  "GeoIPUpdateFailed": { "One": "Не удалось обновить MMDB: {message}" },
+  "GeoIPUpdateStatusTimeout": { "One": "Обновление MMDB продолжается в фоновом режиме. Проверьте состояние позже." },
+  "GeoIPUpdateNotStarted": { "One": "Не удалось запустить обновление MMDB" },
   "Remark": {
     "One": "Примечание"
   }

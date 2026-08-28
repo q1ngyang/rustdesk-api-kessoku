@@ -49,7 +49,7 @@ configuration before starting Kessoku.
 
 | Symptom | Check |
 | --- | --- |
-| `/_admin/` returns 404 | Use the trailing slash; confirm Nginx proxies the whole API site to 21114 |
+| `/dash/` returns 404 | Use the trailing slash; confirm Nginx proxies the whole API site to 21114 |
 | 502 Bad Gateway | Kessoku container, logs, and `127.0.0.1:21114` listener |
 | Administrator password is unknown | Use `reset-admin-pwd --password-file`; do not rebuild the database |
 | Password file is rejected | It must be a regular file readable by UID 65534 with no group/other permissions |
@@ -66,7 +66,7 @@ docker compose --env-file .env -f compose.yaml exec kessoku-api \
 
 Check in this order:
 
-1. API Server is `https://api.example.com`, without `/api` or `/_admin/`;
+1. API Server is `https://api.example.com`, without `/api` or `/dash/`;
 2. `/api/version` loads with a valid certificate;
 3. the user is enabled and the credentials are correct;
 4. client and server clocks are synchronized;

@@ -31,6 +31,10 @@ type Service struct {
 	*LdapService
 	*AppService
 	*AdminScopeService
+	*BrandingService
+	*TwoFactorService
+	*SystemSettingService
+	*GeoIPService
 }
 
 type Dependencies struct {
@@ -55,7 +59,7 @@ func New(c *config.Config, g *gorm.DB, l *log.Logger, authManager *internalAuth.
 	Logger = l
 	Auth = authManager
 	Lock = lo
-	AllService = &Service{StarryControlService: NewStarryControlService(c, l, authManager)}
+	AllService = &Service{StarryControlService: NewStarryControlService(c, l, authManager), BrandingService: &BrandingService{}, TwoFactorService: NewTwoFactorService(c.TwoFactor), SystemSettingService: &SystemSettingService{}, GeoIPService: NewGeoIPService(c)}
 	return AllService
 }
 

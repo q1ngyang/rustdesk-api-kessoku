@@ -12,17 +12,17 @@
       <el-table :data="listRes.list" v-loading="listRes.loading" border @selection-change="handleSelectionChange">
         <el-table-column type="selection" align="center" width="50"/>
         <el-table-column prop="client" label="client" align="center" width="120"/>
-        <el-table-column prop="peer.id" :label="T('Peer')" align="center">
+        <el-table-column prop="device_id" :label="T('Device')" align="center" min-width="170">
           <template #default="{row}">
-            {{ row.device_id ? row.device_id : peer?.id }}
+            {{ row.device_id || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="uuid" label="uuid" align="center"/>
-        <el-table-column prop="ip" label="ip" align="center" width="150"/>
+        <el-table-column prop="uuid" label="UUID" align="center" min-width="250"><template #default="{row}">{{ row.uuid || '-' }}</template></el-table-column>
+        <el-table-column prop="ip" label="IP" align="center" width="170"><template #default="{row}"><IpAddress :value="row.ip"/></template></el-table-column>
         <el-table-column prop="type" label="type" align="center" width="100"/>
         <el-table-column prop="platform" label="Platform/UA" align="center" width="120" show-overflow-tooltip/>
-        <el-table-column prop="created_at" :label="T('CreatedAt')" align="center"/>
-        <el-table-column :label="T('Actions')" align="center" width="400">
+        <el-table-column prop="created_at" :label="T('CreatedAt')" align="center" width="168"><template #default="{row}"><DateTimeCell :value="row.created_at"/></template></el-table-column>
+        <el-table-column :label="T('Actions')" align="center" width="110" fixed="right">
           <template #default="{row}">
             <el-button type="danger" @click="del(row)">{{ T('Delete') }}</el-button>
           </template>
@@ -45,6 +45,8 @@
   import { onActivated, onMounted, ref, watch } from 'vue'
   import { useRepositories } from '@/views/login/log.js'
   import { T } from '@/utils/i18n'
+  import IpAddress from '@/components/common/IpAddress.vue'
+  import DateTimeCell from '@/components/common/DateTimeCell.vue'
 
   const {
     listRes,

@@ -2,9 +2,9 @@
 
 **English** | [简体中文](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Upgrade-and-Rollback)
 
-Back up data and keys before changing an image or schema. Kessoku v3.0.1 uses
-database version `302`; an older image may not understand a database already
-migrated by v3.
+Back up data and keys before changing an image or schema. Kessoku v3.0.2 uses
+database version `309`; an older image must not write a database already
+migrated by this release.
 
 ## Before an upgrade
 
@@ -23,8 +23,8 @@ Confirm:
 
 - the target image supports `linux/amd64` and is an explicit release tag;
 - release notes do not require new configuration, certificates, or migrations;
-- a current, encrypted backup exists for database, signing keys, Starry
-  identity, configuration, and certificates;
+- a current, encrypted backup exists for the database, TOTP key, media,
+  signing keys, Starry identity, configuration, and certificates;
 - free disk space can hold both the backup and new image;
 - the previous image tags or digests are recorded;
 - a maintenance window exists for a real client test and possible rollback.
@@ -116,17 +116,18 @@ docker compose --env-file .env -f compose.yaml up -d kessoku-api
 
 ## Database rollback
 
-If Kessoku migrated the database, restore the database and its matching signing
-keys/configuration from the pre-upgrade backup before starting the old image.
-Keep the failed database copy for diagnosis rather than overwriting it.
+If Kessoku migrated the database, restore the database and its matching TOTP
+key, media directory, signing keys, and configuration from the pre-upgrade
+backup before starting the old image. Keep the failed database copy for
+diagnosis rather than overwriting it.
 
-Restoring only `rustdeskapi.db` while keeping unrelated new keys can invalidate
-sessions. Restoring only signing keys without the matching database can also
+Restoring only `rustdeskapi.db` can break TOTP secrets and uploaded-image
+references. Restoring only signing keys without the matching database can also
 produce confusing token behavior. Treat them as one versioned recovery set.
 
-For a rollback from v3 database `302` to a v2 image, assume a database restore
-is required unless the specific release notes explicitly guarantee backward
-compatibility.
+For a rollback from v3 database `309` to v3.0.1, v3.0.0, or any v2 image,
+restore the complete matching recovery set. Never delete new tables or lower
+the database version to force an older process to start.
 
 ## After recovery
 

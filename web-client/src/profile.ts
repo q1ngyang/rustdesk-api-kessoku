@@ -11,6 +11,24 @@ export interface ClientProfile {
   readonly serverPublicKey: Uint8Array;
   readonly serverPublicKeyText: string;
   readonly serverKeyFingerprint: string;
+	readonly branding: ClientBranding;
+	readonly preferences: ClientPreferences;
+}
+
+export interface ClientBranding {
+		readonly title: string;
+		readonly logoLightUrl: string;
+		readonly logoDarkUrl: string;
+		readonly iconLightUrl: string;
+		readonly iconDarkUrl: string;
+		readonly backgroundLightUrl: string;
+		readonly backgroundDarkUrl: string;
+		readonly footerHtml: string;
+}
+
+export interface ClientPreferences {
+	readonly language: string;
+	readonly theme: "" | "light" | "dark";
 }
 
 function record(value: unknown): Record<string, unknown> {
@@ -48,6 +66,8 @@ export function parseProfile(input: unknown): ClientProfile {
     "relay_wss_urls",
     "server_public_key",
     "server_key_fingerprint",
+	"branding",
+	"preferences",
   ]);
   if (Object.keys(value).some((key) => !allowed.has(key))) throw new Error("Unknown profile field");
   if (value.schema_version !== 1) throw new Error("Unsupported profile schema");
@@ -71,6 +91,29 @@ export function parseProfile(input: unknown): ClientProfile {
   if (typeof value.server_key_fingerprint !== "string" || !/^sha256:[a-f0-9]{64}$/.test(value.server_key_fingerprint)) {
     throw new Error("Invalid server key fingerprint");
   }
+	const brandingInput = record(value.branding);
+	const brandingKeys = ["title", "logo_light_url", "logo_dark_url", "icon_light_url", "icon_dark_url", "background_light_url", "background_dark_url", "footer_html"];
+	if (Object.keys(brandingInput).some((key) => !brandingKeys.includes(key)) || brandingKeys.some((key) => !(key in brandingInput))) {
+		throw new Error("Invalid branding fields");
+	}
+	if (typeof brandingInput.title !== "string" || brandingInput.title.length > 120) throw new Error("Invalid branding title");
+	if (typeof brandingInput.footer_html !== "string" || brandingInput.footer_html.length > 2048 || brandingInput.footer_html.includes("\0")) throw new Error("Invalid branding footer");
+	const brandingURL = (candidate: unknown): string => {
+		if (candidate === "") return "";
+		if (typeof candidate !== "string" || candidate.length > 512) throw new Error("Invalid branding image URL");
+		const parsed = new URL(candidate);
+		if (parsed.protocol !== "https:" || parsed.username !== "" || parsed.password !== "" || parsed.hash !== "") {
+			throw new Error("Invalid branding image URL");
+		}
+		return parsed.href;
+	};
+	const preferenceInput = record(value.preferences);
+	if (Object.keys(preferenceInput).some(key => key !== "language" && key !== "theme") || !("language" in preferenceInput) || !("theme" in preferenceInput)) {
+		throw new Error("Invalid preference fields");
+	}
+	const allowedLanguages = new Set(["", "zh-CN", "zh-TW", "en", "fr", "es", "ru", "ko", "ja"]);
+	if (typeof preferenceInput.language !== "string" || !allowedLanguages.has(preferenceInput.language)) throw new Error("Invalid language preference");
+	if (preferenceInput.theme !== "" && preferenceInput.theme !== "light" && preferenceInput.theme !== "dark") throw new Error("Invalid theme preference");
   return Object.freeze({
     generation: value.profile_generation as number,
     apiOrigin: new URL(apiUrl).origin,
@@ -79,6 +122,17 @@ export function parseProfile(input: unknown): ClientProfile {
     serverPublicKey,
     serverPublicKeyText,
     serverKeyFingerprint: value.server_key_fingerprint,
+		branding: Object.freeze({
+			title: brandingInput.title,
+			logoLightUrl: brandingURL(brandingInput.logo_light_url),
+			logoDarkUrl: brandingURL(brandingInput.logo_dark_url),
+			iconLightUrl: brandingURL(brandingInput.icon_light_url),
+			iconDarkUrl: brandingURL(brandingInput.icon_dark_url),
+			backgroundLightUrl: brandingURL(brandingInput.background_light_url),
+			backgroundDarkUrl: brandingURL(brandingInput.background_dark_url),
+			footerHtml: brandingInput.footer_html,
+		}),
+	preferences: Object.freeze({ language: preferenceInput.language, theme: preferenceInput.theme }),
   });
 }
 

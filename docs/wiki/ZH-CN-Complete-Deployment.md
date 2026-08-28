@@ -140,7 +140,7 @@ STARRY_DATA_DIR=/opt/rustdesk-stack/data/starry
 镜像建议固定为：
 
 ```dotenv
-KESSOKU_IMAGE=ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.1
+KESSOKU_IMAGE=ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.2
 STARRY_IMAGE=ghcr.io/q1ngyang/rustdesk-server-starry
 STARRY_VERSION=1.1.16-patch-v1.2.0
 ```
@@ -320,7 +320,7 @@ docker compose --env-file .env -f compose.yaml exec kessoku-api \
   --password-file /run/secrets/bootstrap-admin-password
 ```
 
-打开 `https://api.example.com/_admin/`，用 `admin` 和密码文件中的值登录。把密码保存到
+打开 `https://api.example.com/dash/`，用 `admin` 和密码文件中的值登录。把密码保存到
 密码管理器，在后台再次修改密码，确认新密码可登录后删除一次性文件：
 
 ```sh

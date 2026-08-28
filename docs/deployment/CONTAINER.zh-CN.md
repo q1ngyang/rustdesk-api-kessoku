@@ -5,13 +5,13 @@
 镜像地址：
 [`ghcr.io/q1ngyang/rustdesk-api-kessoku`](https://github.com/q1ngyang/rustdesk-api-kessoku/pkgs/container/rustdesk-api-kessoku)
 
-当前稳定版 `v3.0.1`，正式支持 `linux/amd64`。
+当前稳定版 `v3.0.2`，这是首个正式支持的 v3 版本，正式支持 `linux/amd64`。
 
 ## 拉取和固定版本
 
 ```sh
-docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.1
-docker image inspect ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.1 \
+docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.2
+docker image inspect ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.2 \
   --format '{{json .RepoDigests}}'
 ```
 
@@ -85,7 +85,7 @@ docker compose --env-file .env -f compose.yaml exec kessoku-api \
   --password-file /run/secrets/bootstrap-admin-password
 ```
 
-打开 `https://api.example.com/_admin/`，用户名为 `admin`。保存密码并在后台再次修改，确认新
+打开 `https://api.example.com/dash/`，用户名为 `admin`。保存密码并在后台再次修改，确认新
 密码可用后删除一次性文件。Kessoku 不会在日志输出可复用的初始密码。
 
 ## Nginx 和防火墙

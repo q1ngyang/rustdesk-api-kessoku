@@ -8,6 +8,9 @@ export const listInstances = () => request({ url: `${base}/instances` })
 export const getCapabilities = id => request({ url: `${instanceBase(id)}/capabilities` })
 export const getStatus = id => request({ url: `${instanceBase(id)}/status` })
 export const getRelays = id => request({ url: `${instanceBase(id)}/relays` })
+export const getLogSources = id => request({ url: `${instanceBase(id)}/logs/sources` })
+export const getLogs = (id, sourceID, limit = 400) => request({ url: `${instanceBase(id)}/logs`, params: { source_id: sourceID, limit } })
+export const setLogLevel = (id, sourceID, level) => request({ url: `${instanceBase(id)}/logs/level`, method: 'post', data: { source_id: sourceID, level } })
 
 export const simulateAllocation = (id, data) => request({
   url: `${instanceBase(id)}/allocation-simulations`,

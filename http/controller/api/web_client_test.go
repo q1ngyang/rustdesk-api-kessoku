@@ -40,7 +40,7 @@ func TestWebClientPasswordLoginGrantAndLogoutUseConnectionOnlyTokens(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := database.AutoMigrate(&model.User{}, &model.UserToken{}, &model.LoginLog{}); err != nil {
+	if err := database.AutoMigrate(&model.User{}, &model.UserToken{}, &model.LoginLog{}, &model.AuditConn{}, &model.Peer{}); err != nil {
 		t.Fatal(err)
 	}
 	manager := webClientTestAuthManager(t)
@@ -62,12 +62,20 @@ func TestWebClientPasswordLoginGrantAndLogoutUseConnectionOnlyTokens(t *testing.
 	if err := database.Create(user).Error; err != nil {
 		t.Fatal(err)
 	}
+	if err := database.Create(&model.Peer{Id: "990100001", Hostname: "design-workstation", UserId: user.Id}).Error; err != nil {
+		t.Fatal(err)
+	}
 
 	controller := &WebClient{}
 	engine := gin.New()
 	engine.POST("/login", controller.Login)
 	engine.POST("/grant", middleware.RustAuth(), controller.Grant)
 	engine.POST("/logout", middleware.WebClientConnectionAuth(), controller.Logout)
+	engine.POST("/session/establish", middleware.WebClientConnectionAuth(), controller.SessionEstablish)
+	engine.POST("/session", controller.SessionStatus)
+	engine.POST("/preferences", controller.Preferences)
+	engine.POST("/audit/start", middleware.WebClientConnectionAuth(), controller.AuditConnectionStart)
+	engine.POST("/audit/finish", middleware.WebClientConnectionAuth(), controller.AuditConnectionFinish)
 
 	loginBody := `{"username":"browser-admin","password":"correct horse battery staple","device_id":"browser-1","platform":"linux"}`
 	login := performWebClientJSON(engine, http.MethodPost, "/login", loginBody, "")
@@ -76,6 +84,7 @@ func TestWebClientPasswordLoginGrantAndLogoutUseConnectionOnlyTokens(t *testing.
 	}
 	connectionToken := responseConnectionToken(t, login)
 	assertConnectionOnlyToken(t, manager, connectionToken)
+	assertPartitionedWebClientCookie(t, login)
 
 	standard := service.AllService.UserService.Login(user, &model.LoginLog{UserId: user.Id, Client: model.LoginLogClientApp, Type: model.LoginLogTypeAccount})
 	if standard == nil {
@@ -90,6 +99,65 @@ func TestWebClientPasswordLoginGrantAndLogoutUseConnectionOnlyTokens(t *testing.
 	if strings.Contains(grant.Body.String(), "client_origin") {
 		t.Fatalf("grant returned a second origin authority: %s", grant.Body.String())
 	}
+	established := performWebClientJSON(engine, http.MethodPost, "/session/establish", `{"device_id":"browser-2","uuid":"browser-uuid","platform":"linux"}`, grantedToken)
+	if established.Code != http.StatusOK || !strings.Contains(established.Body.String(), `"established":true`) {
+		t.Fatalf("session establish = %d %s", established.Code, established.Body.String())
+	}
+	assertPartitionedWebClientCookie(t, established)
+	auditStart := performWebClientJSON(engine, http.MethodPost, "/audit/start", `{"peer_id":"990100001","device_id":"Chrome · Linux","uuid":"browser-uuid","platform":"linux"}`, grantedToken)
+	if auditStart.Code != http.StatusOK {
+		t.Fatalf("connection audit start = %d %s", auditStart.Code, auditStart.Body.String())
+	}
+	var auditSession struct {
+		AuditID      uint   `json:"audit_id"`
+		SessionID    string `json:"session_id"`
+		PeerHostname string `json:"peer_hostname"`
+	}
+	if err := json.Unmarshal(auditStart.Body.Bytes(), &auditSession); err != nil || auditSession.AuditID == 0 || len(auditSession.SessionID) < 32 || auditSession.PeerHostname != "design-workstation" {
+		t.Fatalf("invalid audit session: %+v err=%v", auditSession, err)
+	}
+	var storedAudit model.AuditConn
+	if err := database.First(&storedAudit, auditSession.AuditID).Error; err != nil || storedAudit.UserId != user.Id || storedAudit.Client != model.LoginLogClientWeb || storedAudit.PeerId != "990100001" || storedAudit.CloseTime != 0 {
+		t.Fatalf("connection audit was not persisted: audit=%+v err=%v", storedAudit, err)
+	}
+	auditFinishBody, _ := json.Marshal(gin.H{"audit_id": auditSession.AuditID, "session_id": auditSession.SessionID})
+	auditFinish := performWebClientJSON(engine, http.MethodPost, "/audit/finish", string(auditFinishBody), grantedToken)
+	if auditFinish.Code != http.StatusNoContent {
+		t.Fatalf("connection audit finish = %d %s", auditFinish.Code, auditFinish.Body.String())
+	}
+	if err := database.First(&storedAudit, auditSession.AuditID).Error; err != nil || storedAudit.CloseTime == 0 {
+		t.Fatalf("connection audit was not closed: audit=%+v err=%v", storedAudit, err)
+	}
+	var browserCookie *http.Cookie
+	for _, cookie := range established.Result().Cookies() {
+		if cookie.Name == webClientSessionCookie {
+			browserCookie = cookie
+			break
+		}
+	}
+	if browserCookie == nil {
+		t.Fatal("session establish did not return the browser session cookie")
+	}
+	preferenceRequest := httptest.NewRequest(http.MethodPost, "/preferences", bytes.NewBufferString(`{"language":"ja","theme":"dark"}`))
+	preferenceRequest.Header.Set("Content-Type", "application/json")
+	preferenceRequest.AddCookie(browserCookie)
+	preferenceResponse := httptest.NewRecorder()
+	engine.ServeHTTP(preferenceResponse, preferenceRequest)
+	if preferenceResponse.Code != http.StatusNoContent {
+		t.Fatalf("preferences = %d %s", preferenceResponse.Code, preferenceResponse.Body.String())
+	}
+	var storedUser model.User
+	if err := database.First(&storedUser, user.Id).Error; err != nil || storedUser.PreferenceLanguage != "ja" || storedUser.PreferenceTheme != "dark" {
+		t.Fatalf("account preferences were not persisted: user=%+v err=%v", storedUser, err)
+	}
+	sessionRequest := httptest.NewRequest(http.MethodPost, "/session", bytes.NewBufferString(`{}`))
+	sessionRequest.Header.Set("Content-Type", "application/json")
+	sessionRequest.AddCookie(browserCookie)
+	sessionResponse := httptest.NewRecorder()
+	engine.ServeHTTP(sessionResponse, sessionRequest)
+	if sessionResponse.Code != http.StatusOK || !strings.Contains(sessionResponse.Body.String(), `"preference_language":"ja"`) || !strings.Contains(sessionResponse.Body.String(), `"preference_theme":"dark"`) {
+		t.Fatalf("session preferences = %d %s", sessionResponse.Code, sessionResponse.Body.String())
+	}
 
 	logout := performWebClientJSON(engine, http.MethodPost, "/logout", "", grantedToken)
 	if logout.Code != http.StatusNoContent {
@@ -102,6 +170,16 @@ func TestWebClientPasswordLoginGrantAndLogoutUseConnectionOnlyTokens(t *testing.
 	invalid := performWebClientJSON(engine, http.MethodPost, "/login", `{"username":"browser-admin","password":"correct horse battery staple","extra":true}`, "")
 	if invalid.Code != http.StatusBadRequest {
 		t.Fatalf("unknown login field accepted: %d %s", invalid.Code, invalid.Body.String())
+	}
+}
+
+func assertPartitionedWebClientCookie(t *testing.T, response *httptest.ResponseRecorder) {
+	t.Helper()
+	cookies := strings.Join(response.Header().Values("Set-Cookie"), "; ")
+	for _, attribute := range []string{"kessoku_web_session=", "HttpOnly", "Secure", "SameSite=None", "Partitioned"} {
+		if !strings.Contains(cookies, attribute) {
+			t.Fatalf("WebClient cookie is missing %q: %s", attribute, cookies)
+		}
 	}
 }
 

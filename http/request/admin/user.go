@@ -68,6 +68,17 @@ type ChangeCurPasswordForm struct {
 	OldPassword string `json:"old_password" validate:"required,gte=4,lte=32"`
 	NewPassword string `json:"new_password" validate:"required,gte=12,lte=128"`
 }
+
+type CurrentProfileForm struct {
+	Nickname string `json:"nickname" validate:"lte=64"`
+	Email    string `json:"email" validate:"omitempty,email,lte=254"`
+}
+
+type UserPreferenceForm struct {
+	Language string `json:"language" validate:"omitempty,oneof=zh-CN zh-TW en ja ko fr es ru"`
+	Theme    string `json:"theme" validate:"omitempty,oneof=light dark"`
+}
+
 type GroupUsersQuery struct {
 	IsMy   int  `json:"is_my"`
 	UserId uint `json:"user_id"`

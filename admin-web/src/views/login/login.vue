@@ -13,12 +13,17 @@
             <template #prefix><el-icon><User/></el-icon></template>
           </el-input>
         </el-form-item>
-        <el-form-item :label="T('Password')">
+        <el-form-item v-if="!form.challenge" :label="T('Password')">
           <el-input v-model="form.password" name="password" autocomplete="current-password" type="password" show-password :placeholder="T('EnterPassword')" size="large" @keyup.enter="login">
             <template #prefix><el-icon><Lock/></el-icon></template>
           </el-input>
         </el-form-item>
-        <el-form-item v-if="captchaCode" :label="T('Captcha')">
+		<el-form-item v-if="form.challenge" :label="T('AuthenticatorCode')">
+		  <el-input v-model.trim="form.tfa_code" name="one-time-code" autocomplete="one-time-code" inputmode="numeric" maxlength="6" :placeholder="T('EnterAuthenticatorCode')" size="large" @keyup.enter="login">
+			<template #prefix><el-icon><Key/></el-icon></template>
+		  </el-input>
+		</el-form-item>
+        <el-form-item v-if="captchaCode && !form.challenge" :label="T('Captcha')">
           <el-input v-model.trim="form.captcha" :placeholder="T('EnterCaptcha')" size="large" @keyup.enter="login">
             <template #prefix><el-icon><Key/></el-icon></template>
             <template #append>
@@ -49,6 +54,7 @@ import { ElMessage } from 'element-plus'
 import AuthLayout from '@/components/auth/AuthLayout.vue'
 import { useUserStore } from '@/store/user'
 import { T } from '@/utils/i18n'
+import { browserDeviceIdentity } from '@/utils/device'
 import { captcha, loginOptions } from '@/api/login'
 import { getCode, removeCode } from '@/utils/auth'
 import googleImage from '@/assets/google.png'
@@ -76,19 +82,30 @@ else if (/chrome|crios/i.test(userAgent)) browser = 'Chrome'
 else if (/firefox|fxios/i.test(userAgent)) browser = 'Firefox'
 else if (/safari/i.test(userAgent)) browser = 'Safari'
 
-const form = reactive({ username: '', password: '', platform, captcha: '', captcha_id: '' })
+const deviceIdentity = browserDeviceIdentity()
+const form = reactive({ username: '', password: '', platform, device_id: deviceIdentity.device_id, uuid: deviceIdentity.uuid, captcha: '', captcha_id: '', challenge: '', tfa_code: '' })
 const providerImages = { google: googleImage, github: githubImage, oidc: oidcImage, default: oidcImage }
 const getProviderImage = provider => providerImages[provider.toLowerCase()] || providerImages.default
 
 const login = async () => {
   if (loginLoading.value) return
-  if (!form.username || !form.password) {
+  if (!form.username || (!form.challenge && !form.password)) {
     ElMessage.warning(T('EnterCredentials'))
     return
   }
   loginLoading.value = true
   try {
-    await userStore.login(form)
+	if (form.challenge && !/^\d{6}$/.test(form.tfa_code)) {
+	  ElMessage.warning(T('EnterAuthenticatorCode'))
+	  return
+	}
+    const result = await userStore.login(form)
+	if (result?.requires_two_factor) {
+	  form.challenge = result.challenge
+	  form.password = ''
+	  ElMessage.info(T('TwoFactorRequired'))
+	  return
+	}
     ElMessage.success(T('LoginSuccess'))
     await router.push({ path: redirect || '/', replace: true })
   } catch (error) {

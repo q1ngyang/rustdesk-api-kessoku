@@ -29,13 +29,16 @@ type DeviceInfoInLogin struct {
 }
 
 type LoginForm struct {
-	AutoLogin  bool              `json:"autoLogin" label:"自动登录"`
-	DeviceInfo DeviceInfoInLogin `json:"deviceInfo" label:"设备信息"`
-	Id         string            `json:"id" binding:"max=128" label:"id"`
-	Type       string            `json:"type" binding:"max=64" label:"type"`
-	Uuid       string            `json:"uuid" binding:"max=256" label:"uuid"`
-	Username   string            `json:"username" validate:"required,gte=2,lte=32" label:"用户名"`
-	Password   string            `json:"password,omitempty" validate:"gte=4,lte=128" label:"密码"`
+	AutoLogin        bool              `json:"autoLogin" label:"自动登录"`
+	DeviceInfo       DeviceInfoInLogin `json:"deviceInfo" label:"设备信息"`
+	Id               string            `json:"id" binding:"max=128" label:"id"`
+	Type             string            `json:"type" binding:"max=64" label:"type"`
+	Uuid             string            `json:"uuid" binding:"max=256" label:"uuid"`
+	Username         string            `json:"username" validate:"required,gte=2,lte=32" label:"用户名"`
+	Password         string            `json:"password,omitempty" validate:"omitempty,gte=4,lte=128" label:"密码"`
+	VerificationCode string            `json:"verificationCode,omitempty" binding:"max=16"`
+	TfaCode          string            `json:"tfaCode,omitempty" binding:"max=16"`
+	Secret           string            `json:"secret,omitempty" binding:"max=128"`
 }
 
 type UserListQuery struct {

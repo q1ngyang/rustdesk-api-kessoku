@@ -92,7 +92,10 @@ type RelayInventory struct {
 }
 
 type Relay struct {
-	ID                string               `json:"id"`
+	ID string `json:"id"`
+	// Version is optional in Control v1. Current Starry versions may omit it;
+	// Kessoku reports that explicitly instead of guessing from the center.
+	Version           string               `json:"version,omitempty"`
 	ConfiguredOrder   int                  `json:"configured_order"`
 	Native            NativeRelayStatus    `json:"native"`
 	WebSocket         WebSocketRelayStatus `json:"websocket"`

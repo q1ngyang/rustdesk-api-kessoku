@@ -24,6 +24,19 @@ web-client:
   profile-generation: 0
   connection-token-ttl: 15m
 
+# Persistent raster assets used by deployment branding and user avatars.
+media:
+  directory: "./data/media"
+  max-image-bytes: 1048576
+
+# RFC 6238 TOTP. The 32-byte encryption key is generated with mode 0600 on
+# first startup and must be included in /app/data backups.
+two-factor:
+  enabled: true
+  issuer: "RustDesk API Kessoku"
+  key-file: "./data/totp.key"
+  challenge-ttl: 5m
+
 admin:
   title: "Kessoku Admin"
   hello-file: "./conf/admin/hello.html"  #优先使用file
@@ -115,6 +128,10 @@ server-control:
   read-only: true
   request-timeout: 5s
   response-max-bytes: 1048576
+  # Optional allowlist of deployment-owned files exposed by the bounded,
+  # redacting log viewer. Files must be simple names under this directory.
+  log-directory: ""
+  log-sources: []
   instances: []
 ldap:
   enable: false

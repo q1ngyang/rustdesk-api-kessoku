@@ -28,6 +28,16 @@ web-client:
   profile-generation: 1
   connection-token-ttl: 15m
 
+media:
+  directory: "./data/media"
+  max-image-bytes: 1048576
+
+two-factor:
+  enabled: true
+  issuer: "RustDesk API Kessoku"
+  key-file: "./data/totp.key"
+  challenge-ttl: 5m
+
 admin:
   title: "Kessoku Admin"
   hello-file: "./conf/admin/hello.html"
@@ -90,6 +100,8 @@ server-control:
   read-only: true
   request-timeout: 5s
   response-max-bytes: 1048576
+  log-directory: ""
+  log-sources: []
   instances: []
 
 ldap:

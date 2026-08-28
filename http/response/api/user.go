@@ -1,6 +1,11 @@
 package api
 
-import "github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
+import (
+	"strings"
+
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/global"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
+)
 
 /*
 	pub enum UserStatus {
@@ -19,21 +24,31 @@ UserStatus status;
 bool isAdmin = false;
 */
 type UserPayload struct {
-	Name    string                 `json:"name"`
-	Email   string                 `json:"email"`
-	Note    string                 `json:"note"`
-	IsAdmin *bool                  `json:"is_admin"`
-	Status  int                    `json:"status"`
-	Info    map[string]interface{} `json:"info"`
+	Name        string                 `json:"name"`
+	Email       string                 `json:"email"`
+	Note        string                 `json:"note"`
+	IsAdmin     *bool                  `json:"is_admin"`
+	Status      int                    `json:"status"`
+	Info        map[string]interface{} `json:"info"`
+	DisplayName string                 `json:"display_name"`
+	Avatar      string                 `json:"avatar"`
 }
 
 func (up *UserPayload) FromUser(user *model.User) *UserPayload {
 	up.Name = user.Username
 	up.Email = user.Email
+	up.Note = user.Remark
 	isSuperAdmin := user.EffectiveRole() == model.UserRoleSuperAdmin
 	up.IsAdmin = &isSuperAdmin
 	up.Status = int(user.Status)
 	up.Info = map[string]interface{}{}
+	up.DisplayName = user.Nickname
+	if up.DisplayName == "" {
+		up.DisplayName = user.Username
+	}
+	if strings.HasPrefix(user.Avatar, "/media/avatars/") && !strings.Contains(user.Avatar, "..") {
+		up.Avatar = strings.TrimRight(global.Config.Rustdesk.ApiServer, "/") + user.Avatar
+	}
 	return up
 }
 

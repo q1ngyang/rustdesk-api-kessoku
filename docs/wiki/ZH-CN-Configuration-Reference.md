@@ -62,6 +62,18 @@ Compose 检查只能发现编排和变量语法问题，不能证明域名、公
 登录失败计数窗口为 10 分钟，封禁时间为 30 分钟。反向代理场景只有正确配置
 `gin.trust-proxy` 才能按真实客户端地址限速。
 
+## `media` 与 `two-factor`
+
+`media.directory` 默认是 `./data/media`，用于保存品牌图片和用户头像。服务端会重新命名
+文件，只接受经过验证的 PNG、JPEG、WebP，并按 `media.max-image-bytes`（默认 1 MiB）限制
+大小。该目录必须位于持久化的 `/app/data` 中。
+
+`two-factor.enabled` 默认开启。Kessoku 首次启动时会在
+`two-factor.key-file`（默认 `./data/totp.key`）生成权限为 `0600` 的 32 字节密钥，并用
+AES-GCM 加密数据库中的 TOTP 密钥。必须把它与数据库一起备份；丢失该文件后，已经启用
+双重验证的账户将无法校验。`issuer` 会显示在身份验证器中，`challenge-ttl` 允许 1～10
+分钟。启用或停用双重验证都会撤销该用户的全部现有会话。
+
 ## `admin`
 
 | 参数 | 示例 | 说明 |
@@ -266,6 +278,8 @@ web-client:
 | `read-only` | 首次接入为 `true`；只有经过演练的变更窗口才关闭 |
 | `request-timeout` | 默认 `5s`，最大 `30s` |
 | `response-max-bytes` | 默认 `1048576`，最大 `4194304` |
+| `log-directory` | 可选的日志根目录；配置日志来源时必须是绝对、只由部署者控制的目录 |
+| `log-sources` | 日志来源白名单；每项包含唯一 `id`、`label`、组件、可选实例 ID 和简单文件名 |
 
 每个 `instances[]`：
 
@@ -285,6 +299,20 @@ web-client:
 | `authorized-party` | 必须等于 Kessoku 客户端证书的 URI SAN |
 
 所有凭据值都是文件路径。完整示例和上线顺序见[Starry 管理](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Starry-Control)。
+
+日志组件只允许 `kessoku`、`starry`、`relay`、`control-agent`，文件名不能包含路径或目录
+穿越。后台只读取有大小和行数上限的最新窗口，并在展示、导出前脱敏常见认证头、令牌、
+密码、会话 Cookie、客户端密钥和私钥内容；长期留存仍应交给部署日志系统。开启控制写入
+后可以调整当前 Kessoku 进程的日志级别；Starry patch v1.2 尚无安全的运行时调级接口，
+仍需在维护窗口修改部署的 `RUST_LOG` 并重启。
+
+## 后台系统设置
+
+超级管理员在 `/dash/` 的“系统设置”中维护工作区公告和 IP 信息数据库。GeoIP 只接受
+公网 HTTPS MMDB 地址；单文件下载上限 128 MiB，验证成功后原子替换，可设置 1～2160
+小时的自动更新周期。默认 City/ASN 数据来自 P3TERX GeoLite 镜像。这些设置保存在数据库
+中，不属于品牌配置或 YAML；下载文件位于持久化 `/app/data` 下的 `geoip` 目录，应与
+数据库一起备份。
 
 ## `ldap`
 
@@ -312,7 +340,7 @@ web-client:
 ## OAuth/OIDC
 
 OAuth/OIDC 提供方在管理后台的“登录方式”中创建，而不是写死在 YAML。支持 GitHub、
-Linux.do 和通用 OIDC。回调基于 `rustdesk.api-server`，通常为：
+GitHub、Google 和通用 OIDC。回调基于 `rustdesk.api-server`，通常为：
 
 ```text
 https://api.example.com/api/oidc/callback

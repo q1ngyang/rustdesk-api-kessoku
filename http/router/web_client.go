@@ -12,7 +12,11 @@ import (
 
 func webClientSecurityHeaders() gin.HandlerFunc {
 	connectSources := append([]string{"'self'"}, global.Config.WebClient.CSPConnectSources()...)
-	csp := "default-src 'none'; base-uri 'none'; connect-src " + strings.Join(connectSources, " ") + "; font-src 'self'; form-action 'none'; frame-ancestors 'none'; img-src 'self' data:; manifest-src 'self'; media-src 'none'; object-src 'none'; script-src 'self'; style-src 'self'; worker-src 'none'"
+	imageSources := []string{"'self'", "data:", "https:"}
+	if global.Config.WebClient.APIOrigin != "" {
+		imageSources = append(imageSources, global.Config.WebClient.APIOrigin)
+	}
+	csp := "default-src 'none'; base-uri 'none'; connect-src " + strings.Join(connectSources, " ") + "; font-src 'self'; form-action 'none'; frame-ancestors 'none'; img-src " + strings.Join(imageSources, " ") + "; manifest-src 'self'; media-src 'none'; object-src 'none'; script-src 'self'; style-src 'self'; worker-src 'none'"
 	return func(c *gin.Context) {
 		if strings.HasPrefix(c.Request.URL.Path, "/assets/") {
 			c.Header("Cache-Control", "public, max-age=31536000, immutable")
@@ -40,6 +44,7 @@ func WebClientInit(g *gin.Engine) {
 	g.Use(webClientSecurityHeaders())
 	controller := &web.Index{}
 	g.GET("/config/v1.json", controller.ClientConfig)
+	g.POST("/preferences/v1", controller.Preferences)
 
 	clientRoot := filepath.Join(global.Config.Gin.ResourcesPath, "client")
 	indexPath := filepath.Join(clientRoot, "index.html")

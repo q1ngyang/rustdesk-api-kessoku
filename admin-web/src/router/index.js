@@ -44,6 +44,11 @@ const constantRoutes = [
       },
     ],
   },
+  // Keep links created by earlier Kessoku releases usable while the new
+  // super-administrator settings area gets a clearer URL hierarchy.
+  { path: '/my/settings', redirect: '/system/announcement', hidden: true },
+  { path: '/server-control', redirect: '/system/server-control', hidden: true },
+  { path: '/branding', redirect: '/system/branding', hidden: true },
 ]
 export const asyncRoutes = [
   // {
@@ -117,7 +122,7 @@ export const asyncRoutes = [
     path: '/user',
     name: 'User',
     redirect: '/user/index',
-    meta: { title: 'System', icon: 'Setting' },
+    meta: { title: 'ConnectionManagement', icon: 'Connection' },
     component: () => import('@/layout/index.vue'),
     children: [
       {
@@ -216,11 +221,38 @@ export const asyncRoutes = [
         meta: { title: 'ShareRecord', icon: 'Share' /*keepAlive: true*/ },
         component: () => import('@/views/share_record/index.vue'),
       },
+    ],
+  },
+  {
+    path: '/system',
+    name: 'SystemManagement',
+    redirect: '/system/announcement',
+    meta: { title: 'SystemManagement', icon: 'Setting' },
+    component: () => import('@/layout/index.vue'),
+    children: [
       {
-        path: '/server-control',
+        path: 'announcement',
+        name: 'AnnouncementSettings',
+        meta: { title: 'AnnouncementSettings', icon: 'Bell' },
+        component: () => import('@/views/settings/announcement.vue'),
+      },
+      {
+        path: 'geoip',
+        name: 'GeoIPSettings',
+        meta: { title: 'IPGeolocation', icon: 'Location' },
+        component: () => import('@/views/settings/geoip.vue'),
+      },
+      {
+        path: 'server-control',
         name: 'ServerControl',
         meta: { title: 'ServerControl', icon: 'Operation' },
         component: () => import('@/views/server_control/index.vue'),
+      },
+      {
+        path: 'branding',
+        name: 'Branding',
+        meta: { title: 'Branding', icon: 'Brush' },
+        component: () => import('@/views/branding/index.vue'),
       },
     ],
   },

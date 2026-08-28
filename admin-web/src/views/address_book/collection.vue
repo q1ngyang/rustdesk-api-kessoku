@@ -29,7 +29,7 @@
         <el-table-column prop="name" :label="T('AddressBook')" align="center"/>
         <el-table-column prop="created_at" :label="T('CreatedAt')" align="center"/>
         <!--        <el-table-column prop="updated_at" label="更新时间" align="center"/>-->
-        <el-table-column :label="T('Actions')" align="center" class-name="table-actions" width="600" fixed="right">
+        <el-table-column :label="T('Actions')" align="center" class-name="table-actions" width="250" fixed="right">
           <template #default="{row}">
             <el-button type="primary" @click="showRules(row)">{{ T('ShareRules') }}</el-button>
             <el-button @click="toEdit(row)">{{ T('Edit') }}</el-button>

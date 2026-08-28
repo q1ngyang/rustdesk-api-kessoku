@@ -15,17 +15,16 @@ func (srs *ShareRecordService) InfoById(id uint) *model.ShareRecord {
 	return u
 }
 
-func (srs *ShareRecordService) List(page, pageSize uint, where func(tx *gorm.DB)) (res *model.ShareRecordList) {
+func (srs *ShareRecordService) List(page, pageSize uint, where func(tx *gorm.DB) *gorm.DB) (res *model.ShareRecordList) {
 	res = &model.ShareRecordList{}
 	res.Page = int64(page)
 	res.PageSize = int64(pageSize)
 	tx := DB.Model(&model.ShareRecord{})
 	if where != nil {
-		where(tx)
+		tx = where(tx)
 	}
 	tx.Count(&res.Total)
-	tx.Scopes(Paginate(page, pageSize))
-	tx.Find(&res.ShareRecords)
+	tx.Scopes(Paginate(page, pageSize)).Find(&res.ShareRecords)
 	return
 }
 

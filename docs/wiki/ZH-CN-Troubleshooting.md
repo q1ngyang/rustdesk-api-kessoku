@@ -60,7 +60,7 @@ grep -RniE 'example\.com|REPLACE|replace-with|这里粘贴' \
 
 | 现象 | 检查与处理 |
 | --- | --- |
-| `/_admin/` 404 | 使用带末尾斜杠的完整地址；确认镜像包含 `resources/admin/index.html`，Nginx 整站代理到 `21114` |
+| `/dash/` 404 | 使用带末尾斜杠的完整地址；确认镜像包含 `resources/admin/index.html`，Nginx 整站代理到 `21114` |
 | 502 Bad Gateway | `docker compose ps`、Kessoku 日志和 `127.0.0.1:21114` 监听 |
 | 不知道初始密码 | 创建 12～128 字节、权限 `0600` 的密码文件，执行 `reset-admin-pwd --password-file`；不要重建数据库 |
 | 密码文件被拒绝 | 文件必须是普通文件，组/其他权限位都为零，并能被 UID 65534 读取 |
@@ -80,7 +80,7 @@ docker compose --env-file .env -f compose.yaml exec kessoku-api \
 
 依次确认：
 
-1. API 服务器填写 `https://api.example.com`，不带 `/api` 或 `/_admin/`；
+1. API 服务器填写 `https://api.example.com`，不带 `/api` 或 `/dash/`；
 2. 浏览器访问 `https://api.example.com/api/version` 成功且证书有效；
 3. 用户状态为启用，密码正确；
 4. 客户端、服务器时钟同步；
