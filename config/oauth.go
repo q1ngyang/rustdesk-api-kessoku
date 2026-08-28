@@ -15,8 +15,3 @@ type OidcOauth struct {
 	ClientId     string `mapstructure:"client-id"`
 	ClientSecret string `mapstructure:"client-secret"`
 }
-
-type LinuxdoOauth struct {
-	ClientId     string `mapstructure:"client-id"`
-	ClientSecret string `mapstructure:"client-secret"`
-}

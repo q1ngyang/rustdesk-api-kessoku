@@ -31,7 +31,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const DatabaseVersion = 302
+const DatabaseVersion = 309
 
 const mysqlTLSProfile = "kessoku-verified-ca"
 
@@ -323,6 +323,9 @@ func InitGlobal() {
 
 	//service
 	service.New(&global.Config, global.DB, global.Logger, global.Auth, global.Lock)
+	if err := service.AllService.TwoFactorService.Init(); err != nil {
+		global.Logger.Fatalf("initialize two-factor encryption: %v", err)
+	}
 
 	global.LoginLimiter = utils.NewLoginLimiter(utils.SecurityPolicy{
 		CaptchaThreshold: global.Config.App.CaptchaThreshold,
@@ -332,6 +335,9 @@ func InitGlobal() {
 	})
 	global.LoginLimiter.RegisterProvider(utils.B64StringCaptchaProvider{})
 	DatabaseAutoUpdate()
+	if err := service.AllService.GeoIPService.Init(); err != nil {
+		global.Logger.Warnf("initialize GeoIP lookup: %v", err)
+	}
 	if err := service.RecordAuthKeyringStartup(global.Auth); err != nil {
 		global.Logger.Fatalf("record authentication keyring audit: %v", err)
 	}
@@ -415,15 +421,10 @@ func Migrate(version uint) error {
 	if err := validateOauthIdentityUniqueness(); err != nil {
 		return err
 	}
-	previousVersion := uint(0)
-	if global.DB.Migrator().HasTable(&model.Version{}) {
-		var previous model.Version
-		if err := global.DB.Order("id DESC").First(&previous).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return fmt.Errorf("read previous database version: %w", err)
-		}
-		previousVersion = previous.Version
-	}
-	migrateLegacyRoles := version >= 302 && previousVersion < 302
+	// Reconcile the compatibility mirror on every v302+ migration. This also
+	// recovers databases where an earlier process added the role column but
+	// stopped before legacy is_admin rows were promoted.
+	migrateLegacyRoles := version >= 302
 	err := global.DB.AutoMigrate(
 		&model.Version{},
 		&model.User{},
@@ -447,9 +448,127 @@ func Migrate(version uint) error {
 		&model.ControlOperationExpectation{},
 		&model.SecurityInvariantLock{},
 		&model.AdminResourceScope{},
+		&model.BrandingSetting{},
+		&model.UserTwoFactor{},
+		&model.TwoFactorLoginChallenge{},
+		&model.SystemSetting{},
 	)
 	if err != nil {
 		return fmt.Errorf("schema migration: %w", err)
+	}
+	if version >= 305 {
+		// Move legacy announcements out of tenant branding without losing an
+		// operator's existing message. LinuxDo is no longer a supported OAuth
+		// provider; remove provider rows and their bindings atomically.
+		if err := global.DB.Transaction(func(tx *gorm.DB) error {
+			var legacy model.BrandingSetting
+			_ = tx.First(&legacy, 1).Error
+			setting := &model.SystemSetting{}
+			if err := tx.First(setting, 1).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+				setting = &model.SystemSetting{IdModel: model.IdModel{Id: 1}, Announcement: legacy.Announcement, GeoIPEnabled: true, GeoIPCityURL: service.DefaultGeoIPCityURL, GeoIPCountryURL: service.DefaultGeoIPCountryURL, GeoIPASNURL: service.DefaultGeoIPASNURL, GeoIPUpdateHours: 168}
+				if err := tx.Create(setting).Error; err != nil {
+					return err
+				}
+			} else if err != nil {
+				return err
+			} else if setting.Announcement == "" && legacy.Announcement != "" {
+				if err := tx.Model(setting).Update("announcement", legacy.Announcement).Error; err != nil {
+					return err
+				}
+			}
+			if err := tx.Where("oauth_type = ? OR op = ?", "linuxdo", "linuxdo").Delete(&model.UserThird{}).Error; err != nil {
+				return err
+			}
+			return tx.Where("oauth_type = ? OR op = ?", "linuxdo", "linuxdo").Delete(&model.Oauth{}).Error
+		}); err != nil {
+			return fmt.Errorf("migrate v305 settings: %w", err)
+		}
+	}
+	if version >= 306 {
+		const defaultLoginFooter = `<a href="https://github.com/q1ngyang/rustdesk-api-kessoku" target="_blank" rel="noopener noreferrer"><span>RustDesk API Kessoku</span><span>Github</span></a>`
+		if err := global.DB.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Model(&model.SystemSetting{}).
+				Where("geo_ip_country_url IS NULL OR geo_ip_country_url = ''").
+				Update("geo_ip_country_url", service.DefaultGeoIPCountryURL).Error; err != nil {
+				return err
+			}
+			if err := tx.Model(&model.BrandingSetting{}).
+				Where("login_kicker = ?", "RustDesk API KESSOKU").
+				Update("login_kicker", "RustDesk API\nKESSOKU").Error; err != nil {
+				return err
+			}
+			return tx.Model(&model.BrandingSetting{}).
+				Where("login_footer = ?", "RustDesk API Kessoku · v3").
+				Update("login_footer", defaultLoginFooter).Error
+		}); err != nil {
+			return fmt.Errorf("migrate v306 branding and GeoIP settings: %w", err)
+		}
+	}
+	if version >= 307 {
+		// A single uploaded asset used to serve both color schemes. Preserve it
+		// in both themed slots, then let new clients save them independently.
+		if err := global.DB.Transaction(func(tx *gorm.DB) error {
+			pairs := [][2]string{
+				{"admin_logo_light_url", "admin_logo_url"}, {"admin_logo_dark_url", "admin_logo_url"},
+				{"admin_icon_light_url", "admin_icon_url"}, {"admin_icon_dark_url", "admin_icon_url"},
+				{"login_logo_light_url", "login_logo_url"}, {"login_logo_dark_url", "login_logo_url"},
+				{"web_client_logo_light_url", "web_client_logo_url"}, {"web_client_logo_dark_url", "web_client_logo_url"},
+				{"web_client_icon_light_url", "web_client_icon_url"}, {"web_client_icon_dark_url", "web_client_icon_url"},
+			}
+			for _, pair := range pairs {
+				if err := tx.Model(&model.BrandingSetting{}).
+					Where(pair[0]+" = '' AND "+pair[1]+" <> ''").
+					Update(pair[0], gorm.Expr(pair[1])).Error; err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			return fmt.Errorf("migrate v307 theme-aware branding: %w", err)
+		}
+	}
+	if version >= 309 {
+		// Consolidate the three v307 surface-specific identities into one themed
+		// deployment identity. Prefer the administration assets because they were
+		// already used by the persistent navigation and About surfaces. Preserve
+		// the old columns as a rollback mirror.
+		if err := global.DB.Transaction(func(tx *gorm.DB) error {
+			setting := &model.BrandingSetting{}
+			if err := tx.First(setting, 1).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil
+			} else if err != nil {
+				return err
+			}
+			first := func(values ...string) string {
+				for _, value := range values {
+					if value != "" {
+						return value
+					}
+				}
+				return ""
+			}
+			logoLight := first(setting.BrandLogoLightURL, setting.AdminLogoLightURL, setting.LoginLogoLightURL, setting.WebClientLogoLightURL, setting.AdminLogoURL, setting.LoginLogoURL, setting.WebClientLogoURL)
+			logoDark := first(setting.BrandLogoDarkURL, setting.AdminLogoDarkURL, setting.LoginLogoDarkURL, setting.WebClientLogoDarkURL, setting.AdminLogoURL, setting.LoginLogoURL, setting.WebClientLogoURL)
+			iconLight := first(setting.BrandIconLightURL, setting.AdminIconLightURL, setting.WebClientIconLightURL, setting.AdminIconURL, setting.WebClientIconURL)
+			iconDark := first(setting.BrandIconDarkURL, setting.AdminIconDarkURL, setting.WebClientIconDarkURL, setting.AdminIconURL, setting.WebClientIconURL)
+			loginBackgroundLight := first(setting.LoginBackgroundLightURL, setting.LoginBackgroundURL)
+			loginBackgroundDark := first(setting.LoginBackgroundDarkURL, setting.LoginBackgroundURL)
+			footer := first(setting.FooterHTML, setting.LoginFooter)
+			return tx.Model(setting).Updates(map[string]interface{}{
+				"brand_logo_light_url": logoLight, "brand_logo_dark_url": logoDark,
+				"brand_icon_light_url": iconLight, "brand_icon_dark_url": iconDark,
+				"login_background_light_url": loginBackgroundLight, "login_background_dark_url": loginBackgroundDark,
+				"footer_html":          footer,
+				"admin_logo_light_url": logoLight, "admin_logo_dark_url": logoDark,
+				"admin_icon_light_url": iconLight, "admin_icon_dark_url": iconDark,
+				"login_logo_light_url": logoLight, "login_logo_dark_url": logoDark,
+				"web_client_logo_light_url": logoLight, "web_client_logo_dark_url": logoDark,
+				"web_client_icon_light_url": iconLight, "web_client_icon_dark_url": iconDark,
+				"login_background_url": loginBackgroundLight, "login_footer": footer,
+			}).Error
+		}); err != nil {
+			return fmt.Errorf("migrate v309 unified branding: %w", err)
+		}
 	}
 	if err := global.DB.FirstOrCreate(&model.SecurityInvariantLock{Name: "enabled-admin"}).Error; err != nil {
 		return fmt.Errorf("create enabled-administrator invariant lock: %w", err)

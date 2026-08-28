@@ -19,6 +19,7 @@
             </transition>
           </router-view>
         </main>
+        <BrandFooter class="app-footer" :html="appStore.setting.branding.footer_html"/>
         <mobile-bottom-nav v-if="isMobile"/>
       </section>
     </div>
@@ -34,6 +35,7 @@ import Tags from '@/layout/components/tags/index.vue'
 import GAside from '@/layout/components/aside.vue'
 import GHeader from '@/layout/components/header.vue'
 import MobileBottomNav from '@/layout/components/MobileBottomNav.vue'
+import BrandFooter from '@/components/brand/BrandFooter.vue'
 
 const appStore = useAppStore()
 const tagStore = useTagsStore()
@@ -68,6 +70,7 @@ watch(() => route.fullPath, closeDrawer)
 .app-header { position: sticky; top: 0; z-index: 24; height: var(--header-height); border-bottom: 1px solid var(--border-subtle); background: color-mix(in srgb, var(--surface-1) 88%, transparent); backdrop-filter: blur(18px); }
 .header-tags { position: sticky; top: var(--header-height); z-index: 20; min-height: 38px; overflow: hidden; border-bottom: 1px solid var(--border-subtle); background: color-mix(in srgb, var(--surface-1) 91%, transparent); backdrop-filter: blur(16px); }
 .app-main { box-sizing: border-box; width: 100%; max-width: 1720px; flex: 1; align-self: center; padding: 24px clamp(18px, 2.2vw, 34px) 38px; }
+.app-footer { width: 100%; max-width: 1720px; align-self: center; padding: 0 24px 18px; opacity: .78; }
 .app-sidebar-mask { position: fixed; inset: 0; z-index: 28; border: 0; background: rgba(28, 32, 48, .35); backdrop-filter: blur(2px); }
 .page-fade-enter-active,.page-fade-leave-active { transition: opacity .16s ease, transform .16s ease; }
 .page-fade-enter-from { opacity: 0; transform: translateY(4px); }.page-fade-leave-to { opacity: 0; transform: translateY(-2px); }
@@ -79,7 +82,8 @@ watch(() => route.fullPath, closeDrawer)
   .app-sidebar { position: fixed; inset: 0 auto 0 0; z-index: 32; width: min(84vw, 316px); transform: translateX(-104%); box-shadow: var(--shadow-xl); transition: transform var(--motion-base); }
   .app-shell--drawer-open .app-sidebar { transform: translateX(0); }
   .header-tags { display: none; }
-  .app-main { padding: 16px 12px calc(88px + env(safe-area-inset-bottom)); }
+  .app-main { padding: 16px 12px 24px; }
+  .app-footer { padding: 0 14px calc(84px + env(safe-area-inset-bottom)); }
 }
 @media (prefers-reduced-motion: reduce) { .app-shell,.app-sidebar,.page-fade-enter-active,.page-fade-leave-active { transition: none; } }
 </style>

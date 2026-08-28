@@ -87,3 +87,36 @@ func TestDisabledStarryInstanceStillRequiresStableIdentity(t *testing.T) {
 		t.Fatal("disabled instance without an id accepted")
 	}
 }
+
+func TestStarryControlValidationAcceptsAllowlistedLogFiles(t *testing.T) {
+	candidate := validStarryControlConfig()
+	candidate.LogDirectory = "/var/log/kessoku-control"
+	candidate.LogSources = []ControlLogSource{{ID: "center", Label: "Starry center", Component: "starry", InstanceID: "starry-1", File: "starry.log"}}
+	if err := candidate.Validate(); err != nil {
+		t.Fatalf("valid log allowlist rejected: %v", err)
+	}
+}
+
+func TestStarryControlValidationRejectsUnsafeLogAllowlist(t *testing.T) {
+	tests := []ControlLogSource{
+		{ID: "../center", Label: "Center", Component: "starry", File: "starry.log"},
+		{ID: "center", Label: "", Component: "starry", File: "starry.log"},
+		{ID: "center", Label: "Center", Component: "database", File: "starry.log"},
+		{ID: "center", Label: "Center", Component: "starry", File: "../starry.log"},
+		{ID: "center", Label: "Center", Component: "starry", InstanceID: "unknown", File: "starry.log"},
+	}
+	for index, source := range tests {
+		candidate := validStarryControlConfig()
+		candidate.LogDirectory = "/var/log/kessoku-control"
+		candidate.LogSources = []ControlLogSource{source}
+		if err := candidate.Validate(); err == nil {
+			t.Fatalf("unsafe log source %d accepted", index)
+		}
+	}
+	candidate := validStarryControlConfig()
+	candidate.LogDirectory = "relative/logs"
+	candidate.LogSources = []ControlLogSource{{ID: "center", Label: "Center", Component: "starry", File: "starry.log"}}
+	if err := candidate.Validate(); err == nil {
+		t.Fatal("relative log directory accepted")
+	}
+}

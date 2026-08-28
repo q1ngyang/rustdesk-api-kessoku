@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/config"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/lib/lock"
@@ -142,7 +143,7 @@ func TestConcurrentAdminDisablePreservesOneEnabledAdministrator(t *testing.T) {
 
 func TestDisabledAdministratorCanBeDeletedWhenAnotherEnabledAdminExists(t *testing.T) {
 	database := securityAuditDatabase(t, true)
-	if err := database.AutoMigrate(&model.UserThird{}, &model.LdapIdentity{}, &model.AddressBook{}, &model.AddressBookCollection{}, &model.AddressBookCollectionRule{}, &model.Tag{}, &model.Peer{}, &model.AdminResourceScope{}); err != nil {
+	if err := database.AutoMigrate(&model.UserThird{}, &model.LdapIdentity{}, &model.AddressBook{}, &model.AddressBookCollection{}, &model.AddressBookCollectionRule{}, &model.Tag{}, &model.Peer{}, &model.AdminResourceScope{}, &model.UserTwoFactor{}, &model.TwoFactorLoginChallenge{}); err != nil {
 		t.Fatal(err)
 	}
 	isAdmin := true
@@ -151,11 +152,23 @@ func TestDisabledAdministratorCanBeDeletedWhenAnotherEnabledAdminExists(t *testi
 	if err := database.Create(&[]*model.User{enabled, disabled}).Error; err != nil {
 		t.Fatal(err)
 	}
+	if err := database.Create(&model.UserTwoFactor{UserID: disabled.Id, SecretCiphertext: "encrypted", Enabled: true}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Create(&model.TwoFactorLoginChallenge{TokenHash: "challenge", UserID: disabled.Id, Username: disabled.Username, ExpiresAt: time.Now().Add(time.Minute).Unix()}).Error; err != nil {
+		t.Fatal(err)
+	}
 	if err := AllService.UserService.DeleteContext(context.Background(), enabled.Id, "", disabled); err != nil {
 		t.Fatal(err)
 	}
 	if deleted := AllService.UserService.InfoById(disabled.Id); deleted.Id != 0 {
 		t.Fatal("disabled administrator was not deleted")
+	}
+	for _, destination := range []interface{}{&model.UserTwoFactor{}, &model.TwoFactorLoginChallenge{}} {
+		var count int64
+		if err := database.Model(destination).Where("user_id = ?", disabled.Id).Count(&count).Error; err != nil || count != 0 {
+			t.Fatalf("two-factor data was not deleted: count=%d err=%v", count, err)
+		}
 	}
 }
 

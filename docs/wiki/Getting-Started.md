@@ -53,14 +53,14 @@ docker compose --env-file .env -f docker-compose.yaml exec kessoku-api \
 
 Kessoku does not log a reusable initial credential. Move the value in the
 bootstrap file directly to an approved password manager, open
-`https://your-api.example/_admin/`, sign in, rotate the password, and delete the
+`https://your-api.example/dash/`, sign in, rotate the password, and delete the
 host secret file. Configure one supported RustDesk client with the same API
 Server, ID Server, and server public key, then verify login, address-book
 access, logout, and login again.
 
 ## Enable optional integrations
 
-1. Verify and back up database version 302.
+1. Verify and back up database version 309 together with the TOTP key and media directory.
 2. Configure Ed25519 access-token keys and enable Kessoku authentication.
 3. Start the internal JWKS/introspection listener on private mTLS.
 4. Deploy the matching Starry release with authentication `off`, then `audit`.

@@ -14,7 +14,6 @@ const (
 	OauthTypeGoogle  string = "google"
 	OauthTypeOidc    string = "oidc"
 	OauthTypeWebauth string = "webauth"
-	OauthTypeLinuxdo string = "linuxdo"
 	PKCEMethodS256   string = "S256"
 	PKCEMethodPlain  string = "plain"
 )
@@ -22,7 +21,7 @@ const (
 // Validate the oauth type
 func ValidateOauthType(oauthType string) error {
 	switch oauthType {
-	case OauthTypeGithub, OauthTypeGoogle, OauthTypeOidc, OauthTypeWebauth, OauthTypeLinuxdo:
+	case OauthTypeGithub, OauthTypeGoogle, OauthTypeOidc, OauthTypeWebauth:
 		return nil
 	default:
 		return errors.New("invalid Oauth type")
@@ -30,9 +29,8 @@ func ValidateOauthType(oauthType string) error {
 }
 
 const (
-	UserEndpointGithub  string = "https://api.github.com/user"
-	UserEndpointLinuxdo string = "https://connect.linux.do/api/user"
-	IssuerGoogle        string = "https://accounts.google.com"
+	UserEndpointGithub string = "https://api.github.com/user"
+	IssuerGoogle       string = "https://accounts.google.com"
 )
 
 type Oauth struct {
@@ -62,8 +60,6 @@ func (oa *Oauth) FormatOauthInfo() error {
 		oa.Op = OauthTypeGithub
 	case OauthTypeGoogle:
 		oa.Op = OauthTypeGoogle
-	case OauthTypeLinuxdo:
-		oa.Op = OauthTypeLinuxdo
 	}
 	// check if the op is empty, set the default value
 	op := strings.TrimSpace(oa.Op)
@@ -156,24 +152,6 @@ func (gu *GithubUser) ToOauthUser() *OauthUser {
 		Email:         gu.Email,
 		VerifiedEmail: gu.VerifiedEmail,
 		Picture:       gu.AvatarUrl,
-	}
-}
-
-type LinuxdoUser struct {
-	OauthUserBase
-	Id       int    `json:"id"`
-	Username string `json:"username"`
-	Avatar   string `json:"avatar_url"`
-}
-
-func (lu *LinuxdoUser) ToOauthUser() *OauthUser {
-	return &OauthUser{
-		OpenId:        strconv.Itoa(lu.Id),
-		Name:          lu.Name,
-		Username:      strings.ToLower(lu.Username),
-		Email:         lu.Email,
-		VerifiedEmail: true, // linux.do 用户邮箱默认已验证
-		Picture:       lu.Avatar,
 	}
 }
 

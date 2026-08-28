@@ -1386,6 +1386,14 @@ const docTemplateapi = `{
                     "maxLength": 128,
                     "minLength": 4
                 },
+                "secret": {
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "tfaCode": {
+                    "type": "string",
+                    "maxLength": 16
+                },
                 "type": {
                     "type": "string",
                     "maxLength": 64
@@ -1398,6 +1406,10 @@ const docTemplateapi = `{
                 "uuid": {
                     "type": "string",
                     "maxLength": 256
+                },
+                "verificationCode": {
+                    "type": "string",
+                    "maxLength": 16
                 }
             }
         },
@@ -1453,6 +1465,12 @@ const docTemplateapi = `{
         "api.UserPayload": {
             "type": "object",
             "properties": {
+                "avatar": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
                 "email": {
                     "type": "string"
                 },

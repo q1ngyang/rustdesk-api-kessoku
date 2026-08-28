@@ -31,8 +31,8 @@ func (sr *ShareRecord) List(c *gin.Context) {
 		return
 	}
 	u := service.AllService.UserService.CurUser(c)
-	res := service.AllService.ShareRecordService.List(query.Page, query.PageSize, func(tx *gorm.DB) {
-		tx.Where("user_id = ?", u.Id)
+	res := service.AllService.ShareRecordService.List(query.Page, query.PageSize, func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("user_id = ?", u.Id).Order("id desc")
 	})
 	response.Success(c, res)
 }
@@ -102,9 +102,8 @@ func (sr *ShareRecord) BatchDelete(c *gin.Context) {
 	u := service.AllService.UserService.CurUser(c)
 	var l int64
 	l = int64(len(f.Ids))
-	res := service.AllService.ShareRecordService.List(1, uint(l), func(tx *gorm.DB) {
-		tx.Where("user_id = ?", u.Id)
-		tx.Where("id in ?", f.Ids)
+	res := service.AllService.ShareRecordService.List(1, uint(l), func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("user_id = ?", u.Id).Where("id in ?", f.Ids)
 	})
 	if res.Total != l {
 		response.Fail(c, 101, response.TranslateMsg(c, "ItemNotFound"))

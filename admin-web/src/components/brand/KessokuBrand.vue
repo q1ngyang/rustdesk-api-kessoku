@@ -1,6 +1,12 @@
 <template>
   <div class="kessoku-brand" :class="{ 'kessoku-brand--compact': compact }">
-    <StarryIcon :size="compact ? 34 : 38" alt=""/>
+    <DeploymentAsset
+      variant="icon"
+      :width="compact ? 34 : 38"
+      :light-url="branding.brand_icon_light_url"
+      :dark-url="branding.brand_icon_dark_url"
+      alt=""
+    />
     <div v-if="!compact" class="kessoku-brand__copy">
       <strong>RustDesk API</strong>
       <span>KESSOKU</span>
@@ -9,8 +15,12 @@
 </template>
 
 <script setup>
-import StarryIcon from '@/components/brand/StarryIcon.vue'
+import { computed } from 'vue'
+import DeploymentAsset from '@/components/brand/DeploymentAsset.vue'
+import { useAppStore } from '@/store/app'
 defineProps({ compact: Boolean })
+const appStore = useAppStore()
+const branding = computed(() => appStore.setting.branding)
 </script>
 
 <style scoped lang="scss">

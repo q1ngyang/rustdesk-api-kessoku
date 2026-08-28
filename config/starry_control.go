@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,11 +17,21 @@ const MaxStarryControlPayloadBytes int64 = 4 << 20
 // Runtime configuration defaults are intentionally secure: no instances, no
 // write access, and no legacy command routes.
 type ServerControl struct {
-	LegacyCommandEnabled bool             `mapstructure:"legacy-command-enabled"`
-	ReadOnly             bool             `mapstructure:"read-only"`
-	RequestTimeout       time.Duration    `mapstructure:"request-timeout"`
-	ResponseMaxBytes     int64            `mapstructure:"response-max-bytes"`
-	Instances            []StarryInstance `mapstructure:"instances"`
+	LegacyCommandEnabled bool               `mapstructure:"legacy-command-enabled"`
+	ReadOnly             bool               `mapstructure:"read-only"`
+	RequestTimeout       time.Duration      `mapstructure:"request-timeout"`
+	ResponseMaxBytes     int64              `mapstructure:"response-max-bytes"`
+	Instances            []StarryInstance   `mapstructure:"instances"`
+	LogDirectory         string             `mapstructure:"log-directory"`
+	LogSources           []ControlLogSource `mapstructure:"log-sources"`
+}
+
+type ControlLogSource struct {
+	ID         string `mapstructure:"id" json:"id"`
+	Label      string `mapstructure:"label" json:"label"`
+	Component  string `mapstructure:"component" json:"component"`
+	InstanceID string `mapstructure:"instance-id" json:"instance_id"`
+	File       string `mapstructure:"file" json:"-"`
 }
 
 // StarryInstance is deployment-owned. Agent URLs and credential paths are not
@@ -105,6 +116,38 @@ func (c ServerControl) Validate() error {
 		}
 		if !validControlIdentityURI(instance.AuthorizedParty) {
 			return fmt.Errorf("server-control instance %q authorized-party must be the client certificate URI SAN", instance.ID)
+		}
+	}
+	if len(c.LogSources) > 0 && strings.TrimSpace(c.LogDirectory) == "" {
+		return errors.New("server-control log-directory is required when log-sources are configured")
+	}
+	if len(c.LogSources) > 0 && (!filepath.IsAbs(c.LogDirectory) || strings.TrimSpace(c.LogDirectory) != c.LogDirectory) {
+		return errors.New("server-control log-directory must be an absolute path without surrounding whitespace")
+	}
+	logIDs := make(map[string]struct{}, len(c.LogSources))
+	for index, source := range c.LogSources {
+		if !validProviderID(source.ID) {
+			return fmt.Errorf("server-control log source %d requires a valid id", index)
+		}
+		if _, exists := logIDs[source.ID]; exists {
+			return fmt.Errorf("duplicate server-control log source id %q", source.ID)
+		}
+		logIDs[source.ID] = struct{}{}
+		if !validGovernanceText(source.Label, 120) {
+			return fmt.Errorf("server-control log source %q requires a valid label", source.ID)
+		}
+		switch source.Component {
+		case "kessoku", "starry", "relay", "control-agent":
+		default:
+			return fmt.Errorf("server-control log source %q has invalid component", source.ID)
+		}
+		if filepath.Base(source.File) != source.File || source.File == "." || strings.TrimSpace(source.File) != source.File {
+			return fmt.Errorf("server-control log source %q file must be a simple filename", source.ID)
+		}
+		if source.InstanceID != "" && source.InstanceID != "*" {
+			if _, exists := seen[source.InstanceID]; !exists {
+				return fmt.Errorf("server-control log source %q references an unknown instance", source.ID)
+			}
 		}
 	}
 	return nil

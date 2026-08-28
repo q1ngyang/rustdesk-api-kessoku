@@ -8,7 +8,9 @@ open-source browser remote-desktop MVP, and integrates with
 [`rustdesk-server-starry`](https://github.com/q1ngyang/rustdesk-server-starry)
 through a typed, versioned Control API.
 
-> **v3.0.1 stable release.** The implementation and Linux
+> **v3.0.2 stable release.** This is the first supported v3 release. The
+> earlier v3.0.1 Release was withdrawn after significant integration defects.
+> The implementation and Linux
 > amd64 checks are complete, the official Starry contract is pinned, and both
 > the published Starry native-client matrix and built-in browser forced-Relay
 > fixture pass. The immutable tag is published only through the protected
@@ -31,10 +33,11 @@ Docker socket, or browser-supplied file path. Its browser client is repository-
 owned source; historical WebClient2/V2 and `resources/web*` assets remain
 excluded.
 
-## v3.0.1 highlights
+## v3.0.2 highlights
 
 - Responsive light/dark administration UI redesigned for desktop, tablet, and
-  phone, with repository-owned Kessoku/StarryLinks brand assets.
+  phone, centralized theme-aware branding, avatars, TOTP two-factor
+  authentication, Japanese localization, announcements, and GeoIP details.
 - Three-tier enterprise roles: `user`, scoped `admin`, and unrestricted
   `super_admin`. A scoped administrator can manage assigned user groups,
   users, public address books, and ID devices.
@@ -49,16 +52,18 @@ excluded.
 - Embedded, reproducibly built management frontend; no moving frontend branch.
 - Embedded, reproducibly built Web Client on a separate origin/listener, using
   short-lived connection-only grants delivered in memory. The MVP supports
-  forced Relay WSS, VP9, mouse, and basic keyboard; it excludes P2P, incoming
-  mode, file transfer, clipboard, audio, display switching, and non-VP9 codecs.
+  persistent sign-in, forced Relay WSS, VP9, mouse, basic keyboard, connection
+  audit, and assistance chat; it excludes P2P, incoming mode, file transfer,
+  clipboard, audio, display switching, and non-VP9 codecs.
 - SQLite, MySQL, and PostgreSQL migration support; external MySQL/PostgreSQL
   connections require certificate- and hostname-verified TLS.
 - Docker `linux/amd64`, Linux x86_64 archive/binary, and amd64 DEB as the
-  v3.0.1 release scope. ARM remains best-effort and non-blocking.
+  v3.0.2 release scope. ARM remains best-effort and non-blocking.
 
 > **Upgrade notice:** v3 changes the Go module path to `/v3` and database role
-> semantics at schema version 302. Read the
-> [breaking changes](docs/releases/v3.0.1/RELEASE-NOTES-v3.0.1.md#breaking-changes) before upgrading.
+> semantics and upgrades the database to schema version 309. Read the
+> [breaking changes](docs/releases/v3.0.2/RELEASE-NOTES-v3.0.2.md#compatibility-and-breaking-changes)
+> before upgrading.
 
 ## Recommended deployment
 
@@ -66,7 +71,7 @@ Docker Compose on Linux amd64 is the recommended deployment. Use the immutable
 version tag and then record the resolved digest in your deployment:
 
 ```sh
-docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.1
+docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.2
 cp examples/compose.env.example .env
 cp examples/config.docker-builtin.yaml config.yaml
 # Edit .env/config.yaml and provision the referenced signing key first.
@@ -78,7 +83,7 @@ The Compose default binds API port 21114 and Web Client port 21122 to
 `127.0.0.1`. Publish them through two distinct reviewed HTTPS origins; see
 [`examples/Caddyfile.example`](examples/Caddyfile.example). The release also
 publishes `latest` for users who intentionally track the newest stable build,
-while production rollback should pin the `v3.0.1` digest.
+while production rollback should pin the `v3.0.2` digest.
 The exact `relay-wss-urls` map lives in mounted YAML, not an environment
 variable; follow the detailed Docker guide before startup.
 
@@ -115,9 +120,9 @@ those pages to GitHub Wiki is a separate release-owner action.
 ## Release status
 
 The authoritative gate is [`RELEASE_STATUS`](RELEASE_STATUS), with evidence
-requirements in [`RELEASE-CHECKLIST.md`](docs/releases/RELEASE-CHECKLIST.md). The v3.0.1
+requirements in [`RELEASE-CHECKLIST.md`](docs/releases/RELEASE-CHECKLIST.md). The v3.0.2
 feature and compatibility notes are in
-[`RELEASE-NOTES-v3.0.1.md`](docs/releases/v3.0.1/RELEASE-NOTES-v3.0.1.md).
+[`RELEASE-NOTES-v3.0.2.md`](docs/releases/v3.0.2/RELEASE-NOTES-v3.0.2.md).
 
 Local development checks are not permission to publish. Tagging, pushing,
 GHCR publication, GitHub Release creation, and Wiki publication require

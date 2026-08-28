@@ -9,7 +9,8 @@ Kessoku 不包含 HBBS/HBBR。它可以搭配官方 RustDesk Server；推荐搭�
 [`q1ngyang/rustdesk-server-starry`](https://github.com/q1ngyang/rustdesk-server-starry)，
 获得安全 TCP、WSS、按地理位置选择中继服务器、连接令牌认证和可选管理代理。
 
-当前稳定版：`v3.0.1`，正式支持 Docker/Linux `amd64`。
+当前稳定版：`v3.0.2`，这是首个正式支持的 v3 版本，正式支持 Docker/Linux `amd64`。
+此前 `v3.0.1` 因重大集成缺陷已撤回，请勿用于新部署。
 
 ## 功能
 
@@ -17,11 +18,11 @@ Kessoku 不包含 HBBS/HBBR。它可以搭配官方 RustDesk Server；推荐搭�
 - 用户、用户组、设备、设备组和分级管理员范围；
 - 个人地址簿、公共地址簿、标签、地址簿集合和共享规则；
 - 登录记录、连接审计、文件审计和管理操作审计；
-- 密码登录、LDAP、GitHub/Linux.do OAuth 和通用 OIDC；
+- 密码登录、TOTP 双重认证、LDAP、GitHub/Google OAuth 和通用 OIDC；
 - Ed25519/EdDSA 访问令牌、JWKS 和可撤销令牌状态查询；
 - 与 Starry 的连接认证和类型化管理接口；
-- 内置响应式管理后台；
-- 独立浏览器远控：强制 WSS 中继、VP9 画面、鼠标和基本键盘。
+- 内置响应式管理后台、集中品牌设置、头像、公告、GeoIP 与多语言；
+- 独立浏览器远控：登录保持、强制 WSS 中继、VP9 画面、鼠标、基本键盘和协助聊天。
 
 浏览器客户端目前不支持点对点、被控端、文件传输、剪贴板、音频、终端、多显示器切换、
 输入法组合输入或 VP9 以外的视频编码。桌面 RustDesk 客户端不受这些限制。
@@ -100,9 +101,11 @@ Kessoku 容器使用 UID/GID `65534:65534`。数据和密钥目录必须属于�
 
 ## 升级提示
 
-v3.0.1 使用数据库版本 302，新增企业角色和范围授权。v2 程序可能把范围管理员误认为无限制
-管理员，不能让 v2/v3 同时写一个数据库，也不能在没有匹配备份时直接降级。升级前阅读
-[`MIGRATION-v3.0.1.zh-CN.md`](docs/releases/v3.0.1/MIGRATION-v3.0.1.zh-CN.md)。
+v3.0.2 使用数据库版本 309，除企业角色和范围授权外，还新增 TOTP、品牌与媒体、公告、
+GeoIP、界面偏好和 WebClient 审计字段。v2 程序可能把范围管理员误认为无限制管理员，不能
+让 v2/v3 同时写一个数据库，也不能在没有匹配数据库、TOTP 密钥、媒体和配置备份时直接
+降级。升级前阅读
+[`MIGRATION-v3.0.2.zh-CN.md`](docs/releases/v3.0.2/MIGRATION-v3.0.2.zh-CN.md)。
 
 ## 许可证
 

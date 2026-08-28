@@ -40,6 +40,9 @@ func TestClientReportsRequireExactRegisteredDeviceIdentity(t *testing.T) {
 	if err := database.Create(&model.LoginLog{UserId: 42, DeviceId: "desk-1", Uuid: "uuid-1"}).Error; err != nil {
 		t.Fatal(err)
 	}
+	if err := database.Create(&model.Peer{Id: "desk-1", Alias: "manual placeholder"}).Error; err != nil {
+		t.Fatal(err)
+	}
 	accepted := sysinfo(`{"id":"desk-1","uuid":"uuid-1","hostname":"host"}`)
 	if accepted.Code != http.StatusOK || accepted.Body.String() != "SYSINFO_UPDATED" {
 		t.Fatalf("registered sysinfo = status %d body %q", accepted.Code, accepted.Body.String())
@@ -48,7 +51,7 @@ func TestClientReportsRequireExactRegisteredDeviceIdentity(t *testing.T) {
 	if err := database.Where("id = ?", "desk-1").First(peer).Error; err != nil {
 		t.Fatal(err)
 	}
-	if peer.Uuid != "uuid-1" || peer.UserId != 42 {
+	if peer.Uuid != "uuid-1" || peer.UserId != 42 || peer.Alias != "manual placeholder" {
 		t.Fatalf("stored peer identity = %+v", peer)
 	}
 

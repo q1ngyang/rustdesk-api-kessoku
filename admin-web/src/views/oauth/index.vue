@@ -125,7 +125,6 @@
   const types = [
     { value: 'github', label: 'GitHub' },
     { value: 'google', label: 'Google' },
-    { value: 'linuxdo', label: 'LinuxDo' },
     { value: 'oidc', label: 'OIDC' },
   ]
   const getList = async () => {

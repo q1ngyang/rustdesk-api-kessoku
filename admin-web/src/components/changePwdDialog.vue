@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="v" width="520px" :title="T('ChangePassword')" :close-on-click-modal="false" destroy-on-close @closed="resetForm">
+  <el-dialog v-model="v" width="min(420px, calc(100vw - 28px))" :title="T('ChangePassword')" :close-on-click-modal="false" append-to-body destroy-on-close @closed="resetForm">
     <p class="change-password-note">{{ T('PasswordSecurityDescription') }}</p>
     <el-form ref="cpwd" class="dialog-form" :model="changePwdForm" :rules="chagePwdRules" label-position="top">
       <el-form-item :label="T('OldPassword')" prop="old_password">
@@ -11,7 +11,7 @@
       <el-form-item :label="T('ConfirmPassword')" prop="confirmPwd">
         <el-input v-model="changePwdForm.confirmPwd" type="password" autocomplete="new-password" show-password></el-input>
       </el-form-item>
-      <div class="change-password-actions"><el-button @click="cancelChangePwd">{{ T('Cancel') }}</el-button><el-button type="primary" @click="changePassword">{{ T('Confirm') }}</el-button></div>
+      <div class="change-password-actions"><el-button @click="cancelChangePwd">{{ T('Cancel') }}</el-button><el-button type="primary" :loading="saving" @click="changePassword">{{ T('Confirm') }}</el-button></div>
     </el-form>
   </el-dialog>
 </template>
@@ -19,7 +19,7 @@
 <script setup>
 
   import { computed, reactive, ref } from 'vue'
-  import { ElMessageBox } from 'element-plus'
+  import { ElMessage } from 'element-plus'
   import { changeCurPwd } from '@/api/user'
   import { useUserStore } from '@/store/user'
   import { T } from '@/utils/i18n'
@@ -73,6 +73,7 @@
     ],
   }))
   const cpwd = ref(null)
+  const saving = ref(false)
   const resetForm = () => {
     changePwdForm.old_password = ''
     changePwdForm.new_password = ''
@@ -90,25 +91,15 @@
     if (!valid) {
       return
     }
-    const confirm = await ElMessageBox.confirm(T('Confirm?', { param: T('ChangePassword') }), {
-      confirmButtonText: T('Confirm'),
-      cancelButtonText: T('Cancel'),
-    }).catch(_ => false)
-    if (!confirm) {
-      return
-    }
-    const res = await changeCurPwd(changePwdForm).catch(_ => false)
-    if (!res) {
-      return
-    }
-    ElMessageBox.alert(T('OperationSuccess'), T('ChangePassword'), {
-      autofocus: true,
-      confirmButtonText: 'OK',
-      callback: (action) => {
-        userStore.logout()
-        window.location.reload()
-      },
-    })
+    saving.value = true
+    try {
+      const res = await changeCurPwd(changePwdForm).catch(_ => false)
+      if (!res) return
+      ElMessage.success(T('OperationSuccess'))
+      emit('update:visible', false)
+      userStore.logout()
+      window.setTimeout(() => window.location.reload(), 450)
+    } finally { saving.value = false }
   }
 </script>
 

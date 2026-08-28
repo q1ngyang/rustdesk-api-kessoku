@@ -58,20 +58,24 @@ docker compose --env-file .env -f compose.yaml logs --tail 200 kessoku-api
 更新 Starry 时 HBBS/HBBR 必须同时使用相同 `STARRY_VERSION`，但可以先重建 HBBS、完成
 健康检查后再重建 HBBR。不要把 HBBR 换成独立移动版本的官方镜像。
 
-## 从 v2 升级到 v3.0.1
+## 从 v2 升级到 v3.0.2
 
-v3.0.1 把数据库升级到版本 `302`，新增企业角色和管理员资源范围：
+v3.0.2 把数据库升级到版本 `309`，包含企业角色和管理员资源范围，并新增品牌、TOTP、
+公告、GeoIP、用户界面偏好和 WebClient 审计字段：
 
 - 旧 `is_admin=true` 账户迁移为 `super_admin`，避免原管理员意外失去权限；
 - 普通账户迁移为 `user`；
 - 新的范围管理员角色为 `admin`，只能访问明确授予的资源；
 - 保留 `is_admin` 兼容列，但 v3 权限判断使用新 `role`。
+- `/app/data/totp.key` 与数据库共同保护已绑定的 TOTP 密钥，必须成套备份；
+- `/app/data/media` 保存头像和品牌图片，也必须纳入升级和回退集合；
+- 迁移会移除不再支持的 LinuxDo OAuth 提供商及身份绑定。
 
 升级步骤：
 
 1. 停止旧 Kessoku 写入并创建完整数据库备份；
 2. 对恢复副本先执行升级，处理 OAuth/OIDC 身份重复或空字段；
-3. 生产环境启动 v3.0.1，检查日志中的数据库迁移；
+3. 生产环境启动 v3.0.2，检查日志中的数据库迁移；
 4. 确认至少一个启用的 `super_admin`；
 5. 分别测试普通用户、范围管理员和超级管理员；
 6. 测试范围管理员只能看到获授的用户组、用户、公共地址簿和设备；
@@ -79,7 +83,7 @@ v3.0.1 把数据库升级到版本 `302`，新增企业角色和管理员资源�
 8. 再启用新的 Ed25519 认证、浏览器客户端或 Starry 高级集成。
 
 详细预检和数据库查询见
-[`MIGRATION-v3.0.1.zh-CN.md`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/releases/v3.0.1/MIGRATION-v3.0.1.zh-CN.md)及
+[`MIGRATION-v3.0.2.zh-CN.md`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/releases/v3.0.2/MIGRATION-v3.0.2.zh-CN.md)及
 [`MIGRATION.md`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/releases/MIGRATION.md)。身份冲突必须由管理员明确决定合并或解绑，不能只为
 通过唯一索引而随意删除记录。
 
@@ -106,7 +110,7 @@ v3.0.1 把数据库升级到版本 `302`，新增企业角色和管理员资源�
 
 ## v3 回退到 v2 的重要警告
 
-不要让 v2 与 v3 同时写同一数据库。版本 302 为兼容保留 `is_admin=true`，v2 可能把 v3
+不要让 v2 与 v3 同时写同一数据库。版本 309 仍为兼容保留 `is_admin=true`，v2 可能把 v3
 的范围管理员当成无限制管理员。v3 新签发的令牌只在数据库保存摘要，旧程序也无法恢复或
 认证这些新会话。
 
@@ -119,8 +123,8 @@ v3.0.1 把数据库升级到版本 `302`，新增企业角色和管理员资源�
 5. 启动旧版并要求升级后创建/登录的用户重新登录；
 6. 验证管理员权限、普通用户、地址簿和真实远控会话。
 
-只有无法恢复备份且已经阅读迁移文档时，才考虑原地预处理版本 302 数据库。该操作需要先
-处理范围管理员权限，风险高于恢复备份。
+版本 309 不能通过删表或降低版本号原地回退。必须恢复升级前匹配的数据库、TOTP 密钥、
+媒体目录、配置、签名密钥与旧镜像；保留失败数据库副本用于排查。
 
 ## 联合部署的有序回退
 

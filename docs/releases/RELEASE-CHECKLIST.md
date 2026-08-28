@@ -1,54 +1,61 @@
-# Kessoku v3.0.1 release checklist
+# Kessoku v3.0.2 release checklist
 
 This checklist defines the release gate for the exact source commit named by
-the immutable `v3.0.1` tag. Detailed runtime evidence is retained by the
+the immutable `v3.0.2` tag. Detailed runtime evidence is retained by the
 candidate workflow rather than duplicated here.
 
 ## Source and compatibility
 
-- [x] Project-owned Go imports and the module declaration use `/v3`; no project
-  `/v2` import remains.
-- [x] Database version 302 migrates legacy administrators to `super_admin` and
-  adds scoped grants for user groups, users, public address books, and ID
-  devices.
-- [x] Scope filtering, batch-denial, cleanup, audit, final-super-admin, and
+- [x] Project-owned Go imports and the module declaration use `/v3`; no
+  project-owned `/v2` import remains.
+- [x] Database migrations reach version 309 across SQLite, MySQL, and
+  PostgreSQL while preserving users, roles, devices, sessions, and audit data.
+- [x] Branding, encrypted TOTP, login challenges, announcements, GeoIP policy,
+  preferences, media, and WebClient audit ownership have migration and
+  rollback documentation.
+- [x] Scope filtering, batch denial, cleanup, audit, final-super-admin, and
   session-revocation behavior have automated coverage.
-- [x] The responsive admin UI and all brand assets are stored in this repository
-  and preserve the reviewed frontend provenance.
-- [x] Breaking changes and safe v2 rollback preparation are documented in both
-  languages and linked from the Wiki upgrade guide.
+- [x] The administration and browser frontends, themed StarryDesk defaults,
+  and fixed StarryLinks control assets are stored in this repository and built
+  from the exact backend commit.
+- [x] Separate-origin WebClient authentication, grant handoff, connection
+  auditing, theme/language preferences, and forced-Relay protocol behavior
+  have automated coverage.
+- [x] v3.0.1 withdrawal, breaking changes, complete backups, LinuxDo removal,
+  and safe rollback are documented in English and Simplified Chinese.
 
 ## Pre-publication verification
 
 - [x] `scripts/check_docs.py`, module verification, formatting, vet, all Go
-  tests, race tests, and vulnerability scan pass on the release commit.
+  tests, race tests, and vulnerability scanning pass on the release commit.
 - [x] Admin frontend install, audit, lint, test, reproducible build, and SBOM
   checks pass with the pinned Node/npm versions.
 - [x] Browser frontend install, audit, lint, test, reproducible build, licence,
   and SBOM checks pass with the pinned Node/npm versions.
 - [x] SQLite, MySQL 8.4.2, and PostgreSQL 16.4 migration fixtures pass.
 - [x] Secret scanning, dependency vulnerability checks, workflow policy tests,
-  and forbidden historical browser-asset checks pass.
+  local-state exclusions, and forbidden historical browser-asset checks pass.
+- [x] A real local WebClient session reaches the registered virtual-client
+  hostname and creates the expected connection audit record.
 
-The release preparation passed PR CI run `32841549238` and master CI run
-`32841809241`. The first `v3.0.0` candidate run `32842075289` then failed closed
-on stale generated Swagger identifiers before final candidate assembly and
-published no artifacts. The generated documentation and `/v3` build-info gates
-are corrected here; the final candidate rebuilds and re-verifies everything
-from the immutable `v3.0.1` tag.
+The final source commit must include only reviewed product, test, deployment,
+and release files. `deploy-local-test/`, databases, certificates, credentials,
+uploaded media, and runtime logs are never release inputs.
 
 ## Protected publication
 
 The following steps occur after the immutable tag is created and are visible in
 GitHub Actions/Release evidence, not as modifications to the tagged source:
 
-- [ ] Non-publishing candidate workflow on `v3.0.1` succeeds.
+- [ ] Non-publishing candidate workflow on `v3.0.2` succeeds.
 - [ ] Linux amd64 binary, archive, DEB, container smoke, checksum, provenance,
   and SBOM gates pass in that candidate.
 - [ ] Protected release workflow consumes that exact candidate run ID.
 - [ ] GitHub Release assets and `SHA256SUMS` verify.
-- [ ] GHCR `v3.0.1` and `latest` resolve to the same image index digest.
+- [ ] GHCR `v3.0.2` and `latest` resolve to the same image index digest.
 - [ ] The reviewed bilingual Wiki is published and its navigation is verified.
+- [ ] The withdrawn v3.0.1 container package version is removed only after the
+  new image and `latest` have been verified.
 
 Supported release artifacts are Linux amd64 only. ARM remains best-effort
 source compatibility, and Windows is outside the blocking release matrix.

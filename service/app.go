@@ -2,6 +2,7 @@ package service
 
 import (
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -22,7 +23,7 @@ func (a *AppService) GetAppVersion() string {
 		if err != nil {
 			return
 		}
-		version = string(v)
+		version = strings.TrimSpace(string(v))
 
 	})
 	return version

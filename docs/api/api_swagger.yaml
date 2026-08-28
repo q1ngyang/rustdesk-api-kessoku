@@ -69,6 +69,12 @@ definitions:
         maxLength: 128
         minLength: 4
         type: string
+      secret:
+        maxLength: 128
+        type: string
+      tfaCode:
+        maxLength: 16
+        type: string
       type:
         maxLength: 64
         type: string
@@ -78,6 +84,9 @@ definitions:
         type: string
       uuid:
         maxLength: 256
+        type: string
+      verificationCode:
+        maxLength: 16
         type: string
     required:
     - username
@@ -116,6 +125,10 @@ definitions:
     type: object
   api.UserPayload:
     properties:
+      avatar:
+        type: string
+      display_name:
+        type: string
       email:
         type: string
       info:

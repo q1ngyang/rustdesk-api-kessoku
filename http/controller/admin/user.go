@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 const maxRegistrationBodyBytes = 16 << 10
@@ -300,6 +301,49 @@ func (ct *User) Current(c *gin.Context) {
 	token, _ := c.Get("token")
 	t := token.(string)
 	responseLoginSuccess(c, u, t)
+}
+
+// UpdateCurrentProfile lets a signed-in user maintain only their own public
+// identity fields. Role, username, group and security state remain outside
+// this narrowly scoped endpoint.
+func (ct *User) UpdateCurrentProfile(c *gin.Context) {
+	f := &admin.CurrentProfileForm{}
+	if err := c.ShouldBindJSON(f); err != nil {
+		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
+		return
+	}
+	f.Nickname = strings.TrimSpace(f.Nickname)
+	f.Email = strings.TrimSpace(f.Email)
+	if errList := global.Validator.ValidStruct(c, f); len(errList) > 0 {
+		response.Fail(c, 101, errList[0])
+		return
+	}
+	u := service.AllService.UserService.CurUser(c)
+	if err := service.AllService.UserService.UpdateCurrentProfileContext(c.Request.Context(), u, controlRequestID(c), f.Nickname, f.Email); err != nil {
+		response.Fail(c, 101, response.TranslateMsg(c, "OperationFailed")+err.Error())
+		return
+	}
+	response.Success(c, gin.H{"nickname": u.Nickname, "email": u.Email})
+}
+
+// UpdatePreferences synchronizes non-sensitive presentation preferences for
+// the current account. It never changes authorization or identity fields.
+func (ct *User) UpdatePreferences(c *gin.Context) {
+	f := &admin.UserPreferenceForm{}
+	if err := c.ShouldBindJSON(f); err != nil || f.Language == "" && f.Theme == "" {
+		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
+		return
+	}
+	if errList := global.Validator.ValidStruct(c, f); len(errList) > 0 {
+		response.Fail(c, 101, errList[0])
+		return
+	}
+	u := service.AllService.UserService.CurUser(c)
+	if err := service.AllService.UserService.UpdatePreferencesContext(c.Request.Context(), u, f.Language, f.Theme); err != nil {
+		response.Fail(c, 101, response.TranslateMsg(c, "OperationFailed"))
+		return
+	}
+	response.Success(c, gin.H{"preference_language": u.PreferenceLanguage, "preference_theme": u.PreferenceTheme})
 }
 
 // ChangeCurPwd 修改当前用户密码

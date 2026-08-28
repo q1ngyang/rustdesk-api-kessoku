@@ -33,14 +33,14 @@ func (a *Audit) ConnList(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
-	res := service.AllService.AuditService.AuditConnList(query.Page, query.PageSize, func(tx *gorm.DB) {
+	res := service.AllService.AuditService.AuditConnList(query.Page, query.PageSize, func(tx *gorm.DB) *gorm.DB {
 		if query.PeerId != "" {
-			tx.Where("peer_id like ?", "%"+query.PeerId+"%")
+			tx = tx.Where("peer_id like ?", "%"+query.PeerId+"%")
 		}
 		if query.FromPeer != "" {
-			tx.Where("from_peer like ?", "%"+query.FromPeer+"%")
+			tx = tx.Where("from_peer like ?", "%"+query.FromPeer+"%")
 		}
-		tx.Order("id desc")
+		return tx.Order("id desc")
 	})
 	response.Success(c, res)
 }
@@ -134,14 +134,14 @@ func (a *Audit) FileList(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
-	res := service.AllService.AuditService.AuditFileList(query.Page, query.PageSize, func(tx *gorm.DB) {
+	res := service.AllService.AuditService.AuditFileList(query.Page, query.PageSize, func(tx *gorm.DB) *gorm.DB {
 		if query.PeerId != "" {
-			tx.Where("peer_id like ?", "%"+query.PeerId+"%")
+			tx = tx.Where("peer_id like ?", "%"+query.PeerId+"%")
 		}
 		if query.FromPeer != "" {
-			tx.Where("from_peer like ?", "%"+query.FromPeer+"%")
+			tx = tx.Where("from_peer like ?", "%"+query.FromPeer+"%")
 		}
-		tx.Order("id desc")
+		return tx.Order("id desc")
 	})
 	response.Success(c, res)
 }

@@ -2,7 +2,10 @@ FROM debian:bookworm-slim@sha256:abd67ffcfa541b485a3dff59865ab629aa048a6c613e639
 
 WORKDIR /app
 COPY ./release /app/
-RUN test ! -e /app/resources/web && \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates && \
+    rm -rf /var/lib/apt/lists/* && \
+    test ! -e /app/resources/web && \
     test ! -e /app/resources/web2 && \
     test -s /app/resources/admin/index.html && \
     test -s /app/resources/client/index.html && \

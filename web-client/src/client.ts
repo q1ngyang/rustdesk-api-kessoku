@@ -18,7 +18,7 @@ import {
 } from "./generated/kessoku_wire";
 import { CLIENT_VERSION, LIMITS } from "./limits";
 import { approvedRelay, type ClientProfile } from "./profile";
-import { boundedText, countAppVariants, onlyRelayResponse, topLevelFieldNumbers, validateCursorMessage, validatePeerId, validatePeerInfo } from "./wire";
+import { boundedText, countAppVariants, onlyRelayResponse, topLevelFieldNumbers, validateCursorMessage, validateDisabledSideChannel, validatePeerId, validatePeerInfo } from "./wire";
 import { Vp9CanvasRenderer } from "./video";
 
 export type ClientState = "idle" | "rendezvous" | "relay" | "handshake" | "authenticating" | "connected" | "disconnected" | "error";
@@ -32,6 +32,7 @@ export interface ConnectionInput {
 export interface ClientEvents {
   state(state: ClientState, detail: string): void;
   peer(name: string, platform: string): void;
+  chat(text: string): void;
 }
 
 function encodeRendezvous(message: Parameters<typeof RendezvousMessage.encode>[0]): Uint8Array {
@@ -258,6 +259,10 @@ export class RemoteClient {
     if (countAppVariants(message) !== 1) {
       throw new Error(`Unsupported application message field(s): ${fieldNumbers.join(",") || "none"}`);
     }
+    if (message.audioFrame !== undefined || message.clipboard !== undefined || message.cliprdr !== undefined) {
+      validateDisabledSideChannel(message);
+      return;
+    }
     // RustDesk sends TestDelay independently of authentication progress.  It
     // may arrive between the password challenge and LoginResponse, so handle
     // it before applying the authentication state machine.
@@ -292,11 +297,13 @@ export class RemoteClient {
       this.#display = response.peerInfo.currentDisplay;
       this.#renderer = await Vp9CanvasRenderer.create(this.#canvas, () => this.#sendVideoAck(), (error) => this.#fatal(error));
       this.#renderer.setDisplay(display.width, display.height);
-      this.#events.peer(response.peerInfo.hostname, response.peerInfo.platform);
       this.#authStep = "done";
       window.clearTimeout(this.#authTimer);
       this.#authTimer = 0;
       this.#setState("connected", "Connected");
+      // Publish the peer label after the generic state transition so the UI's
+      // localized hostname/platform status remains the final visible text.
+      this.#events.peer(response.peerInfo.hostname, response.peerInfo.platform);
       return;
     }
     if (message.cursorData !== undefined || message.cursorPosition !== undefined || message.cursorId !== undefined) {
@@ -317,6 +324,12 @@ export class RemoteClient {
     if (message.misc?.closeReason !== undefined) {
       boundedText(message.misc.closeReason, "Close reason");
       this.disconnect(message.misc.closeReason || "Peer disconnected");
+      return;
+    }
+    if (message.misc?.chatMessage !== undefined) {
+      const text = message.misc.chatMessage.text;
+      if (utf8.encode(text).byteLength > LIMITS.chatText) throw new Error("Chat message is too large");
+      if (text !== "") this.#events.chat(text);
     }
   }
 
@@ -392,7 +405,7 @@ export class RemoteClient {
       signedId: undefined, publicKey: undefined, testDelay: undefined, videoFrame: undefined,
       loginRequest: undefined, loginResponse: undefined, hash: undefined, mouseEvent: undefined,
       cursorData: undefined, cursorPosition: undefined, cursorId: undefined, keyEvent: undefined,
-      misc: { switchDisplay: undefined, option: undefined, closeReason: undefined, refreshVideo: undefined, videoReceived: true },
+      misc: { chatMessage: undefined, switchDisplay: undefined, option: undefined, closeReason: undefined, refreshVideo: undefined, videoReceived: true },
       peerInfo: undefined,
     });
   }
@@ -417,6 +430,19 @@ export class RemoteClient {
       loginRequest: undefined, loginResponse: undefined, hash: undefined,
       mouseEvent: undefined, cursorData: undefined, cursorPosition: undefined, cursorId: undefined,
       keyEvent: event, misc: undefined, peerInfo: undefined,
+    });
+  }
+
+  sendChat(text: string): void {
+    if (this.#state !== "connected") return;
+    const normalized = text.trim();
+    if (normalized === "" || utf8.encode(normalized).byteLength > LIMITS.chatText) return;
+    this.#sendEncrypted({
+      signedId: undefined, publicKey: undefined, testDelay: undefined, videoFrame: undefined,
+      loginRequest: undefined, loginResponse: undefined, hash: undefined, mouseEvent: undefined,
+      cursorData: undefined, cursorPosition: undefined, cursorId: undefined, keyEvent: undefined,
+      misc: { chatMessage: { text: normalized }, switchDisplay: undefined, option: undefined, closeReason: undefined, refreshVideo: undefined, videoReceived: undefined },
+      peerInfo: undefined,
     });
   }
 

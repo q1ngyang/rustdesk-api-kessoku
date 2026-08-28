@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { keyEvent, relayPairingRequest } from "./client";
 import { ControlKey, KeyEvent, KeyboardMode, Message, RendezvousMessage } from "./generated/kessoku_wire";
-import { compatiblePeerVersion, countAppVariants, onlyRelayResponse, topLevelFieldNumbers, validateCursorMessage, validatePeerId, validDisplay } from "./wire";
+import { compatiblePeerVersion, countAppVariants, onlyRelayResponse, topLevelFieldNumbers, validateCursorMessage, validateDisabledSideChannel, validatePeerId, validDisplay } from "./wire";
 import { webCodecsTimestamp } from "./video";
 
 function keyboard(key: string, extra: Partial<KeyboardEvent> = {}): KeyboardEvent {
@@ -49,6 +49,47 @@ describe("wire policy", () => {
   it("reports only bounded protobuf field numbers for unsupported messages", () => {
     expect(topLevelFieldNumbers(new Uint8Array([0x62, 0x00]))).toEqual([12]);
     expect(() => topLevelFieldNumbers(new Uint8Array([0x0b]))).toThrow("Invalid application message tag");
+  });
+
+  it("recognizes bounded Cliprdr field 20 bootstrap traffic while clipboard stays disabled", () => {
+    const readyBytes = new Uint8Array([0xa2, 0x01, 0x02, 0x0a, 0x00]);
+    expect(topLevelFieldNumbers(readyBytes)).toEqual([20]);
+    const ready = Message.decode(readyBytes);
+    expect(countAppVariants(ready)).toBe(1);
+    expect(ready.cliprdr?.ready).toEqual({});
+    expect(() => validateDisabledSideChannel(ready)).not.toThrow();
+
+    expect(() => validateDisabledSideChannel(Message.create({
+      cliprdr: {
+        ready: undefined,
+        formatList: undefined,
+        formatListResponse: undefined,
+        formatDataRequest: undefined,
+        formatDataResponse: { msgFlags: 0, formatData: new Uint8Array(1_052_673) },
+        fileContentsRequest: undefined,
+        fileContentsResponse: undefined,
+        tryEmpty: undefined,
+        files: undefined,
+      },
+    }))).toThrow("oversized clipboard frame");
+  });
+
+  it("round-trips RustDesk chat as Misc field 19 without colliding with Cliprdr field 20", () => {
+    const encoded = Message.encode(Message.create({
+      misc: {
+        chatMessage: { text: "Remote assistance message" },
+        switchDisplay: undefined,
+        option: undefined,
+        closeReason: undefined,
+        refreshVideo: undefined,
+        videoReceived: undefined,
+      },
+    })).finish();
+
+    expect(topLevelFieldNumbers(encoded)).toEqual([19]);
+    const decoded = Message.decode(encoded);
+    expect(countAppVariants(decoded)).toBe(1);
+    expect(decoded.misc?.chatMessage?.text).toBe("Remote assistance message");
   });
 
   it("encodes printable and control keys in legacy mode", () => {

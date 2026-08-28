@@ -14,6 +14,10 @@ type UserToken struct {
 	ExpiredAt     int64   `json:"expired_at" gorm:"default:0;not null;index"`
 	RevokedAt     *int64  `json:"revoked_at,omitempty" gorm:"index"`
 	RevokedReason string  `json:"revoked_reason,omitempty" gorm:"default:'';not null;"`
+	CredentialID  string  `json:"credential_id" gorm:"-"`
+	Client        string  `json:"client" gorm:"-"`
+	Platform      string  `json:"platform" gorm:"-"`
+	CreatedIP     string  `json:"created_ip" gorm:"-"`
 	TimeModel
 }
 

@@ -40,7 +40,7 @@ func TestAdminWebStaticFilesHaveRestrictiveBrowserHeaders(t *testing.T) {
 	engine := gin.New()
 	WebInit(engine)
 
-	for _, path := range []string{"/_admin/", "/_admin/app.js"} {
+	for _, path := range []string{"/dash/", "/dash/app.js"} {
 		request := httptest.NewRequest(http.MethodGet, path, nil)
 		response := httptest.NewRecorder()
 		engine.ServeHTTP(response, request)
@@ -60,14 +60,14 @@ func TestAdminWebStaticFilesHaveRestrictiveBrowserHeaders(t *testing.T) {
 			}
 		}
 		csp := response.Header().Get("Content-Security-Policy")
-		for _, directive := range []string{"default-src 'self'", "frame-ancestors 'none'", "object-src 'none'", "script-src 'self'"} {
+		for _, directive := range []string{"default-src 'self'", "frame-ancestors 'none'", "img-src 'self' data: blob: https:", "object-src 'none'", "script-src 'self'"} {
 			if !strings.Contains(csp, directive) {
 				t.Errorf("GET %s CSP is missing %q: %q", path, directive, csp)
 			}
 		}
 	}
 
-	request := httptest.NewRequest(http.MethodGet, "/_admin/assets/", nil)
+	request := httptest.NewRequest(http.MethodGet, "/dash/assets/", nil)
 	response := httptest.NewRecorder()
 	engine.ServeHTTP(response, request)
 	if response.Code != http.StatusNotFound {
@@ -86,10 +86,31 @@ func TestAdminWebStaticRouteRejectsMutationMethods(t *testing.T) {
 
 	engine := gin.New()
 	WebInit(engine)
-	request := httptest.NewRequest(http.MethodPost, "/_admin/index.html", strings.NewReader("ignored"))
+	request := httptest.NewRequest(http.MethodPost, "/dash/index.html", strings.NewReader("ignored"))
 	response := httptest.NewRecorder()
 	engine.ServeHTTP(response, request)
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("POST static admin route returned %d, want 404", response.Code)
+	}
+}
+
+func TestLegacyAdminPathRedirectsToDashboard(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	previousResourcesPath := global.Config.Gin.ResourcesPath
+	global.Config.Gin.ResourcesPath = t.TempDir()
+	t.Cleanup(func() { global.Config.Gin.ResourcesPath = previousResourcesPath })
+
+	engine := gin.New()
+	WebInit(engine)
+	for _, test := range []struct{ from, to string }{
+		{"/_admin/", "/dash/"},
+		{"/_admin/app.js", "/dash/app.js"},
+	} {
+		request := httptest.NewRequest(http.MethodGet, test.from, nil)
+		response := httptest.NewRecorder()
+		engine.ServeHTTP(response, request)
+		if response.Code != http.StatusPermanentRedirect || response.Header().Get("Location") != test.to {
+			t.Fatalf("GET %s = %d location %q, want 308 %q", test.from, response.Code, response.Header().Get("Location"), test.to)
+		}
 	}
 }

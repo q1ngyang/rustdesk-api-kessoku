@@ -27,7 +27,7 @@ HBBS/HBBR rules on the host that actually runs those services.
 ## Recommended names
 
 ```text
-api.example.com       Kessoku API and /_admin/
+api.example.com       Kessoku API and /dash/
 client.example.com    dedicated Kessoku browser client
 rustdesk.example.com  native HBBS/HBBR address and /ws/id, /ws/relay
 ```
@@ -79,7 +79,7 @@ server {
 }
 ```
 
-The administration UI at `/_admin/` uses the same upstream. Preserve the
+The administration UI at `/dash/` uses the same upstream. Preserve the
 application's security response headers.
 
 ## Dedicated browser client

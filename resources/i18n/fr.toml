@@ -54,19 +54,19 @@ one = "Configuration introuvable."
 other = "Configuration introuvable."
 
 [OauthExpired]
-description = "Oauth expired."
-one = "Oauth a expiré, veuillez réessayer."
-other = "Oauth a expiré, veuillez réessayer."
+description = "OAuth expired."
+one = "OAuth a expiré, veuillez réessayer."
+other = "OAuth a expiré, veuillez réessayer."
 
 [OauthFailed]
-description = "Oauth failed."
-one = "Oauth a échoué."
-other = "Oauth a échoué."
+description = "OAuth failed."
+one = "OAuth a échoué."
+other = "OAuth a échoué."
 
 [OauthHasBindOtherUser]
-description = "Oauth has bind other user."
-one = "Oauth a lié un autre utilisateur."
-other = "Oauth a lié un autre utilisateur."
+description = "OAuth has bind other user."
+one = "OAuth a lié un autre utilisateur."
+other = "OAuth a lié un autre utilisateur."
 
 [ParamIsEmpty]
 description = "Param is empty."
@@ -84,39 +84,39 @@ one = "Succès de la liaison."
 other = "Succès de la liaison."
 
 [OauthHasBeenSuccess]
-description = "Oauth has been success."
-one = "Oauth a été réussi avec Succès."
-other = "Oauth a été réussi avec Succès."
+description = "OAuth has been success."
+one = "OAuth a été réussi avec Succès."
+other = "OAuth a été réussi avec Succès."
 
 [OauthSuccess]
-description = "Oauth success."
+description = "OAuth success."
 one = "Oauh réussi avec succès."
 other = "Oauh réussi avec succès."
 
 [OauthRegisterSuccess]
-description = "Oauth register success."
-one = "Succès de l'enregistrement Oauth."
-other = "Succès de l'enregistrement Oauth."
+description = "OAuth register success."
+one = "Succès de l'enregistrement OAuth."
+other = "Succès de l'enregistrement OAuth."
 
 [OauthRegisterFailed]
-description = "Oauth register failed."
-one = "L'inscription Oauth a échoué."
-other = "L'inscription Oauth a échoué."
+description = "OAuth register failed."
+one = "L'inscription OAuth a échoué."
+other = "L'inscription OAuth a échoué."
 
 [GetOauthTokenError]
-description = "Get oauth token error."
-one = "Erreur de l'obtention du jeton oauth."
-other = "Erreur de l'obtention du jeton oauth."
+description = "Get OAuth token error."
+one = "Erreur de l'obtention du jeton OAuth."
+other = "Erreur de l'obtention du jeton OAuth."
 
 [GetOauthUserInfoError]
-description = "Get oauth user info error."
-one = "Erreur d'obtention d'informations sur l'utilisateur oauth."
-other = "Erreur d'obtention d'informations sur l'utilisateur oauth."
+description = "Get OAuth user info error."
+one = "Erreur d'obtention d'informations sur l'utilisateur OAuth."
+other = "Erreur d'obtention d'informations sur l'utilisateur OAuth."
 
 [DecodeOauthUserInfoError]
-description = "Decode oauth user info error."
-one = "Erreur de décodage des informations utilisateur oauth."
-other = "Erreur de décodage des informations utilisateur oauth."
+description = "Decode OAuth user info error."
+one = "Erreur de décodage des informations utilisateur OAuth."
+other = "Erreur de décodage des informations utilisateur OAuth."
 
 [OldPasswordError]
 description = "Old password error."

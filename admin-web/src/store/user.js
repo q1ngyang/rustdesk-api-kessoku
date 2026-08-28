@@ -4,6 +4,7 @@ import { setToken, removeToken, setCode, removeCode, getOidcClientBinding } from
 import { useRouteStore } from '@/store/router'
 import { useAppStore } from '@/store/app'
 import { oidcAuth, oidcQuery } from '@/api/login'
+import { browserDeviceIdentity } from '@/utils/device'
 
 export const useUserStore = defineStore({
   id: 'user',
@@ -14,6 +15,8 @@ export const useUserStore = defineStore({
     token: '',
     role: '',
     avatar: '',
+    preference_language: '',
+    preference_theme: '',
     route_names: [],
   }),
 
@@ -29,6 +32,8 @@ export const useUserStore = defineStore({
         token: '',
         role: '',
         avatar: '',
+        preference_language: '',
+        preference_theme: '',
         route_names: [],
       })
     },
@@ -41,6 +46,7 @@ export const useUserStore = defineStore({
       this.$patch({
         ...userData,
       })
+      useAppStore().applyUserPreferences(userData)
       if (userData.route_names && userData.route_names.length) {
         useRouteStore().addRoutes(userData.route_names)
       }
@@ -49,6 +55,7 @@ export const useUserStore = defineStore({
     async login (form) {
       const res = await login(form).catch(e => e)
       if (!res.code) {
+		if (res.data?.requires_two_factor) return res.data
         useAppStore().loadConfig()
         const userData = res.data
         this.saveUserData(userData)
@@ -62,26 +69,22 @@ export const useUserStore = defineStore({
       if (res) {
         useAppStore().loadConfig()
         const userData = res.data
-        setToken(userData.token)
-        this.$patch({
-          ...userData,
-        })
-        useRouteStore().addRoutes(userData.route_names)
+        this.saveUserData(userData)
         return userData
       }
       return false
     },
     async oidc (provider, platform, browser) {
-      // oidc data need to be implement
+      const identity = browserDeviceIdentity()
       const data = {
         deviceInfo: {
-          name: navigator.userAgent, // 使用浏览器的 User-Agent 作为设备名
-          os: platform, // 获取操作系统信息
-          type: 'webadmin', // any vaule
+          name: identity.device_id,
+          os: platform,
+          type: 'webadmin',
         },
-        id: `${platform}-${browser}`,
-        op: provider, // 传入的 provider
-        uuid: '',//crypto.randomUUID(), // 自动生成 UUID
+        id: identity.device_id || `${platform}-${browser}`,
+        op: provider,
+        uuid: identity.uuid,
       }
       const res = await oidcAuth(data).catch(_ => false)
       if (res) {

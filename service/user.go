@@ -258,7 +258,9 @@ func (us *UserService) persistIssuedToken(u *model.User, llog *model.LoginLog, i
 	}
 	// Token is returned exactly once and was not present during persistence.
 	ut.Token = issued.Token
-	if llog.Uuid != "" {
+	// Browser UUIDs identify a login session for auditing; they are not
+	// RustDesk peer UUIDs and must never create or mutate device ownership.
+	if llog.Client == model.LoginLogClientApp && llog.Uuid != "" {
 		AllService.PeerService.UuidBindUserId(llog.DeviceId, llog.Uuid, u.Id)
 	}
 	return ut
@@ -439,6 +441,12 @@ func (us *UserService) DeleteContext(ctx context.Context, actorUserID uint, requ
 		return errors.New("The last enabled super administrator cannot be deleted")
 	}
 	if err := us.revokeUserTokens(tx, currentUser.Id, "user_deleted", time.Now().Unix()); err != nil {
+		return err
+	}
+	if err := tx.Where("user_id = ?", currentUser.Id).Delete(&model.TwoFactorLoginChallenge{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Where("user_id = ?", currentUser.Id).Delete(&model.UserTwoFactor{}).Error; err != nil {
 		return err
 	}
 	// 删除用户
@@ -691,6 +699,79 @@ func (us *UserService) UpdatePasswordContext(ctx context.Context, actorUserID ui
 	return nil
 }
 
+func (us *UserService) UpdateAvatarContext(ctx context.Context, user *model.User, requestID, avatar string) (operationErr error) {
+	if user == nil || user.Id == 0 || !strings.HasPrefix(avatar, "/media/avatars/") || strings.Contains(avatar, "..") || len(avatar) > 512 {
+		return errors.New("invalid avatar path")
+	}
+	event, err := beginSecurityAudit(ctx, user.Id, requestID, "auth.avatar.updated", "user", strconv.FormatUint(uint64(user.Id), 10), nil)
+	if err != nil {
+		return err
+	}
+	defer finalizeSecurityAudit(event, &operationErr, "AUTH_AVATAR_UPDATE_FAILED")
+	if err := DB.WithContext(ctx).Model(&model.User{}).Where("id = ?", user.Id).Update("avatar", avatar).Error; err != nil {
+		return err
+	}
+	user.Avatar = avatar
+	return nil
+}
+
+func (us *UserService) UpdateCurrentProfileContext(ctx context.Context, user *model.User, requestID, nickname, email string) (operationErr error) {
+	if user == nil || user.Id == 0 || len(nickname) > 64 || len(email) > 254 || strings.ContainsRune(nickname, '\x00') || strings.ContainsRune(email, '\x00') {
+		return errors.New("invalid profile")
+	}
+	event, err := beginSecurityAudit(ctx, user.Id, requestID, "auth.profile.updated", "user", strconv.FormatUint(uint64(user.Id), 10), nil)
+	if err != nil {
+		return err
+	}
+	defer finalizeSecurityAudit(event, &operationErr, "AUTH_PROFILE_UPDATE_FAILED")
+	if err := DB.WithContext(ctx).Model(&model.User{}).Where("id = ?", user.Id).Updates(map[string]interface{}{"nickname": nickname, "email": email}).Error; err != nil {
+		return err
+	}
+	user.Nickname = nickname
+	user.Email = email
+	return nil
+}
+
+var supportedPreferenceLanguages = map[string]struct{}{
+	"zh-CN": {}, "zh-TW": {}, "en": {}, "ja": {}, "ko": {}, "fr": {}, "es": {}, "ru": {},
+}
+
+func ValidPreferenceLanguage(value string) bool {
+	_, ok := supportedPreferenceLanguages[value]
+	return ok
+}
+
+func ValidPreferenceTheme(value string) bool {
+	return value == "light" || value == "dark"
+}
+
+// UpdatePreferencesContext stores only presentation choices. These values are
+// intentionally account scoped: cookies remain origin scoped while an
+// authenticated admin console and WebClient can still converge on the same
+// language and color scheme.
+func (us *UserService) UpdatePreferencesContext(ctx context.Context, user *model.User, language, theme string) error {
+	if user == nil || user.Id == 0 || language == "" && theme == "" || language != "" && !ValidPreferenceLanguage(language) || theme != "" && !ValidPreferenceTheme(theme) {
+		return errors.New("invalid preferences")
+	}
+	updates := map[string]interface{}{}
+	if language != "" {
+		updates["preference_language"] = language
+	}
+	if theme != "" {
+		updates["preference_theme"] = theme
+	}
+	if err := DB.WithContext(ctx).Model(&model.User{}).Where("id = ?", user.Id).Updates(updates).Error; err != nil {
+		return err
+	}
+	if language != "" {
+		user.PreferenceLanguage = language
+	}
+	if theme != "" {
+		user.PreferenceTheme = theme
+	}
+	return nil
+}
+
 func (us *UserService) bumpAuthVersionAndRevoke(tx *gorm.DB, userID uint, reason string) error {
 	result := tx.Model(&model.User{}).Where("id = ?", userID).
 		UpdateColumn("auth_version", gorm.Expr("auth_version + ?", 1))
@@ -899,6 +980,30 @@ func (us *UserService) TokenList(page uint, size uint, f func(tx *gorm.DB)) *mod
 	tx.Count(&res.Total)
 	tx.Scopes(Paginate(page, size))
 	tx.Find(&res.UserTokens)
+	if len(res.UserTokens) > 0 {
+		ids := make([]uint, 0, len(res.UserTokens))
+		for i := range res.UserTokens {
+			ids = append(ids, res.UserTokens[i].Id)
+			if res.UserTokens[i].JTI != nil {
+				res.UserTokens[i].CredentialID = *res.UserTokens[i].JTI
+			}
+		}
+		var logs []model.LoginLog
+		DB.Where("user_token_id IN ?", ids).Order("id desc").Find(&logs)
+		metadata := make(map[uint]model.LoginLog, len(logs))
+		for _, item := range logs {
+			if _, exists := metadata[item.UserTokenId]; !exists {
+				metadata[item.UserTokenId] = item
+			}
+		}
+		for i := range res.UserTokens {
+			if item, exists := metadata[res.UserTokens[i].Id]; exists {
+				res.UserTokens[i].Client = item.Client
+				res.UserTokens[i].Platform = item.Platform
+				res.UserTokens[i].CreatedIP = item.Ip
+			}
+		}
+	}
 	return res
 }
 

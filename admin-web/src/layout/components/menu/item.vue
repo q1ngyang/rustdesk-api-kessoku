@@ -4,7 +4,7 @@
       <el-icon v-if="route.meta?.icon"><component :is="`el-icon-${route.meta.icon}`"/></el-icon>
       <span>{{ T(route.meta?.title) || T(route.name) }}</span>
     </template>
-    <menu-item v-for="child in visibleChildren" :key="child.name" :route="child" @navigate="$emit('navigate')"/>
+    <Item v-for="child in visibleChildren" :key="child.name" :route="child" @navigate="$emit('navigate')"/>
   </el-sub-menu>
   <el-menu-item v-else-if="!singleRoute.meta?.hide" :route="singleRoute" :index="singleRoute.name" @click="$emit('navigate')">
     <el-icon v-if="singleRoute.meta?.icon"><component :is="`el-icon-${singleRoute.meta.icon}`"/></el-icon>

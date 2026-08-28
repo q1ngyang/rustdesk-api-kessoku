@@ -54,6 +54,8 @@ type Config struct {
 	Ldap          Ldap
 	ServerControl ServerControl `mapstructure:"server-control"`
 	WebClient     WebClient     `mapstructure:"web-client"`
+	Media         Media         `mapstructure:"media"`
+	TwoFactor     TwoFactor     `mapstructure:"two-factor"`
 	// DeprecatedWebClientProvider exists only to make every legacy root
 	// web-client-provider block fail closed instead of being silently ignored.
 	DeprecatedWebClientProvider map[string]interface{} `mapstructure:"web-client-provider"`
@@ -73,6 +75,12 @@ func (c Config) Validate() error {
 		return err
 	}
 	if err := c.Ldap.Validate(); err != nil {
+		return err
+	}
+	if err := c.Media.Validate(); err != nil {
+		return err
+	}
+	if err := c.TwoFactor.Validate(); err != nil {
 		return err
 	}
 	if c.Proxy.Enable {
@@ -109,8 +117,15 @@ func Init(rowVal *Config, path string) *viper.Viper {
 	v.SetEnvPrefix("RUSTDESK_API")
 	v.SetDefault("server-control::read-only", true)
 	v.SetDefault("server-control::legacy-command-enabled", false)
+	v.SetDefault("server-control::log-directory", "")
 	v.SetDefault("web-client::mode", WebClientDisabled)
 	v.SetDefault("web-client::connection-token-ttl", defaultConnectionTokenTTL)
+	v.SetDefault("media::directory", "./data/media")
+	v.SetDefault("media::max-image-bytes", int64(1<<20))
+	v.SetDefault("two-factor::enabled", true)
+	v.SetDefault("two-factor::issuer", "RustDesk API Kessoku")
+	v.SetDefault("two-factor::key-file", "./data/totp.key")
+	v.SetDefault("two-factor::challenge-ttl", 5*time.Minute)
 	v.SetConfigFile(path)
 	v.SetConfigType("yaml")
 	if legacyWebClientProviderEnvironmentPresent(os.Environ()) {
@@ -143,6 +158,7 @@ func Init(rowVal *Config, path string) *viper.Viper {
 	}
 	rowVal.Rustdesk.LoadKeyFile()
 	rowVal.Admin.Init()
+	rowVal.Media.Init()
 	return v
 }
 

@@ -225,7 +225,7 @@ if (!directResponses.some(({ url, status }) => url.endsWith("/api/web-client/v1/
   throw new Error("Direct Web Client logout was not acknowledged");
 }
 
-await navigate(direct, `${apiURL}_admin/#/login`);
+await navigate(direct, `${apiURL}dash/#/login`);
 await waitFor(direct, `document.querySelectorAll('.login-input input').length === 2`, "admin login form", 30000);
 await direct.evaluate(`(() => {
   const values = ${JSON.stringify([accountUsername, accountPassword])};
@@ -258,7 +258,7 @@ const createPeer = await direct.evaluate(`(async () => {
 })()`);
 if (createPeer.status !== 200 || createPeer.body.code !== 0) throw new Error(`Unable to create admin peer fixture: ${JSON.stringify(createPeer)}`);
 
-await navigate(direct, `${apiURL}_admin/#/user/peer`);
+await navigate(direct, `${apiURL}dash/#/user/peer`);
 await waitFor(direct, `location.hash === '#/user/peer'`, "admin peer route", 30000);
 await waitFor(direct, `document.body.innerText.includes(${JSON.stringify(targetID)})`, "admin peer row", 30000);
 await waitFor(direct, `document.querySelector('.el-loading-mask') === null`, "admin peer loading overlay", 10000);

@@ -54,17 +54,17 @@ one = "找不到設定。"
 other = "找不到設定。"
 
 [OauthExpired]
-description = "Oauth expired."
+description = "OAuth expired."
 one = "OAuth 已過期，請重試。"
 other = "OAuth 已過期，請重試。"
 
 [OauthFailed]
-description = "Oauth failed."
+description = "OAuth failed."
 one = "OAuth 失敗。"
 other = "OAuth 失敗。"
 
 [OauthHasBindOtherUser]
-description = "Oauth has bind other user."
+description = "OAuth has bind other user."
 one = "OAuth 已綁定其他使用者。"
 other = "OAuth 已綁定其他使用者。"
 
@@ -84,37 +84,37 @@ one = "綁定成功。"
 other = "綁定成功。"
 
 [OauthHasBeenSuccess]
-description = "Oauth has been success."
+description = "OAuth has been success."
 one = "OAuth 已成功。"
 other = "OAuth 已成功。"
 
 [OauthSuccess]
-description = "Oauth success."
+description = "OAuth success."
 one = "OAuth 成功。"
 other = "OAuth 成功。"
 
 [OauthRegisterSuccess]
-description = "Oauth register success."
+description = "OAuth register success."
 one = "OAuth 註冊成功。"
 other = "OAuth 註冊成功。"
 
 [OauthRegisterFailed]
-description = "Oauth register failed."
+description = "OAuth register failed."
 one = "OAuth 註冊失敗。"
 other = "OAuth 註冊失敗。"
 
 [GetOauthTokenError]
-description = "Get oauth token error."
+description = "Get OAuth token error."
 one = "取得 OAuth 權杖錯誤。"
 other = "取得 OAuth 權杖錯誤。"
 
 [GetOauthUserInfoError]
-description = "Get oauth user info error."
+description = "Get OAuth user info error."
 one = "取得 OAuth 使用者資訊錯誤。"
 other = "取得 OAuth 使用者資訊錯誤。"
 
 [DecodeOauthUserInfoError]
-description = "Decode oauth user info error."
+description = "Decode OAuth user info error."
 one = "解析 OAuth 使用者資訊錯誤。"
 other = "解析 OAuth 使用者資訊錯誤。"
 

@@ -212,7 +212,7 @@ install -m 0644 "$build_output/GO-VERIFY.txt" \
   "$candidate/GO-VERIFY.txt"
 sh "$backend_source/scripts/copy-runtime-resources.sh" \
   "$release/resources" "$backend_source/resources" require-admin require-client
-printf '%s\n' 'v3.0.1-local-candidate' > "$release/resources/version"
+printf '%s\n' 'v3.0.2-local-candidate' > "$release/resources/version"
 cp -a "$backend_source/conf" "$backend_source/docs" "$release/"
 for document in README.md README.zh-CN.md README_EN.md RELEASE_STATUS LICENSE; do
   cp -a "$backend_source/$document" "$release/"
@@ -232,7 +232,7 @@ install -m 0644 "$web_client_source/web-client.cdx.json" \
   printf 'repository=%s\n' 'q1ngyang/rustdesk-api-kessoku'
   printf 'source_commit=%s\n' "$source_sha"
   printf 'release_tag=%s\n' 'UNPUBLISHED'
-  printf 'artifact_label=%s\n' 'v3.0.1-local-candidate'
+  printf 'artifact_label=%s\n' 'v3.0.2-local-candidate'
   printf 'go_version=%s\n' '1.26.6'
   printf 'admin_web_path=%s\n' 'admin-web'
   printf 'admin_web_source_commit=%s\n' "$source_sha"
@@ -363,7 +363,7 @@ http_port=$(docker port "$container_name" 21114/tcp | sed -n 's/.*://p')
 printf '%s' "$http_port" | grep -Eq '^[1-9][0-9]*$'
 http_ready=0
 for _ in $(seq 1 40); do
-  if curl -fsS "http://127.0.0.1:${http_port}/_admin/" \
+  if curl -fsS "http://127.0.0.1:${http_port}/dash/" \
     > "$candidate_root/admin-index.html" 2>/dev/null; then
     http_ready=1
     break
@@ -374,7 +374,7 @@ if [[ $http_ready -ne 1 ]]; then
   docker logs "$container_name"
   exit 1
 fi
-curl -fsSI "http://127.0.0.1:${http_port}/_admin/" \
+curl -fsSI "http://127.0.0.1:${http_port}/dash/" \
   | tr -d '\r' > "$candidate_root/admin-headers.txt"
 grep -Fi 'Content-Security-Policy:' "$candidate_root/admin-headers.txt" \
   | grep -F "frame-ancestors 'none'" \
@@ -386,7 +386,7 @@ grep -Fxi 'Referrer-Policy: no-referrer' "$candidate_root/admin-headers.txt"
 test "$(curl -sS -o /dev/null -w '%{http_code}' \
   "http://127.0.0.1:${http_port}/api/admin/config/server")" = 404
 test "$(curl -sS -o /dev/null -w '%{http_code}' \
-  "http://127.0.0.1:${http_port}/_admin/static/")" = 404
+  "http://127.0.0.1:${http_port}/dash/static/")" = 404
 
 {
   printf 'image_id=%s\n' "$(docker image inspect --format '{{.Id}}' "$image_tag")"
@@ -397,7 +397,7 @@ test "$(curl -sS -o /dev/null -w '%{http_code}' \
 release_assets="$candidate_root/release-assets"
 mkdir -p "$release_assets"
 install -m 0644 "$candidate_root/candidate-a.tar.gz" \
-  "$release_assets/kessoku-v3.0.1-local-linux-amd64.tar.gz"
+  "$release_assets/kessoku-v3.0.2-local-linux-amd64.tar.gz"
 install -m 0644 "$candidate_root/packages-a/"*.deb "$release_assets/"
 for artifact in ADMIN-WEB-DIST-SHA256SUMS WEB-CLIENT-DIST-SHA256SUMS BUILD-INPUTS.txt \
   GO-BUILD-INFO.txt GO-VERIFY.txt GOVULNCHECK.txt LOCAL-IMAGE-IDENTITY.txt \
@@ -411,8 +411,8 @@ install -m 0644 "$web_client_source/LICENSE" "$release_assets/WEB-CLIENT-LICENSE
 install -m 0644 "$web_client_source/NOTICE.md" "$release_assets/WEB-CLIENT-NOTICE.md"
 install -m 0644 "$backend_source/RELEASE_STATUS" \
   "$backend_source/docs/releases/RELEASE-CHECKLIST.md" \
-  "$backend_source/docs/releases/v3.0.1/RELEASE-NOTES-v3.0.1.md" \
-  "$backend_source/docs/releases/v3.0.1/RELEASE-NOTES-v3.0.1.zh-CN.md" \
+  "$backend_source/docs/releases/v3.0.2/RELEASE-NOTES-v3.0.2.md" \
+  "$backend_source/docs/releases/v3.0.2/RELEASE-NOTES-v3.0.2.zh-CN.md" \
   "$backend_source/docs/deployment/CONTAINER.md" \
   "$backend_source/docs/deployment/CONTAINER.zh-CN.md" \
   "$backend_source/docker-compose.yaml" \

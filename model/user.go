@@ -19,11 +19,16 @@ type User struct {
 	Username string `json:"username" gorm:"default:'';not null;uniqueIndex"`
 	Email    string `json:"email" gorm:"default:'';not null;index"`
 	// Email	string     	`json:"email" `
-	Password string   `json:"-" gorm:"default:'';not null;"`
-	Nickname string   `json:"nickname" gorm:"default:'';not null;"`
-	Avatar   string   `json:"avatar" gorm:"default:'';not null;"`
-	GroupId  uint     `json:"group_id" gorm:"default:0;not null;index"`
-	Role     UserRole `json:"role" gorm:"size:24;default:'user';not null;index"`
+	Password string `json:"-" gorm:"default:'';not null;"`
+	Nickname string `json:"nickname" gorm:"default:'';not null;"`
+	Avatar   string `json:"avatar" gorm:"default:'';not null;"`
+	// Presentation preferences are account scoped so the administration
+	// console and a separately hosted WebClient can stay in sync without
+	// attempting to share cookies across unrelated domains.
+	PreferenceLanguage string   `json:"preference_language" gorm:"size:16;default:'';not null;"`
+	PreferenceTheme    string   `json:"preference_theme" gorm:"size:16;default:'';not null;"`
+	GroupId            uint     `json:"group_id" gorm:"default:0;not null;index"`
+	Role               UserRole `json:"role" gorm:"size:24;default:'user';not null;index"`
 	// IsAdmin is retained as a compatibility mirror for v2 clients and data.
 	// Authorization decisions use Role after the v3 migration.
 	IsAdmin *bool      `json:"is_admin" gorm:"default:0;not null;"`

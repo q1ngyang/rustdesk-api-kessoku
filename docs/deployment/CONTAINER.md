@@ -5,7 +5,7 @@
 This page is the versioned entry point for users arriving from the GHCR
 package page. Docker Compose on Linux amd64 is the recommended deployment.
 
-> The `v3.0.1` image referenced here is a release target until the protected
+> The `v3.0.2` image referenced here is a release target until the protected
 > publication workflow completes. The published `latest` tag will identify the
 > newest successful stable release; do not substitute a local worktree image.
 
@@ -23,7 +23,7 @@ Deployment links:
 
 ## Image scope
 
-The v3.0.1 image contains one unprivileged `kessoku-api` process, the reviewed
+The v3.0.2 image contains one unprivileged `kessoku-api` process, the reviewed
 management and Web Client frontends built from the same source commit, API
 documentation, and runtime configuration templates. The image:
 
@@ -45,20 +45,20 @@ separately.
 After publication:
 
 ```sh
-docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.1
+docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.2
 docker image inspect \
-  ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.1 \
+  ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.2 \
   --format '{{json .RepoDigests}}'
 ```
 
-The workflow publishes both immutable `v3.0.1` and moving `latest` tags for the
+The workflow publishes both immutable `v3.0.2` and moving `latest` tags for the
 same image. Use `latest` only when tracking the newest stable release is
 intentional; resolve and pin the versioned tag's digest for production change
 control and rollback.
 
 ## Compose quick start
 
-From a v3.0.1 source checkout or downloaded deployment files:
+From a v3.0.2 source checkout or downloaded deployment files:
 
 ```sh
 cp examples/compose.env.example .env
@@ -98,7 +98,7 @@ On a new database Kessoku creates `admin` with an unreachable random bootstrap
 credential and never prints a reusable password. The reset command above sets
 the first usable password from a regular file whose group/other permission
 bits are zero. Transfer that value directly to an approved password manager,
-open `https://your-api.example/_admin/` through the reviewed reverse proxy,
+open `https://your-api.example/dash/` through the reviewed reverse proxy,
 sign in, rotate the password, then delete the host secret file. Do not pass a
 password as a command argument or environment variable.
 
@@ -161,10 +161,11 @@ See [Operations and verification](https://github.com/q1ngyang/rustdesk-api-kesso
 
 Back up the database, authentication keys, internal PKI, configuration,
 current image digest, and Starry generation before upgrading. Kessoku database
-version 302 adds enterprise roles and scoped grants. A v2 binary can interpret
-a scoped administrator as unrestricted; restore the matching pre-upgrade
-database backup or follow the explicit v3 rollback preparation before starting
-an older application.
+version 309 includes enterprise roles, encrypted TOTP state, media references,
+branding, GeoIP policy, preferences, and WebClient audit metadata. A v2 binary
+can interpret a scoped administrator as unrestricted; restore the complete
+matching pre-upgrade database/key/media set before starting an older
+application.
 
 External MySQL/PostgreSQL connections must use certificate- and hostname-
 verified TLS. Mount a private CA read-only when required; see the

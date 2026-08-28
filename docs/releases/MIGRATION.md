@@ -1,10 +1,27 @@
 # Database and Authentication Migration Guide
 
-This guide documents the version 301 authentication foundation. Kessoku v3.0.1
-then upgrades it to database version 302 for enterprise roles and scoped
-administration. Follow [`MIGRATION-v3.0.1.md`](v3.0.1/MIGRATION-v3.0.1.md) after the
-version 301 preflight, and rehearse every step against a restored production
-backup before a maintenance window.
+For the unified branding and WebClient connection-audit upgrade from 308 to
+309, first follow [`MIGRATION-309.md`](MIGRATION-309.md). For the
+account-synchronized language/theme preference upgrade from 307 to 308, first
+follow [`MIGRATION-308.md`](MIGRATION-308.md). For the theme-aware
+branding and cross-domain WebClient session upgrade from 306 to 307, first
+follow [`MIGRATION-307.md`](MIGRATION-307.md). For the
+GeoLite2 Country source and settings-navigation upgrade from 305 to 306, first
+follow [`MIGRATION-306.md`](MIGRATION-306.md). For the System
+settings and LinuxDo-removal upgrade from 304 to 305, first
+follow [`MIGRATION-305.md`](MIGRATION-305.md). For the additive branding
+announcement upgrade from 303 to 304, follow
+[`MIGRATION-304.md`](MIGRATION-304.md). For the branding/TOTP schema upgrade
+from 302 to 303, follow
+[`MIGRATION-303.md`](MIGRATION-303.md). The historical procedures below remain
+the authoritative path for older databases and v2/v3 role compatibility.
+
+This guide documents the version 301 authentication foundation. The historical
+v3.0.1 migration then reaches database version 302 for enterprise roles and
+scoped administration. The supported v3.0.2 release continues through version
+309. Follow [`MIGRATION-v3.0.2.md`](v3.0.2/MIGRATION-v3.0.2.md) for the complete
+upgrade and rollback procedure, and rehearse every step against a restored
+production backup before a maintenance window.
 
 ## Supported databases and tested fixtures
 

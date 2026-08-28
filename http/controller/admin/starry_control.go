@@ -395,6 +395,30 @@ func (s *StarryControl) AuditEvents(c *gin.Context) {
 	writeControlResult(c, result, err)
 }
 
+func (s *StarryControl) LogSources(c *gin.Context) {
+	result, err := service.AllService.StarryControlService.LogSources(controlContext(c), c.Param("id"))
+	writeControlResult(c, result, err)
+}
+
+func (s *StarryControl) Logs(c *gin.Context) {
+	limit := int(uintQuery(c.Query("limit"), 400, 2000))
+	result, err := service.AllService.StarryControlService.Logs(controlContext(c), c.Param("id"), c.Query("source_id"), limit)
+	writeControlResult(c, result, err)
+}
+
+func (s *StarryControl) SetLogLevel(c *gin.Context) {
+	input := struct {
+		SourceID string `json:"source_id"`
+		Level    string `json:"level"`
+	}{}
+	if err := decodeControlJSON(c, &input); err != nil || input.SourceID == "" || input.Level == "" {
+		controlError(c, starrycontrol.ErrRequestInvalid)
+		return
+	}
+	result, err := service.AllService.StarryControlService.SetLogLevel(controlContext(c), c.Param("id"), input.SourceID, input.Level)
+	writeControlResult(c, result, err)
+}
+
 func configCandidate(c *gin.Context, requireETag bool) (starrycontrol.ConfigCandidate, bool) {
 	input := starrycontrol.ConfigCandidate{}
 	if err := decodeControlJSON(c, &input); err != nil {

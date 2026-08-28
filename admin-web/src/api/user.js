@@ -76,6 +76,14 @@ export function changeCurPwd (data) {
   })
 }
 
+export function updateCurrentProfile (data) {
+  return request({ url: '/user/profile', method: 'post', data })
+}
+
+export function updatePreferences (data) {
+  return request({ url: '/user/preferences', method: 'post', data })
+}
+
 export function myOauth () {
   return request({
     url: '/user/myOauth',
@@ -104,4 +112,16 @@ export function register (data) {
     method: 'post',
     data,
   })
+}
+
+export const twoFactorStatus = () => request({ url: '/user/two-factor' })
+export const beginTwoFactor = password => request({ url: '/user/two-factor/begin', method: 'post', data: { password } })
+export const confirmTwoFactor = code => request({ url: '/user/two-factor/confirm', method: 'post', data: { code } })
+export const disableTwoFactor = code => request({ url: '/user/two-factor/disable', method: 'post', data: { code } })
+
+export function uploadAvatar (file) {
+  const data = new FormData()
+  const upload = file instanceof File ? file : new File([file], 'avatar.jpg', { type: file?.type || 'image/jpeg' })
+  data.append('file', upload, upload.name || 'avatar.jpg')
+  return request({ url: '/user/avatar', method: 'post', data })
 }
