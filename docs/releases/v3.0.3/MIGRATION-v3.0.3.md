@@ -1,9 +1,6 @@
-# RustDesk API Kessoku v3.0.2 migration and rollback
+# RustDesk API Kessoku v3.0.3 migration and rollback
 
-> v3.0.2 was not published as a supported release. Use the corresponding
-> v3.0.3 migration guide for deployment; this document is historical evidence.
-
-v3.0.2 upgrades Kessoku databases through version `309`. The migrations are
+v3.0.3 upgrades Kessoku databases through version `309`. The migrations are
 additive, but they introduce persistent encryption keys, media, identity
 cleanup, and fields that older applications do not understand. Rehearse the
 upgrade against a restored production backup before the maintenance window.
@@ -44,7 +41,7 @@ The individual migration records are
 
 ## Upgrade
 
-1. Restore the backup into an isolated environment and start one v3.0.2
+1. Restore the backup into an isolated environment and start one v3.0.3
    instance. Do not allow old and new versions to write concurrently.
 2. Confirm the newest `versions.version` row is `309` and startup reports no
    failed migration.
@@ -78,7 +75,7 @@ ORDER BY admin_user_id, scope_type, scope_id;
 ## Rollback
 
 Do not start v3.0.1, v3.0.0, or any v2 image against a database already
-migrated to 309. Stop every v3.0.2 instance and restore the complete matching
+migrated to 309. Stop every v3.0.3 instance and restore the complete matching
 pre-upgrade recovery set: database, TOTP key, media, configuration, signing
 keys, and image digest. Keep the failed version-309 copy for diagnosis.
 
@@ -86,4 +83,4 @@ Restoring only the database can break TOTP and image references; restoring only
 keys can invalidate sessions. Never delete new tables or lower the recorded
 database version to force an older process to start.
 
-[简体中文](MIGRATION-v3.0.2.zh-CN.md)
+[简体中文](MIGRATION-v3.0.3.zh-CN.md)

@@ -1,12 +1,10 @@
-# Kessoku v3.0.2
+# Kessoku v3.0.3
 
-> **未公开的发布尝试。** 不可变 v3.0.2 标签没有产生公开 Release 制品或受支持的容器
-> 镜像，请使用 v3.0.3 或更新版本。本文件仅作为发布尝试记录保留。
-
-v3.0.2 原计划作为首个正式支持的 Kessoku v3 版本。此前 v3.0.1 被确认存在后台界面、
-客户端信息上报和 WebClient 集成等重大缺陷，其 GitHub Release 已撤回。新部署请勿使用
-v3.0.1；已经运行 v3.0.1 的环境，应先完整备份数据库、密钥、媒体目录和配置，再升级到
-受支持版本。
+v3.0.3 是首个公开发布并正式支持的 Kessoku v3 版本。此前 v3.0.1 被确认存在后台界面、
+客户端信息上报和 WebClient 集成等重大缺陷，其 GitHub Release 已撤回；v3.0.2 标签仅保留
+一次发布失败且未公开的历史记录，没有受支持的 Release 制品或容器镜像。新部署请勿使用
+这两个版本；已经运行 v3.0.1 的环境，应先完整备份数据库、密钥、媒体目录和配置，再升级
+到 v3.0.3。
 
 Kessoku 仍是非官方 RustDesk 账户、管理与策略服务，并与固定版本的
 [`rustdesk-server-starry`](https://github.com/q1ngyang/rustdesk-server-starry)
@@ -60,6 +58,6 @@ Control API 集成。后台面板、Relay-only 浏览器客户端与 Go 后端�
 
 生产升级前请先完成备份和恢复演练，阅读
 [升级与回退](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Upgrade-and-Rollback)
-及 [v3.0.2 数据库迁移说明](MIGRATION-v3.0.2.zh-CN.md)。
+及 [v3.0.3 数据库迁移说明](MIGRATION-v3.0.3.zh-CN.md)。
 
-[English](RELEASE-NOTES-v3.0.2.md)
+[English](RELEASE-NOTES-v3.0.3.md)

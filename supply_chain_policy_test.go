@@ -112,6 +112,7 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 		`actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f`,
 		`actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34`,
 		`subject-checksums: candidate/release-assets/SHA256SUMS`,
+		`artifact-metadata: write`,
 		`context: candidate/docker`,
 		`driver-opts: image=moby/buildkit@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8`,
 		`provenance: mode=max`,
@@ -122,7 +123,7 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 		`cmp "$archive_binary" candidate/docker/release/kessoku-api`,
 		`vcs.revision='"${GITHUB_SHA}"`,
 		`vcs.modified=false`,
-		`test "$release_tag" = v3.0.2`,
+		`test "$release_tag" = v3.0.3`,
 	} {
 		if !strings.Contains(workflow, required) {
 			t.Fatalf("publication workflow is missing fail-closed control %q", required)
@@ -147,7 +148,7 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(status), "status: APPROVED") || !strings.Contains(string(status), "release_tag: v3.0.2") {
+	if !strings.Contains(string(status), "status: APPROVED") || !strings.Contains(string(status), "release_tag: v3.0.3") {
 		t.Fatal("release source must name the explicitly approved immutable tag")
 	}
 }

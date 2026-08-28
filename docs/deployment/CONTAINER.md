@@ -5,7 +5,7 @@
 This page is the versioned entry point for users arriving from the GHCR
 package page. Docker Compose on Linux amd64 is the recommended deployment.
 
-> The `v3.0.2` image referenced here is a release target until the protected
+> The `v3.0.3` image referenced here is a release target until the protected
 > publication workflow completes. The published `latest` tag will identify the
 > newest successful stable release; do not substitute a local worktree image.
 
@@ -23,7 +23,7 @@ Deployment links:
 
 ## Image scope
 
-The v3.0.2 image contains one unprivileged `kessoku-api` process, the reviewed
+The v3.0.3 image contains one unprivileged `kessoku-api` process, the reviewed
 management and Web Client frontends built from the same source commit, API
 documentation, and runtime configuration templates. The image:
 
@@ -45,20 +45,20 @@ separately.
 After publication:
 
 ```sh
-docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.2
+docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.3
 docker image inspect \
-  ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.2 \
+  ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.3 \
   --format '{{json .RepoDigests}}'
 ```
 
-The workflow publishes both immutable `v3.0.2` and moving `latest` tags for the
+The workflow publishes both immutable `v3.0.3` and moving `latest` tags for the
 same image. Use `latest` only when tracking the newest stable release is
 intentional; resolve and pin the versioned tag's digest for production change
 control and rollback.
 
 ## Compose quick start
 
-From a v3.0.2 source checkout or downloaded deployment files:
+From a v3.0.3 source checkout or downloaded deployment files:
 
 ```sh
 cp examples/compose.env.example .env

@@ -106,7 +106,7 @@ editor .env
 至少修改以下内容：
 
 ```dotenv
-KESSOKU_IMAGE=ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.2
+KESSOKU_IMAGE=ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.3
 KESSOKU_PUBLIC_URL=https://api.example.com
 
 RUSTDESK_ID_SERVER=rustdesk.example.com:21116

@@ -1,14 +1,12 @@
-# Kessoku v3.0.2
+# Kessoku v3.0.3
 
-> **Unpublished release attempt.** The immutable v3.0.2 tag produced no public
-> Release assets or supported container image. Use v3.0.3 or newer. This file
-> remains as release-attempt evidence.
-
-v3.0.2 was intended to be the first supported Kessoku v3 release. The earlier
+v3.0.3 is the first published and supported Kessoku v3 release. The earlier
 v3.0.1 GitHub Release was withdrawn after significant administration-console,
-client-report, and WebClient integration defects were confirmed. Do not deploy
-v3.0.1 to a new environment; existing v3.0.1 installations should back up
-their database, keys, media directory, and configuration before upgrading.
+client-report, and WebClient integration defects were confirmed. The v3.0.2
+tag records a failed, unpublished release attempt and has no supported release
+assets or container image. Do not deploy either version to a new environment;
+existing v3.0.1 installations should back up their database, keys, media
+directory, and configuration before upgrading to v3.0.3.
 
 Kessoku remains an unofficial RustDesk account, administration, and policy
 plane. It integrates with the pinned
@@ -80,6 +78,6 @@ from the same reviewed source commit.
 
 Back up and rehearse the upgrade before production. See the
 [upgrade and rollback guide](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Upgrade-and-Rollback)
-and [v3.0.2 migration details](MIGRATION-v3.0.2.md).
+and [v3.0.3 migration details](MIGRATION-v3.0.3.md).
 
-[简体中文](RELEASE-NOTES-v3.0.2.zh-CN.md)
+[简体中文](RELEASE-NOTES-v3.0.3.zh-CN.md)

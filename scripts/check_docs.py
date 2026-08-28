@@ -73,12 +73,12 @@ def paired_documents() -> list[tuple[Path, Path]]:
         (ROOT / "docs/README.md", ROOT / "docs/README.zh-CN.md"),
         (ROOT / "docs/deployment/CONTAINER.md", ROOT / "docs/deployment/CONTAINER.zh-CN.md"),
         (
-            ROOT / "docs/releases/v3.0.2/RELEASE-NOTES-v3.0.2.md",
-            ROOT / "docs/releases/v3.0.2/RELEASE-NOTES-v3.0.2.zh-CN.md",
+            ROOT / "docs/releases/v3.0.3/RELEASE-NOTES-v3.0.3.md",
+            ROOT / "docs/releases/v3.0.3/RELEASE-NOTES-v3.0.3.zh-CN.md",
         ),
         (
-            ROOT / "docs/releases/v3.0.2/MIGRATION-v3.0.2.md",
-            ROOT / "docs/releases/v3.0.2/MIGRATION-v3.0.2.zh-CN.md",
+            ROOT / "docs/releases/v3.0.3/MIGRATION-v3.0.3.md",
+            ROOT / "docs/releases/v3.0.3/MIGRATION-v3.0.3.zh-CN.md",
         ),
         (
             ROOT / "docs/releases/v2.8.3/RELEASE-NOTES-v2.8.3.md",
@@ -146,8 +146,8 @@ def main() -> int:
         ROOT / "docs/deployment/CONTAINER.zh-CN.md",
         ROOT / "examples" / "compose.env.example",
     ):
-        if "v3.0.2" not in required.read_text(encoding="utf-8"):
-            errors.append(f"v3.0.2 is missing from {required.relative_to(ROOT)}")
+        if "v3.0.3" not in required.read_text(encoding="utf-8"):
+            errors.append(f"v3.0.3 is missing from {required.relative_to(ROOT)}")
 
     if errors:
         for error in errors:
