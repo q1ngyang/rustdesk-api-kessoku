@@ -91,7 +91,7 @@ jobs:
           else
             printf '%s' "$release_tag" \
               | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.]+)?$'
-            test "$release_tag" = v3.0.2
+            test "$release_tag" = v3.0.3
             artifact_label="$release_tag"
             deb_version="$(printf '%s' "${release_tag#v}" | tr '-' '~')-1"
           fi
@@ -473,8 +473,8 @@ jobs:
             docs/releases/RELEASE-PROCESS.md \
             internal/starrycontrol/CONTRACT_VERSION candidate/release-assets/
           cp docs/deployment/CONTAINER.md docs/deployment/CONTAINER.zh-CN.md \
-            docs/releases/v3.0.2/RELEASE-NOTES-v3.0.2.md \
-            docs/releases/v3.0.2/RELEASE-NOTES-v3.0.2.zh-CN.md docker-compose.yaml \
+            docs/releases/v3.0.3/RELEASE-NOTES-v3.0.3.md \
+            docs/releases/v3.0.3/RELEASE-NOTES-v3.0.3.zh-CN.md docker-compose.yaml \
             candidate/release-assets/
           cp examples/compose.env.example \
             candidate/release-assets/compose.env.example

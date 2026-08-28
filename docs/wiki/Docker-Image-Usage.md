@@ -13,9 +13,9 @@ Quick links:
 - [Compose example](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docker-compose.yaml)
 - [Environment example](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/compose.env.example)
 - [Caddy HTTPS example](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/examples/Caddyfile.example)
-- [v3.0.2 release notes](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/releases/v3.0.2/RELEASE-NOTES-v3.0.2.md)
+- [v3.0.3 release notes](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/releases/v3.0.3/RELEASE-NOTES-v3.0.3.md)
 
 The supported image platform is `linux/amd64`. The release publishes immutable
-`v3.0.2` and moving `latest` tags for the same image. Production deployments
+`v3.0.3` and moving `latest` tags for the same image. Production deployments
 should inspect and pin the versioned tag's resolved digest; use `latest` only
 when intentionally following the newest stable release with rollback ready.

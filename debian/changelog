@@ -1,3 +1,11 @@
+rustdesk-api-kessoku (3.0.3-1) UNRELEASED; urgency=high
+
+  * Publish the first supported Kessoku v3 release from the reviewed v3.0.3 candidate.
+  * Grant the minimal artifact-metadata permission required for signed GitHub attestations.
+  * Preserve the failed, unpublished v3.0.2 tag as immutable release-attempt evidence.
+
+ -- q1ngyang <q1ngyang@users.noreply.github.com>  Fri, 28 Aug 2026 15:05:00 +0800
+
 rustdesk-api-kessoku (3.0.2-1) UNRELEASED; urgency=high
 
   * Replace withdrawn v3.0.1 as the first supported Kessoku v3 release.
