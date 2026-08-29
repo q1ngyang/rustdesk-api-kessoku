@@ -519,6 +519,12 @@ definitions:
         type: integer
       conn_id:
         type: integer
+      controlled_ip:
+        type: string
+      controlled_username:
+        type: string
+      controller_username:
+        type: string
       created_at:
         type: string
       from_name:
@@ -557,6 +563,19 @@ definitions:
     type: object
   model.AuditFile:
     properties:
+      controlled_ip:
+        type: string
+      controlled_paths:
+        description: |-
+          ControlledPaths is derived from the official RustDesk audit path plus
+          info.files. Both source fields remain stored verbatim for audit fidelity.
+        items:
+          type: string
+        type: array
+      controlled_username:
+        type: string
+      controller_username:
+        type: string
       created_at:
         type: string
       from_name:
