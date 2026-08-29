@@ -8,6 +8,7 @@ import (
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/request/admin"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/response"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/utils"
 	"gorm.io/gorm"
 	"strconv"
 )
@@ -199,6 +200,7 @@ func (ct *AddressBook) List(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
+	query.Id = utils.NormalizeRustDeskID(query.Id)
 	res := service.AllService.AddressBookService.List(query.Page, query.PageSize, func(tx *gorm.DB) {
 		actor := service.AllService.UserService.CurUser(c)
 		service.AllService.AdminScopeService.ApplyAddressBookScope(tx, actor)

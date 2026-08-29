@@ -17,6 +17,16 @@
         </div>
         <small>{{ T('SidebarUsesAdminIcon') }}</small>
       </el-card>
+      <el-card class="branding-wide" shadow="never">
+        <template #header><div class="branding-card-title"><strong>{{ T('ServerInstanceNames') }}</strong><small>{{ T('ServerInstanceNamesHelp') }}</small></div></template>
+        <el-empty v-if="!instances.length" :image-size="60" :description="T('NoServerInstancesConfigured')"/>
+        <div v-else class="instance-name-grid">
+          <el-form-item v-for="instance in instances" :key="instance.id" :label="instance.id">
+            <el-input v-model="form.server_instance_names[instance.id]" :placeholder="instance.name || instance.id" maxlength="120" show-word-limit/>
+            <small>{{ T('ServerInstanceNameFallback', { name: instance.name || instance.id }) }}</small>
+          </el-form-item>
+        </div>
+      </el-card>
       <el-card class="branding-wide branding-login" shadow="never"><template #header><strong>{{ T('LoginExperience') }}</strong></template>
         <div class="asset-theme-grid asset-theme-grid--backgrounds">
           <AssetField v-model="form.login_background_light_url" :label="`${T('LoginBackground')} · ${T('LightMode')}`" default-kind="background"/>
@@ -48,7 +58,9 @@ import defaultIconDark from '@/assets/brand/starrydesk-icon-dark.svg'
 import defaultLogoLight from '@/assets/brand/starrydesk-logo-light.svg'
 import defaultIconLight from '@/assets/brand/starrydesk-icon-light.svg'
 import { branding, updateBranding, uploadBrandAsset } from '@/api/config'
+import { listInstances } from '@/api/server_control'
 import { useAppStore } from '@/store/app'
+import { mergeBrandingDefaults } from '@/utils/branding'
 import { T } from '@/utils/i18n'
 
 const defaults = {
@@ -61,10 +73,12 @@ const defaults = {
   login_custom_html: T('DefaultCustomHTML'),
   login_custom_css: '.brand-custom p { margin: 0 0 8px; line-height: 1.65; }\n.brand-custom strong { color: var(--primary); }',
   web_client_title: 'Kessoku Remote',
+  server_instance_names: {},
 }
 const payloadKeys = Object.keys(defaults)
 const form = reactive({ ...defaults })
 const saving = ref(false)
+const instances = ref([])
 const appStore = useAppStore()
 
 const AssetField = defineComponent({
@@ -96,15 +110,17 @@ const AssetField = defineComponent({
   },
 })
 
-const restoreDefaults = () => Object.assign(form, defaults)
+const restoreDefaults = () => Object.assign(form, defaults, { server_instance_names: {} })
 const load = async () => {
-  const saved = (await branding()).data || {}
-  for (const key of payloadKeys) form[key] = typeof saved[key] === 'string' ? saved[key] : defaults[key]
+  const [savedResult, instanceResult] = await Promise.all([branding(), listInstances().catch(() => ({ data: [] }))])
+  const saved = savedResult.data || {}
+  Object.assign(form, mergeBrandingDefaults(saved, defaults), { server_instance_names: { ...(saved.server_instance_names || {}) } })
+  instances.value = instanceResult.data || []
 }
 const save = async () => {
   saving.value = true
   try {
-    const payload = Object.fromEntries(payloadKeys.map(key => [key, form[key]]))
+    const payload = Object.fromEntries(payloadKeys.map(key => [key, key === 'server_instance_names' ? { ...form[key] } : form[key]]))
     await updateBranding(payload)
     await appStore.getAdminConfig()
     ElMessage.success(T('Saved'))
@@ -120,6 +136,7 @@ onMounted(load)
 .branding-card-title { display: flex; flex-direction: column; gap: 5px; }.branding-card-title small { margin: 0; font-weight: 400; }
 .field-grid { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .field-grid--titles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.instance-name-grid { display: grid; gap: 4px 18px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .asset-theme-grid { display: grid; gap: 14px; grid-template-columns: 1fr; }
 .asset-theme-grid--shared,.asset-theme-grid--backgrounds { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 :deep(.asset-field) { display: grid; width: 100%; gap: 10px; grid-template-columns: 124px minmax(0, 1fr); }
@@ -132,6 +149,6 @@ onMounted(load)
 :deep(.asset-field__buttons) { display: flex; gap: 8px; }
 small { display: block; margin-top: 6px; color: var(--text-tertiary); line-height: 1.5; }
 @media (max-width: 1180px) { .field-grid--titles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 800px) { .branding-grid,.field-grid,.field-grid--titles,.asset-theme-grid,.asset-theme-grid--shared,.asset-theme-grid--backgrounds { grid-template-columns: 1fr; }.branding-wide { grid-column: auto; } }
+@media (max-width: 800px) { .branding-grid,.field-grid,.field-grid--titles,.asset-theme-grid,.asset-theme-grid--shared,.asset-theme-grid--backgrounds,.instance-name-grid { grid-template-columns: 1fr; }.branding-wide { grid-column: auto; } }
 @media (max-width: 520px) { :deep(.asset-field) { grid-template-columns: 1fr; }:deep(.asset-field__visual) { height: 92px; }.branding-actions,.branding-actions .el-button { width: 100%; } }
 </style>

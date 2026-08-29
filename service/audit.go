@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strconv"
+	"strings"
 
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
 	"gorm.io/gorm"
@@ -21,12 +23,17 @@ func (as *AuditService) AuditConnList(page, pageSize uint, where func(tx *gorm.D
 		tx = where(tx)
 	}
 	tx.Count(&res.Total)
-	tx.Scopes(Paginate(page, pageSize)).Find(&res.AuditConns)
+	tx.Order("created_at DESC").Order("id DESC").Scopes(Paginate(page, pageSize)).Find(&res.AuditConns)
+	as.enrichAuditConns(res.AuditConns)
 	return
 }
 
 // Create 创建
 func (as *AuditService) CreateAuditConn(u *model.AuditConn) error {
+	if u == nil {
+		return errors.New("cannot create empty connection audit")
+	}
+	as.enrichAuditConns([]*model.AuditConn{u})
 	res := DB.Create(u).Error
 	return res
 }
@@ -106,14 +113,180 @@ func (as *AuditService) AuditFileList(page, pageSize uint, where func(tx *gorm.D
 		tx = where(tx)
 	}
 	tx.Count(&res.Total)
-	tx.Scopes(Paginate(page, pageSize)).Find(&res.AuditFiles)
+	tx.Order("created_at DESC").Order("id DESC").Scopes(Paginate(page, pageSize)).Find(&res.AuditFiles)
+	as.enrichAuditFiles(res.AuditFiles)
 	return
 }
 
 // CreateAuditFile
 func (as *AuditService) CreateAuditFile(u *model.AuditFile) error {
+	if u == nil {
+		return errors.New("cannot create empty file audit")
+	}
+	as.enrichAuditFiles([]*model.AuditFile{u})
 	res := DB.Create(u).Error
 	return res
+}
+
+type auditIdentityMaps struct {
+	peers map[string]model.Peer
+	users map[uint]string
+}
+
+func loadAuditIdentities(peerIDs []string, userIDs []uint) auditIdentityMaps {
+	result := auditIdentityMaps{peers: map[string]model.Peer{}, users: map[uint]string{}}
+	uniquePeerIDs := map[string]struct{}{}
+	for _, id := range peerIDs {
+		if id != "" {
+			uniquePeerIDs[id] = struct{}{}
+		}
+	}
+	ids := make([]string, 0, len(uniquePeerIDs))
+	for id := range uniquePeerIDs {
+		ids = append(ids, id)
+	}
+	var peers []model.Peer
+	if DB != nil && len(ids) > 0 && DB.Migrator().HasTable(&model.Peer{}) {
+		DB.Where("id IN ?", ids).Find(&peers)
+	}
+	for _, peer := range peers {
+		result.peers[peer.Id] = peer
+		if peer.UserId > 0 {
+			userIDs = append(userIDs, peer.UserId)
+		}
+	}
+	uniqueUserIDs := map[uint]struct{}{}
+	for _, id := range userIDs {
+		if id > 0 {
+			uniqueUserIDs[id] = struct{}{}
+		}
+	}
+	userIDList := make([]uint, 0, len(uniqueUserIDs))
+	for id := range uniqueUserIDs {
+		userIDList = append(userIDList, id)
+	}
+	var users []model.User
+	if DB != nil && len(userIDList) > 0 && DB.Migrator().HasTable(&model.User{}) {
+		DB.Select("id", "username").Where("id IN ?", userIDList).Find(&users)
+	}
+	for _, user := range users {
+		result.users[user.Id] = user.Username
+	}
+	return result
+}
+
+func enrichAuditEndpoint(controllerID, controlledID string, explicitControllerUserID uint, identities auditIdentityMaps) (controllerUsername, controlledUsername, controlledIP, controlledUUID string) {
+	controllerUserID := explicitControllerUserID
+	if controllerUserID == 0 {
+		controllerUserID = identities.peers[controllerID].UserId
+	}
+	controlledPeer := identities.peers[controlledID]
+	return identities.users[controllerUserID], identities.users[controlledPeer.UserId], controlledPeer.LastOnlineIp, controlledPeer.Uuid
+}
+
+func (as *AuditService) enrichAuditConns(items []*model.AuditConn) {
+	peerIDs := make([]string, 0, len(items)*2)
+	userIDs := make([]uint, 0, len(items))
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		peerIDs = append(peerIDs, item.FromPeer, item.PeerId)
+		userIDs = append(userIDs, item.UserId)
+	}
+	identities := loadAuditIdentities(peerIDs, userIDs)
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		controller, controlled, controlledIP, uuid := enrichAuditEndpoint(item.FromPeer, item.PeerId, item.UserId, identities)
+		if controller != "" {
+			item.ControllerUsername = controller
+			item.FromName = controller
+		}
+		if controlled != "" {
+			item.ControlledUsername = controlled
+		}
+		if item.ControlledIP == "" {
+			item.ControlledIP = controlledIP
+		}
+		if item.Uuid == "" {
+			item.Uuid = uuid
+		}
+	}
+}
+
+func controlledAuditPaths(basePath, rawInfo string) []string {
+	var info struct {
+		Files [][]interface{} `json:"files"`
+	}
+	if rawInfo != "" && json.Unmarshal([]byte(rawInfo), &info) == nil && len(info.Files) > 0 {
+		paths := make([]string, 0, len(info.Files))
+		for _, file := range info.Files {
+			name := ""
+			if len(file) > 0 {
+				name, _ = file[0].(string)
+			}
+			if fullPath := joinAuditPath(basePath, name); fullPath != "" {
+				paths = append(paths, fullPath)
+			}
+		}
+		if len(paths) > 0 {
+			return paths
+		}
+	}
+	if basePath == "" {
+		return nil
+	}
+	return []string{basePath}
+}
+
+// joinAuditPath is deliberately OS-neutral: the API can run on Linux while
+// the controlled endpoint reports Windows paths. It preserves the endpoint's
+// separator style instead of applying the server filesystem's path rules.
+func joinAuditPath(basePath, name string) string {
+	if name == "" {
+		return basePath
+	}
+	if basePath == "" || strings.HasPrefix(name, "/") || strings.HasPrefix(name, `\`) ||
+		(len(name) >= 3 && name[1] == ':' && (name[2] == '/' || name[2] == '\\')) {
+		return name
+	}
+	separator := "/"
+	if strings.Contains(basePath, `\`) && !strings.Contains(basePath, "/") {
+		separator = `\`
+	}
+	return strings.TrimRight(basePath, `/\`) + separator + strings.TrimLeft(name, `/\`)
+}
+
+func (as *AuditService) enrichAuditFiles(items []*model.AuditFile) {
+	peerIDs := make([]string, 0, len(items)*2)
+	for _, item := range items {
+		if item != nil {
+			peerIDs = append(peerIDs, item.FromPeer, item.PeerId)
+		}
+	}
+	identities := loadAuditIdentities(peerIDs, nil)
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		controller, controlled, controlledIP, uuid := enrichAuditEndpoint(item.FromPeer, item.PeerId, 0, identities)
+		if controller != "" {
+			item.ControllerUsername = controller
+			item.FromName = controller
+		}
+		if controlled != "" {
+			item.ControlledUsername = controlled
+		}
+		if item.ControlledIP == "" {
+			item.ControlledIP = controlledIP
+		}
+		if item.Uuid == "" {
+			item.Uuid = uuid
+		}
+		item.ControlledPaths = controlledAuditPaths(item.Path, item.Info)
+	}
 }
 func (as *AuditService) DeleteAuditFile(u *model.AuditFile) error {
 	return as.DeleteAuditFileContext(context.Background(), 0, "", u)

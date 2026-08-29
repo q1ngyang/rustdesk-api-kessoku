@@ -5,13 +5,13 @@
 镜像地址：
 [`ghcr.io/q1ngyang/rustdesk-api-kessoku`](https://github.com/q1ngyang/rustdesk-api-kessoku/pkgs/container/rustdesk-api-kessoku)
 
-当前稳定版 `v3.0.3`，这是首个正式支持的 v3 版本，正式支持 `linux/amd64`。
+当前稳定版 `v3.0.4`，正式支持 `linux/amd64`。
 
 ## 拉取和固定版本
 
 ```sh
-docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.3
-docker image inspect ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.3 \
+docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.4
+docker image inspect ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.4 \
   --format '{{json .RepoDigests}}'
 ```
 

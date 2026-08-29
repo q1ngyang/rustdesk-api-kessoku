@@ -1,6 +1,9 @@
 package admin
 
-import "github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
+import (
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/utils"
+)
 
 type PeerForm struct {
 	RowId    uint   `json:"row_id" `
@@ -24,7 +27,7 @@ type PeerBatchDeleteForm struct {
 func (f *PeerForm) ToPeer() *model.Peer {
 	return &model.Peer{
 		RowId:    f.RowId,
-		Id:       f.Id,
+		Id:       utils.NormalizeRustDeskID(f.Id),
 		Cpu:      f.Cpu,
 		Hostname: f.Hostname,
 		Memory:   f.Memory,

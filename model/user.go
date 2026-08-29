@@ -87,7 +87,7 @@ type UserList struct {
 }
 
 var UserRouteNames = []string{
-	"MyTagList", "MyAddressBookList", "MyInfo", "MyAddressBookCollection", "MyPeer", "MyShareRecordList", "MyLoginLog",
+	"MyTagList", "MyAddressBookList", "MyInfo", "MyAddressBookCollection", "MyPeer", "MyLoginLog", "AboutService",
 }
 var ScopedAdminRouteNames = []string{
 	"Peer", "UserGroup", "UserList", "UserAdd", "UserEdit", "UserAddressBookName", "UserAddressBook", "UserTag",

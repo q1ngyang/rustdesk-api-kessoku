@@ -24,8 +24,8 @@ git diff --check
 ```
 
 检查覆盖中英文配对、本地文件、Wiki 页名、主仓库文件 URL，以及不应出现在 Wiki 中的
-相对链接和原始文件导航。发布说明使用 `scripts/render_release_notes.py`，从源文件实际
-目录解析相对链接，生成固定到发布标签的网页链接，不再依赖根目录文件名。
+相对链接和原始文件导航。`scripts/render_release_notes.py` 仍用于验证详细发布文档的
+标签化链接；GitHub Release 正文保持不超过 12 行，只提供摘要和 Read more 链接。
 
 ## 发布 Wiki
 

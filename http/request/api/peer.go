@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/utils"
 )
 
 type AddressBookFormData struct {
@@ -35,7 +36,7 @@ type AddressBookPeerForm struct {
 func (f *AddressBookPeerForm) ToAddressBook() *model.AddressBook {
 	tags, _ := json.Marshal(f.Tags)
 	return &model.AddressBook{
-		Id:               f.Id,
+		Id:               utils.NormalizeRustDeskID(f.Id),
 		Username:         f.Username,
 		Password:         f.Password,
 		Hostname:         f.Hostname,
@@ -71,7 +72,7 @@ func (pf *PeerForm) ToPeer() *model.Peer {
 	return &model.Peer{
 		Cpu:      pf.Cpu,
 		Hostname: pf.Hostname,
-		Id:       pf.Id,
+		Id:       utils.NormalizeRustDeskID(pf.Id),
 		Memory:   pf.Memory,
 		Os:       pf.Os,
 		Username: pf.Username,
@@ -101,7 +102,7 @@ type PersonalAddressBookForm struct {
 func (pabf *PersonalAddressBookForm) ToAddressBook() *model.AddressBook {
 	tags, _ := json.Marshal(pabf.Tags)
 	return &model.AddressBook{
-		Id:               pabf.Id,
+		Id:               utils.NormalizeRustDeskID(pabf.Id),
 		Username:         pabf.Username,
 		Password:         pabf.Password,
 		Hostname:         pabf.Hostname,

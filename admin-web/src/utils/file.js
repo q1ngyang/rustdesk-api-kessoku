@@ -69,13 +69,17 @@ export function downBlob (blob, filename) {
 }
 
 export function sizeFormat (size) {
-  if (size < 1024) {
-    return size + 'B'
-  } else if (size < 1024 * 1024) {
-    return (size / 1024).toFixed(2) + 'KB'
-  } else if (size < 1024 * 1024 * 1024) {
-    return (size / 1024 / 1024).toFixed(2) + 'MB'
-  } else {
-    return (size / 1024 / 1024 / 1024).toFixed(2) + 'GB'
-  }
+	const value = Number(size)
+	if (!Number.isFinite(value) || value < 0) return '-'
+	if (value < 1024) {
+		return value + ' B'
+	} else if (value < 1024 * 1024) {
+		return (value / 1024).toFixed(2) + ' KB'
+	} else if (value < 1024 * 1024 * 1024) {
+		return (value / 1024 / 1024).toFixed(2) + ' MB'
+	} else if (value < 1024 * 1024 * 1024 * 1024) {
+		return (value / 1024 / 1024 / 1024).toFixed(2) + ' GB'
+	} else {
+		return (value / 1024 / 1024 / 1024 / 1024).toFixed(2) + ' TB'
+	}
 }

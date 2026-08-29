@@ -18,8 +18,8 @@ the authoritative path for older databases and v2/v3 role compatibility.
 
 This guide documents the version 301 authentication foundation. The historical
 v3.0.1 migration then reaches database version 302 for enterprise roles and
-scoped administration. The supported v3.0.3 release continues through version
-309. Follow [`MIGRATION-v3.0.3.md`](v3.0.3/MIGRATION-v3.0.3.md) for the complete
+scoped administration. The supported v3.0.4 release continues to use version
+309. Follow [`MIGRATION-v3.0.4.md`](v3.0.4/MIGRATION-v3.0.4.md) for the complete
 upgrade and rollback procedure, and rehearse every step against a restored
 production backup before a maintenance window.
 

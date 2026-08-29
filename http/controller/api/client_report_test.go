@@ -37,13 +37,20 @@ func TestClientReportsRequireExactRegisteredDeviceIdentity(t *testing.T) {
 	if unknown.Code != http.StatusOK || unknown.Body.String() != "ID_NOT_FOUND" {
 		t.Fatalf("unregistered sysinfo = status %d body %q", unknown.Code, unknown.Body.String())
 	}
-	if err := database.Create(&model.LoginLog{UserId: 42, DeviceId: "desk-1", Uuid: "uuid-1"}).Error; err != nil {
+	if err := database.Create(&model.LoginLog{UserId: 99, Client: model.LoginLogClientWebAdmin, DeviceId: "desk-1", Uuid: "uuid-1"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	webOnly := sysinfo(`{"id":"desk-1","uuid":"uuid-1","hostname":"host"}`)
+	if webOnly.Code != http.StatusOK || webOnly.Body.String() != "ID_NOT_FOUND" {
+		t.Fatalf("web-only identity accepted as a native device = status %d body %q", webOnly.Code, webOnly.Body.String())
+	}
+	if err := database.Create(&model.LoginLog{UserId: 42, Client: model.LoginLogClientNative, DeviceId: "desk-1", Uuid: "uuid-1"}).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := database.Create(&model.Peer{Id: "desk-1", Alias: "manual placeholder"}).Error; err != nil {
 		t.Fatal(err)
 	}
-	accepted := sysinfo(`{"id":"desk-1","uuid":"uuid-1","hostname":"host"}`)
+	accepted := sysinfo(`{"id":" desk - 1 ","uuid":"uuid-1","hostname":"host"}`)
 	if accepted.Code != http.StatusOK || accepted.Body.String() != "SYSINFO_UPDATED" {
 		t.Fatalf("registered sysinfo = status %d body %q", accepted.Code, accepted.Body.String())
 	}
@@ -74,7 +81,7 @@ func TestClientReportsRequireExactRegisteredDeviceIdentity(t *testing.T) {
 		(&Audit{}).AuditConn(ctx)
 		return recorder
 	}
-	acceptedAudit := audit(`{"action":"new","conn_id":7,"id":"desk-1","uuid":"uuid-1","peer":["remote-id","remote-name"]}`)
+	acceptedAudit := audit(`{"action":"new","conn_id":7,"id":" desk - 1 ","uuid":"uuid-1","peer":[" remote - id ","remote-name"]}`)
 	if acceptedAudit.Code != http.StatusOK {
 		t.Fatalf("registered audit = status %d body %q", acceptedAudit.Code, acceptedAudit.Body.String())
 	}
@@ -88,6 +95,42 @@ func TestClientReportsRequireExactRegisteredDeviceIdentity(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatalf("stored audit count = %d, want 1", count)
+	}
+	storedAudit := &model.AuditConn{}
+	if err := database.First(storedAudit).Error; err != nil {
+		t.Fatal(err)
+	}
+	if storedAudit.PeerId != "desk-1" || storedAudit.FromPeer != "remote-id" {
+		t.Fatalf("stored audit IDs were not normalized: %+v", storedAudit)
+	}
+
+	if err := database.Create(&model.LoginLog{UserId: 42, Client: model.LoginLogClientNative, DeviceId: "audit-only", Uuid: "uuid-audit"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	auditBeforeSysinfo := audit(`{"action":"new","conn_id":9,"id":" audit - only ","uuid":"uuid-audit","peer":["target"]}`)
+	if auditBeforeSysinfo.Code != http.StatusOK {
+		t.Fatalf("audit before sysinfo = status %d body %q", auditBeforeSysinfo.Code, auditBeforeSysinfo.Body.String())
+	}
+	claimed := &model.Peer{}
+	if err := database.Where("id = ?", "audit-only").First(claimed).Error; err != nil || claimed.Uuid != "uuid-audit" || claimed.UserId != 42 {
+		t.Fatalf("audit did not claim native login identity: peer=%+v err=%v", claimed, err)
+	}
+
+	fileAudit := func(body string) *httptest.ResponseRecorder {
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+		ctx.Request = httptest.NewRequest(http.MethodPost, "/api/audit/file", bytes.NewBufferString(body))
+		ctx.Request.Header.Set("Content-Type", "application/json")
+		(&Audit{}).AuditFile(ctx)
+		return recorder
+	}
+	acceptedFile := fileAudit(`{"id":" audit - only ","uuid":"uuid-audit","peer_id":" remote - id ","info":"{\"name\":\"remote\",\"ip\":\"198.51.100.10\",\"num\":1}","path":"document.txt","is_file":true,"type":1}`)
+	if acceptedFile.Code != http.StatusOK {
+		t.Fatalf("registered file audit = status %d body %q", acceptedFile.Code, acceptedFile.Body.String())
+	}
+	storedFile := &model.AuditFile{}
+	if err := database.First(storedFile).Error; err != nil || storedFile.PeerId != "audit-only" || storedFile.FromPeer != "remote-id" {
+		t.Fatalf("stored file audit IDs were not normalized: audit=%+v err=%v", storedFile, err)
 	}
 }
 

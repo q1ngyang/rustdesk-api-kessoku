@@ -6,6 +6,7 @@ import { T } from '@/utils/i18n'
 import { batchDelete as admin_batchDelete, list as admin_list, remove as admin_remove } from '@/api/login_log'
 import { batchDelete as my_batchDelete, list as my_list, remove as my_remove } from '@/api/my/login_log'
 import { downBlob, jsonToCsv } from '@/utils/file'
+import { withDateRange } from '@/utils/dateRange'
 
 const apis = {
   admin: { batchDelete: admin_batchDelete, list: admin_list, remove: admin_remove, fetchPeers: admin_fetchPeers },
@@ -22,11 +23,12 @@ export function useRepositories (api_type = 'my') {
     page_size: 10,
     is_my: 0,
     user_id: null,
+    date_range: [],
   })
 
   const getList = async () => {
     listRes.loading = true
-    const res = await apis[api_type].list(listQuery).catch(_ => false)
+    const res = await apis[api_type].list(withDateRange(listQuery)).catch(_ => false)
     listRes.loading = false
     if (res) {
       //通过uuid补全peer信息
@@ -100,7 +102,7 @@ export function useRepositories (api_type = 'my') {
     if (api_type !== 'admin') {
       return false
     }
-    const q = { ...listQuery }
+    const q = withDateRange(listQuery)
     q.page_size = 1000000
     q.page = 1
     const res = await admin_list(q).catch(_ => false)

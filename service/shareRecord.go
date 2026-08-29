@@ -5,8 +5,10 @@ import (
 	"gorm.io/gorm"
 )
 
-type ShareRecordService struct {
-}
+// ShareRecordService preserves the legacy guest-share table for safe upgrades
+// and historical data access. Address-book sharing uses AddressBookService and
+// AddressBookCollectionRule instead; it must never be reported as this data.
+type ShareRecordService struct{}
 
 // InfoById 根据用户id取用户信息
 func (srs *ShareRecordService) InfoById(id uint) *model.ShareRecord {

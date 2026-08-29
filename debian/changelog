@@ -1,3 +1,11 @@
+rustdesk-api-kessoku (3.0.4-1) UNRELEASED; urgency=high
+
+  * Fix device discovery, audit identity, remote paths, and durable record sequence display.
+  * Add service configuration QR, platform retention settings, date filters, and bounded logs.
+  * Refine branding defaults, Server Control diagnostics, localization, and responsive tables.
+
+ -- q1ngyang <q1ngyang@users.noreply.github.com>  Sat, 29 Aug 2026 12:00:00 +0800
+
 rustdesk-api-kessoku (3.0.3-1) UNRELEASED; urgency=high
 
   * Publish the first supported Kessoku v3 release from the reviewed v3.0.3 candidate.

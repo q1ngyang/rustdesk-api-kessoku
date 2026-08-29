@@ -6,6 +6,7 @@ import (
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/request/admin"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/response"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/utils"
 	"gorm.io/gorm"
 	"strconv"
 	"time"
@@ -95,6 +96,7 @@ func (ct *Peer) List(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
+	query.Id = utils.NormalizeRustDeskID(query.Id)
 	res := service.AllService.PeerService.List(query.Page, query.PageSize, func(tx *gorm.DB) {
 		actor := service.AllService.UserService.CurUser(c)
 		service.AllService.AdminScopeService.ApplyPeerScope(tx, actor)
@@ -260,6 +262,9 @@ func (ct *Peer) SimpleData(c *gin.Context) {
 	if len(f.Ids) == 0 {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
 		return
+	}
+	for index := range f.Ids {
+		f.Ids[index] = utils.NormalizeRustDeskID(f.Ids[index])
 	}
 	res := service.AllService.PeerService.List(1, 99999, func(tx *gorm.DB) {
 		//可以公开的情报

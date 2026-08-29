@@ -54,7 +54,7 @@ jobs:
           test "$release_tag" = "${GITHUB_REF_NAME}"
           printf '%s' "$release_tag" \
             | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.]+)?$'
-          test "$release_tag" = v3.0.3
+          test "$release_tag" = v3.0.4
           test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/${release_tag}^{commit}")"
           test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CANDIDATE_RUN_ID}" --jq .head_sha)" = "$GITHUB_SHA"
           test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CANDIDATE_RUN_ID}" --jq .conclusion)" = success
@@ -182,7 +182,7 @@ jobs:
             org.opencontainers.image.version=${{ github.ref_name }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.licenses=MIT
-            org.opencontainers.image.description=Kessoku v3.0.3 RustDesk enterprise administration API with theme-aware branding, TOTP, scoped administrators, typed Starry control, and a repository-owned Relay-only browser client; Docker Compose is recommended
+            org.opencontainers.image.description=Kessoku RustDesk administration API with Starry control and a Relay-only WebClient
           annotations: |
             index:org.opencontainers.image.title=rustdesk-api-kessoku
             index:org.opencontainers.image.source=https://github.com/${{ github.repository }}
@@ -191,7 +191,7 @@ jobs:
             index:org.opencontainers.image.version=${{ github.ref_name }}
             index:org.opencontainers.image.revision=${{ github.sha }}
             index:org.opencontainers.image.licenses=MIT
-            index:org.opencontainers.image.description=Kessoku v3.0.3 RustDesk enterprise administration API with theme-aware branding, TOTP, scoped administrators, typed Starry control, and a repository-owned Relay-only browser client; Docker Compose is recommended
+            index:org.opencontainers.image.description=Kessoku RustDesk administration API with Starry control and a Relay-only WebClient
 
       - name: Publish immutable GitHub release assets
         env:
@@ -199,43 +199,21 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          notes_file="docs/releases/v3.0.3/RELEASE-NOTES-v3.0.3.md"
-          chinese_notes="docs/releases/v3.0.3/RELEASE-NOTES-v3.0.3.zh-CN.md"
+          notes_file="docs/releases/v3.0.4/RELEASE-NOTES-v3.0.4.md"
+          chinese_notes="docs/releases/v3.0.4/RELEASE-NOTES-v3.0.4.zh-CN.md"
           test -f "$notes_file"
           test -f "$chinese_notes"
           cat > release-notes.md <<EOF
-          Container image: https://github.com/${GITHUB_REPOSITORY}/pkgs/container/rustdesk-api-kessoku
+          # Kessoku ${RELEASE_TAG}
 
-          Container tags: ${RELEASE_TAG} (immutable) and latest (newest stable).
-          Both tags are published from this exact approved candidate; pin the
-          versioned image digest for production and rollback.
-
-          Recommended Docker deployment: https://github.com/${GITHUB_REPOSITORY}/wiki/Docker-Deployment
-
-          Container guide: https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/docs/deployment/CONTAINER.md
-
-          Compose asset: https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/docker-compose.yaml
-
-          Environment example: https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/compose.env.example
-
-          Builtin Web Client configuration: https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/config.docker-builtin.yaml
-
-          中文发布说明：https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/${chinese_notes}
-
-          This release was assembled by the non-publishing candidate workflow
-          from source commit ${GITHUB_SHA}. Verify all files with SHA256SUMS and
-          the attached Sigstore provenance/SBOM bundles before deployment.
-
-          The release includes the MIT-licensed web-client source build under
-          resources/client and permanently excludes historical resources/web,
-          resources/web2, WebClient2, and browser-client download/proxy code.
-          Both frontends are built from this exact Kessoku commit, as recorded
-          in BUILD-INPUTS.txt, with separate SBOM and reproducibility evidence.
-
+          - Fixes device reporting, audit records, branding defaults, and Server Control logs.
+          - Adds service configuration/QR, retention settings, date filters, and durable audit sequence IDs.
+          - Image: ghcr.io/${GITHUB_REPOSITORY}:${RELEASE_TAG}; latest is updated to this release.
+          - Platform: linux/amd64. Pin the versioned image digest in production.
+          - Verify assets with SHA256SUMS and the attached Sigstore provenance/SBOM.
+          - [Read more](https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/${notes_file}) · [中文说明](https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/${chinese_notes}) · [Upgrade guide](https://github.com/${GITHUB_REPOSITORY}/blob/${RELEASE_TAG}/docs/releases/v3.0.4/MIGRATION-v3.0.4.md)
           EOF
-          python3 scripts/render_release_notes.py "$notes_file" \
-            --repository "$GITHUB_REPOSITORY" --ref "$RELEASE_TAG" \
-            >> release-notes.md
+          test "$(wc -l < release-notes.md)" -le 12
           gh release create "$RELEASE_TAG" candidate/release-assets/* \
             --target "$GITHUB_SHA" \
             --title "rustdesk-api-kessoku $RELEASE_TAG" \

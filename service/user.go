@@ -157,6 +157,10 @@ func (us *UserService) AuthenticateAccessTokenContext(ctx context.Context, token
 // disabled-profile fallback is a cryptographically random opaque token, never
 // the historical predictable MD5 construction.
 func (us *UserService) GenerateToken(u *model.User) (internalAuth.IssuedToken, error) {
+	return us.GenerateTokenForClient(u, "")
+}
+
+func (us *UserService) GenerateTokenForClient(u *model.User, client string) (internalAuth.IssuedToken, error) {
 	if u == nil || u.Id == 0 {
 		return internalAuth.IssuedToken{}, errors.New("cannot issue token for empty user")
 	}
@@ -166,8 +170,15 @@ func (us *UserService) GenerateToken(u *model.User) (internalAuth.IssuedToken, e
 			return internalAuth.IssuedToken{}, err
 		}
 	}
+	ttl := 7 * 24 * time.Hour
+	if AllService != nil && AllService.SystemSettingService != nil {
+		ttl = AllService.SystemSettingService.EffectiveLoginTTL(client)
+	}
 	if Auth != nil {
-		return Auth.IssueAccessToken(u.Id, u.AuthVersion)
+		if maximum := Auth.MaximumTTL(); maximum > 0 && ttl > maximum {
+			ttl = maximum
+		}
+		return Auth.IssueAccessTokenWithTTL(u.Id, u.AuthVersion, ttl)
 	}
 	random := make([]byte, 32)
 	if _, err := rand.Read(random); err != nil {
@@ -182,14 +193,18 @@ func (us *UserService) GenerateToken(u *model.User) (internalAuth.IssuedToken, e
 		Token:       base64.RawURLEncoding.EncodeToString(random),
 		JTI:         jti.String(),
 		IssuedAt:    now.Unix(),
-		ExpiresAt:   us.UserTokenExpireTimestamp(),
+		ExpiresAt:   now.Add(ttl).Unix(),
 		AuthVersion: u.AuthVersion,
 	}, nil
 }
 
 // Login 登录
 func (us *UserService) Login(u *model.User, llog *model.LoginLog) *model.UserToken {
-	issued, err := us.GenerateToken(u)
+	client := ""
+	if llog != nil {
+		client = llog.Client
+	}
+	issued, err := us.GenerateTokenForClient(u, client)
 	if err != nil {
 		Logger.Errorf("issue access token: %v", err)
 		return nil
@@ -222,6 +237,9 @@ func (us *UserService) LoginConnection(u *model.User, llog *model.LoginLog, ttl 
 func (us *UserService) persistIssuedToken(u *model.User, llog *model.LoginLog, issued internalAuth.IssuedToken) *model.UserToken {
 	if u == nil || u.Id == 0 || llog == nil || issued.Token == "" || issued.JTI == "" {
 		return nil
+	}
+	if model.IsNativeLoginClient(llog.Client) {
+		llog.DeviceId = utils.NormalizeRustDeskID(llog.DeviceId)
 	}
 	hash := internalAuth.TokenHashHex(issued.Token)
 	jti := issued.JTI
@@ -258,10 +276,12 @@ func (us *UserService) persistIssuedToken(u *model.User, llog *model.LoginLog, i
 	}
 	// Token is returned exactly once and was not present during persistence.
 	ut.Token = issued.Token
-	// Browser UUIDs identify a login session for auditing; they are not
-	// RustDesk peer UUIDs and must never create or mutate device ownership.
-	if llog.Client == model.LoginLogClientApp && llog.Uuid != "" {
-		AllService.PeerService.UuidBindUserId(llog.DeviceId, llog.Uuid, u.Id)
+	// Browser UUIDs identify a login session for auditing; only official native
+	// client types may establish RustDesk peer ownership.
+	if model.IsNativeLoginClient(llog.Client) && llog.Uuid != "" {
+		if err := AllService.PeerService.BindLoginIdentity(llog.DeviceId, llog.Uuid, u.Id); err != nil {
+			Logger.Warnf("bind authenticated RustDesk peer identity: %v", err)
+		}
 	}
 	return ut
 }
@@ -923,7 +943,7 @@ func (us *UserService) UserThirdInfo(userId uint, op string) *model.UserThird {
 // FindLatestUserIdFromLoginLogByUuid 根据uuid和设备id查找最后登录的用户id
 func (us *UserService) FindLatestUserIdFromLoginLogByUuid(uuid string, deviceId string) uint {
 	llog := &model.LoginLog{}
-	DB.Where("uuid = ? and device_id = ?", uuid, deviceId).Order("id desc").First(llog)
+	DB.Where("uuid = ? and device_id = ? and client in ?", uuid, utils.NormalizeRustDeskID(deviceId), []string{model.LoginLogClientNative, model.LoginLogClientApp}).Order("id desc").First(llog)
 	return llog.UserId
 }
 
@@ -969,13 +989,13 @@ func (us *UserService) Register(username string, email string, password string, 
 	return u
 }
 
-func (us *UserService) TokenList(page uint, size uint, f func(tx *gorm.DB)) *model.UserTokenList {
+func (us *UserService) TokenList(page uint, size uint, f func(tx *gorm.DB) *gorm.DB) *model.UserTokenList {
 	res := &model.UserTokenList{}
 	res.Page = int64(page)
 	res.PageSize = int64(size)
 	tx := DB.Model(&model.UserToken{})
 	if f != nil {
-		f(tx)
+		tx = f(tx)
 	}
 	tx.Count(&res.Total)
 	tx.Scopes(Paginate(page, size))
@@ -1074,10 +1094,9 @@ func (us *UserService) acquireEnabledAdminInvariant(tx *gorm.DB) error {
 
 // UserTokenExpireTimestamp 生成用户token过期时间
 func (us *UserService) UserTokenExpireTimestamp() int64 {
-	exp := Config.App.TokenExpire
-	if exp == 0 {
-		//默认七天
-		exp = 7 * 24 * time.Hour
+	exp := 7 * 24 * time.Hour
+	if AllService != nil && AllService.SystemSettingService != nil {
+		exp = AllService.SystemSettingService.EffectiveLoginTTL(model.LoginLogClientWebAdmin)
 	}
 	return time.Now().Add(exp).Unix()
 }

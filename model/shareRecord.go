@@ -1,5 +1,8 @@
 package model
 
+// ShareRecord is retained only for backwards-compatible storage of the
+// legacy WebClient guest-link feature. Address-book access is authorized by
+// AddressBookCollectionRule and does not create or consume these rows.
 type ShareRecord struct {
 	IdModel
 	UserId       uint   `json:"user_id" gorm:"default:0;not null;index"`
@@ -11,7 +14,7 @@ type ShareRecord struct {
 	TimeModel
 }
 
-// ShareRecordList 分享记录列表
+// ShareRecordList is the legacy WebClient guest-share record list.
 type ShareRecordList struct {
 	ShareRecords []*ShareRecord `json:"list,omitempty"`
 	Pagination

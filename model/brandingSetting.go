@@ -5,6 +5,9 @@ package model
 // product/trust marker and cannot be overridden by tenant branding.
 type BrandingSetting struct {
 	IdModel
+	// SchemaVersion distinguishes legacy all-empty rows from an operator who
+	// deliberately cleared optional copy after opening the modern editor.
+	SchemaVersion uint   `json:"-" gorm:"not null;default:0"`
 	AdminTitle    string `json:"admin_title" gorm:"size:120;not null;default:''"`
 	AdminSubtitle string `json:"admin_subtitle" gorm:"size:120;not null;default:''"`
 	// BrandLogo* and BrandIcon* are the single deployment identity used by the
@@ -31,26 +34,30 @@ type BrandingSetting struct {
 	// Legacy single-theme fields are retained for a reversible migration and
 	// older API clients. New writes clear them after copying their value into
 	// both themed fields.
-	AdminLogoURL          string `json:"admin_logo_url" gorm:"type:text;not null"`
-	AdminIconURL          string `json:"admin_icon_url" gorm:"type:text;not null"`
-	LoginLogoLightURL     string `json:"login_logo_light_url" gorm:"type:text;not null"`
-	LoginLogoDarkURL      string `json:"login_logo_dark_url" gorm:"type:text;not null"`
-	LoginLogoURL          string `json:"login_logo_url" gorm:"type:text;not null"`
-	LoginBackgroundURL    string `json:"login_background_url" gorm:"type:text;not null"`
-	LoginKicker           string `json:"login_kicker" gorm:"size:160;not null;default:''"`
-	LoginHeading          string `json:"login_heading" gorm:"size:240;not null;default:''"`
-	LoginCopy             string `json:"login_copy" gorm:"type:text;not null"`
-	LoginFooter           string `json:"login_footer" gorm:"type:text;not null"`
-	LoginCustomHTML       string `json:"login_custom_html" gorm:"type:text;not null"`
-	LoginCustomCSS        string `json:"login_custom_css" gorm:"type:text;not null"`
-	WebClientTitle        string `json:"web_client_title" gorm:"size:120;not null;default:''"`
-	WebClientLogoLightURL string `json:"web_client_logo_light_url" gorm:"type:text;not null"`
-	WebClientLogoDarkURL  string `json:"web_client_logo_dark_url" gorm:"type:text;not null"`
-	WebClientIconLightURL string `json:"web_client_icon_light_url" gorm:"type:text;not null"`
-	WebClientIconDarkURL  string `json:"web_client_icon_dark_url" gorm:"type:text;not null"`
-	WebClientLogoURL      string `json:"web_client_logo_url" gorm:"type:text;not null"`
-	WebClientIconURL      string `json:"web_client_icon_url" gorm:"type:text;not null"`
-	Announcement          string `json:"-" gorm:"type:text;not null"` // legacy v304 column; migrated to SystemSetting
-	UpdatedBy             uint   `json:"updated_by" gorm:"not null;default:0;index"`
+	AdminLogoURL       string `json:"admin_logo_url" gorm:"type:text;not null"`
+	AdminIconURL       string `json:"admin_icon_url" gorm:"type:text;not null"`
+	LoginLogoLightURL  string `json:"login_logo_light_url" gorm:"type:text;not null"`
+	LoginLogoDarkURL   string `json:"login_logo_dark_url" gorm:"type:text;not null"`
+	LoginLogoURL       string `json:"login_logo_url" gorm:"type:text;not null"`
+	LoginBackgroundURL string `json:"login_background_url" gorm:"type:text;not null"`
+	LoginKicker        string `json:"login_kicker" gorm:"size:160;not null;default:''"`
+	LoginHeading       string `json:"login_heading" gorm:"size:240;not null;default:''"`
+	LoginCopy          string `json:"login_copy" gorm:"type:text;not null"`
+	LoginFooter        string `json:"login_footer" gorm:"type:text;not null"`
+	LoginCustomHTML    string `json:"login_custom_html" gorm:"type:text;not null"`
+	LoginCustomCSS     string `json:"login_custom_css" gorm:"type:text;not null"`
+	WebClientTitle     string `json:"web_client_title" gorm:"size:120;not null;default:''"`
+	// ServerInstanceNamesJSON stores operator-facing labels keyed by the
+	// immutable deployment instance ID. Connection details and credentials
+	// remain configuration-file owned.
+	ServerInstanceNamesJSON string `json:"-" gorm:"type:text;not null;default:'{}'"`
+	WebClientLogoLightURL   string `json:"web_client_logo_light_url" gorm:"type:text;not null"`
+	WebClientLogoDarkURL    string `json:"web_client_logo_dark_url" gorm:"type:text;not null"`
+	WebClientIconLightURL   string `json:"web_client_icon_light_url" gorm:"type:text;not null"`
+	WebClientIconDarkURL    string `json:"web_client_icon_dark_url" gorm:"type:text;not null"`
+	WebClientLogoURL        string `json:"web_client_logo_url" gorm:"type:text;not null"`
+	WebClientIconURL        string `json:"web_client_icon_url" gorm:"type:text;not null"`
+	Announcement            string `json:"-" gorm:"type:text;not null"` // legacy v304 column; migrated to SystemSetting
+	UpdatedBy               uint   `json:"updated_by" gorm:"not null;default:0;index"`
 	TimeModel
 }

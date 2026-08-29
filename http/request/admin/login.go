@@ -13,12 +13,16 @@ type Login struct {
 }
 
 type LoginLogQuery struct {
-	UserId int `form:"user_id"`
-	IsMy   int `form:"is_my"`
+	UserId      int    `form:"user_id"`
+	IsMy        int    `form:"is_my"`
+	CreatedFrom string `form:"created_from"`
+	CreatedTo   string `form:"created_to"`
 	PageQuery
 }
 type LoginTokenQuery struct {
-	UserId int `form:"user_id"`
+	UserId      int    `form:"user_id"`
+	CreatedFrom string `form:"created_from"`
+	CreatedTo   string `form:"created_to"`
 	PageQuery
 }
 

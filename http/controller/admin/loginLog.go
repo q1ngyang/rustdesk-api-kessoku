@@ -56,7 +56,13 @@ func (ct *LoginLog) List(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
+	dateRange, err := service.ParseCreatedAtRange(query.CreatedFrom, query.CreatedTo)
+	if err != nil {
+		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
+		return
+	}
 	res := service.AllService.LoginLogService.List(query.Page, query.PageSize, func(tx *gorm.DB) *gorm.DB {
+		tx = dateRange.Apply(tx)
 		if query.UserId > 0 {
 			tx = tx.Where("user_id = ?", query.UserId)
 		}

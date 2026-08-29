@@ -1,9 +1,10 @@
 import { reactive } from 'vue'
 import { list, remove, fileList, fileRemove, batchDelete, fileBatchDelete } from '@/api/audit'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { formatTime } from '@/utils/time'
 import { T } from '@/utils/i18n'
 import { downBlob, jsonToCsv } from '@/utils/file'
+import { normalizeRustDeskId } from '@/utils/rustdesk'
+import { withDateRange } from '@/utils/dateRange'
 
 export function useRepositories () {
   const listRes = reactive({
@@ -14,21 +15,21 @@ export function useRepositories () {
     page_size: 10,
     peer_id: null,
     from_peer: null,
+    date_range: [],
   })
 
   const getList = async () => {
     listRes.loading = true
-    const res = await list(listQuery).catch(_ => false)
+    const res = await list(withDateRange(listQuery)).catch(_ => false)
     listRes.loading = false
     if (res) {
-      listRes.list = res.data.list.map(item => {
-        item.close_time = item.close_time ? formatTime(item.close_time * 1000) : '-'
-        return item
-      })
+      listRes.list = res.data.list || []
       listRes.total = res.data.total
     }
   }
   const handlerQuery = () => {
+    listQuery.peer_id = normalizeRustDeskId(listQuery.peer_id)
+    listQuery.from_peer = normalizeRustDeskId(listQuery.from_peer)
     if (listQuery.page === 1) {
       getList()
     } else {
@@ -75,7 +76,7 @@ export function useRepositories () {
   }
 
   const toExport = async () => {
-    const q = { ...listQuery }
+    const q = withDateRange(listQuery)
     q.page_size = 1000000
     q.page = 1
     const res = await list(q).catch(_ => false)
@@ -104,21 +105,25 @@ export function useFileRepositories () {
     page_size: 10,
     peer_id: null,
     from_peer: null,
+    date_range: [],
   })
 
   const getList = async () => {
     listRes.loading = true
-    const res = await fileList(listQuery).catch(_ => false)
+    const res = await fileList(withDateRange(listQuery)).catch(_ => false)
     listRes.loading = false
     if (res) {
-      listRes.list = res.data.list.map(item => {
-        item.info = item.info ? JSON.parse(item.info) : '-'
+      listRes.list = (res.data.list || []).map(item => {
+        try { item.info = item.info ? JSON.parse(item.info) : { files: [] } } catch { item.info = { files: [] } }
+        if (!Array.isArray(item.info?.files)) item.info = { ...item.info, files: [] }
         return item
       })
       listRes.total = res.data.total
     }
   }
   const handlerQuery = () => {
+    listQuery.peer_id = normalizeRustDeskId(listQuery.peer_id)
+    listQuery.from_peer = normalizeRustDeskId(listQuery.from_peer)
     if (listQuery.page === 1) {
       getList()
     } else {
@@ -165,7 +170,7 @@ export function useFileRepositories () {
   }
 
   const toExport = async () => {
-    const q = { ...listQuery }
+    const q = withDateRange(listQuery)
     q.page_size = 1000000
     q.page = 1
     const res = await fileList(q).catch(_ => false)

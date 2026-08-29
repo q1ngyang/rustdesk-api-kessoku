@@ -19,6 +19,7 @@ import (
 	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/auth"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/utils"
 )
 
 const webClientRequestLimit = 16 << 10
@@ -340,7 +341,15 @@ func (w *WebClient) Logout(c *gin.Context) {
 func (w *WebClient) AuditConnectionStart(c *gin.Context) {
 	setWebClientNoStore(c)
 	request := &webClientAuditStartRequest{}
-	if err := decodeWebClientJSON(c, request); err != nil || !validWebClientCredential(request.PeerID, 1, 128) || !validWebClientCredential(request.DeviceID, 1, 128) || !validWebClientCredential(request.UUID, 1, 128) || !validOptionalWebClientText(request.Platform, 64) {
+	// RustDesk IDs copied from the native client are commonly grouped with
+	// spaces. Canonicalize only the remote peer ID; the browser DeviceID is a
+	// separate session identity and must remain byte-for-byte unchanged.
+	if err := decodeWebClientJSON(c, request); err != nil {
+		webClientProblem(c, http.StatusBadRequest, "REQUEST_INVALID", "connection audit request is invalid")
+		return
+	}
+	request.PeerID = utils.NormalizeRustDeskID(request.PeerID)
+	if !validWebClientCredential(request.PeerID, 1, 128) || !validWebClientCredential(request.DeviceID, 1, 128) || !validWebClientCredential(request.UUID, 1, 128) || !validOptionalWebClientText(request.Platform, 64) {
 		webClientProblem(c, http.StatusBadRequest, "REQUEST_INVALID", "connection audit request is invalid")
 		return
 	}
@@ -363,13 +372,9 @@ func (w *WebClient) AuditConnectionStart(c *gin.Context) {
 	if connID == 0 {
 		connID = 1
 	}
-	displayName := user.Nickname
-	if displayName == "" {
-		displayName = user.Username
-	}
 	audit := &model.AuditConn{
 		UserId: user.Id, Client: model.LoginLogClientWeb, Action: model.AuditActionNew,
-		ConnId: connID, PeerId: request.PeerID, FromPeer: request.DeviceID, FromName: displayName,
+		ConnId: connID, PeerId: request.PeerID, FromPeer: request.DeviceID, FromName: user.Username, ControllerUsername: user.Username,
 		Ip: c.ClientIP(), SessionId: base64.RawURLEncoding.EncodeToString(sessionBytes), Uuid: request.UUID,
 	}
 	if err := service.AllService.AuditService.CreateAuditConn(audit); err != nil {

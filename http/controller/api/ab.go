@@ -757,6 +757,7 @@ func (a *Ab) PeerUpdate(c *gin.Context) {
 		response.Error(c, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
+	f.Id = utils.NormalizeRustDeskID(f.Id)
 	u := service.AllService.UserService.CurUser(c)
 	guid := c.Param("guid")
 	_, uid, cid, err := a.CheckGuid(u, guid)

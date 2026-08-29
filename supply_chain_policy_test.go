@@ -123,7 +123,8 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 		`cmp "$archive_binary" candidate/docker/release/kessoku-api`,
 		`vcs.revision='"${GITHUB_SHA}"`,
 		`vcs.modified=false`,
-		`test "$release_tag" = v3.0.3`,
+		`test "$release_tag" = v3.0.4`,
+		`test "$(wc -l < release-notes.md)" -le 12`,
 	} {
 		if !strings.Contains(workflow, required) {
 			t.Fatalf("publication workflow is missing fail-closed control %q", required)
@@ -148,7 +149,7 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(status), "status: APPROVED") || !strings.Contains(string(status), "release_tag: v3.0.3") {
+	if !strings.Contains(string(status), "status: APPROVED") || !strings.Contains(string(status), "release_tag: v3.0.4") {
 		t.Fatal("release source must name the explicitly approved immutable tag")
 	}
 }

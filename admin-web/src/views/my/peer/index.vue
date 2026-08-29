@@ -191,6 +191,7 @@
   import { handleClipboard } from '@/utils/clipboard'
   import { batchCreateFromPeers } from '@/api/my/address_book'
   import IpAddress from '@/components/common/IpAddress.vue'
+  import { normalizeRustDeskId } from '@/utils/rustdesk'
 
   const listRes = reactive({
     list: [], total: 0, loading: false,
@@ -213,6 +214,7 @@
     }
   }
   const handlerQuery = () => {
+    listQuery.id = normalizeRustDeskId(listQuery.id)
     if (listQuery.page === 1) {
       getList()
     } else {

@@ -34,6 +34,7 @@ func (o *Oauth) OidcAuth(c *gin.Context) {
 		response.Error(c, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
+	f.Id = utils.NormalizeRustDeskID(f.Id)
 
 	oauthService := service.AllService.OauthService
 
@@ -74,6 +75,7 @@ func (o *Oauth) OidcAuthQueryPre(c *gin.Context) (*model.User, *model.UserToken)
 		response.Error(c, response.TranslateMsg(c, "ParamsError")+": "+err.Error())
 		return nil, nil
 	}
+	q.Id = utils.NormalizeRustDeskID(q.Id)
 
 	// Atomically bind the result to the initiating device. A completed state is
 	// consumed exactly once so concurrent polling cannot mint two sessions.

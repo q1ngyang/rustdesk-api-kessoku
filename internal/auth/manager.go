@@ -121,6 +121,25 @@ func (m *Manager) IssueAccessToken(userID uint, authVersion uint64) (IssuedToken
 	return m.issueAccessToken(userID, authVersion, m.audiences, m.ttl)
 }
 
+// IssueAccessTokenWithTTL lets the platform choose a shorter web/native
+// session lifetime while the deployment-owned maximum remains authoritative.
+func (m *Manager) IssueAccessTokenWithTTL(userID uint, authVersion uint64, ttl time.Duration) (IssuedToken, error) {
+	if m == nil {
+		return IssuedToken{}, errors.New("Ed25519 access-token signer is not configured")
+	}
+	if ttl <= 0 || ttl > m.maximumTTL {
+		return IssuedToken{}, errors.New("access token lifetime must be positive and not exceed maximum token lifetime")
+	}
+	return m.issueAccessToken(userID, authVersion, m.audiences, ttl)
+}
+
+func (m *Manager) MaximumTTL() time.Duration {
+	if m == nil {
+		return 0
+	}
+	return m.maximumTTL
+}
+
 // IssueConnectionToken preserves the Starry patch-v1.2.0 at+jwt wire profile
 // while narrowing the token to the rustdesk-connect audience and a caller-
 // bounded lifetime. It is deliberately not valid at Kessoku API/admin routes.

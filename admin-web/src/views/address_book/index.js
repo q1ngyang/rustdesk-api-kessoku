@@ -6,6 +6,7 @@ import { T } from '@/utils/i18n'
 import { useRepositories as useCollectionRepositories } from '@/views/address_book/collection'
 import { useRepositories as useTagRepositories } from '@/views/tag/index'
 import { simpleData } from '@/api/peer'
+import { normalizeRustDeskId } from '@/utils/rustdesk'
 
 const apis = {
   admin: { list: admin_list, remove: admin_remove, update: admin_update, create: admin_create },
@@ -56,6 +57,7 @@ export function useRepositories (api_type = 'my') {
     }
   }
   const handlerQuery = () => {
+    listQuery.id = normalizeRustDeskId(listQuery.id)
     if (listQuery.page === 1) {
       getList()
     } else {
@@ -156,6 +158,7 @@ export function useRepositories (api_type = 'my') {
 
   }
   const submit = async () => {
+    formData.id = normalizeRustDeskId(formData.id)
     const api = formData.row_id ? apis[api_type].update : apis[api_type].create
     const res = await api(formData).catch(_ => false)
     if (res) {

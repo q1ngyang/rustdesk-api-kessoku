@@ -7,6 +7,7 @@ import (
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/response"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/utils"
 	"gorm.io/gorm"
 )
 
@@ -33,14 +34,22 @@ func (a *Audit) ConnList(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
+	query.PeerId = utils.NormalizeRustDeskID(query.PeerId)
+	query.FromPeer = utils.NormalizeRustDeskID(query.FromPeer)
+	dateRange, err := service.ParseCreatedAtRange(query.CreatedFrom, query.CreatedTo)
+	if err != nil {
+		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
+		return
+	}
 	res := service.AllService.AuditService.AuditConnList(query.Page, query.PageSize, func(tx *gorm.DB) *gorm.DB {
+		tx = dateRange.Apply(tx)
 		if query.PeerId != "" {
 			tx = tx.Where("peer_id like ?", "%"+query.PeerId+"%")
 		}
 		if query.FromPeer != "" {
 			tx = tx.Where("from_peer like ?", "%"+query.FromPeer+"%")
 		}
-		return tx.Order("id desc")
+		return tx
 	})
 	response.Success(c, res)
 }
@@ -134,14 +143,22 @@ func (a *Audit) FileList(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
+	query.PeerId = utils.NormalizeRustDeskID(query.PeerId)
+	query.FromPeer = utils.NormalizeRustDeskID(query.FromPeer)
+	dateRange, err := service.ParseCreatedAtRange(query.CreatedFrom, query.CreatedTo)
+	if err != nil {
+		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
+		return
+	}
 	res := service.AllService.AuditService.AuditFileList(query.Page, query.PageSize, func(tx *gorm.DB) *gorm.DB {
+		tx = dateRange.Apply(tx)
 		if query.PeerId != "" {
 			tx = tx.Where("peer_id like ?", "%"+query.PeerId+"%")
 		}
 		if query.FromPeer != "" {
 			tx = tx.Where("from_peer like ?", "%"+query.FromPeer+"%")
 		}
-		return tx.Order("id desc")
+		return tx
 	})
 	response.Success(c, res)
 }

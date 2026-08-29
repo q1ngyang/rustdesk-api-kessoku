@@ -29,7 +29,7 @@
     </section>
 
     <section class="metric-grid" aria-label="Personal overview">
-      <button v-for="metric in metrics" :key="metric.route" class="metric-card" type="button" @click="go(metric.route)">
+      <button v-for="metric in metrics" :key="metric.route" class="metric-card" type="button" @click="go(metric.route, metric.hash)">
         <span class="metric-card__icon" :class="`metric-card__icon--${metric.tone}`"><el-icon><component :is="metric.icon"/></el-icon></span>
         <span class="metric-card__copy"><small>{{ T(metric.label) }}</small><strong>{{ stats.loading ? '—' : metric.value }}</strong></span>
         <el-icon class="metric-card__arrow"><ArrowRight/></el-icon>
@@ -85,7 +85,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowRight, ChatDotRound, Collection, Connection, Edit, EditPen, Key, Lock, Monitor, Promotion, Share, Tickets as Shield, User as UserIcon, UserFilled } from '@element-plus/icons-vue'
+import { ArrowRight, ChatDotRound, Collection, Connection, Edit, EditPen, InfoFilled, Key, Lock, Monitor, Promotion, Tickets as Shield, User as UserIcon, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
@@ -98,7 +98,6 @@ import { bind, unbind } from '@/api/oauth'
 import { beginTwoFactor, confirmTwoFactor, disableTwoFactor, myOauth, twoFactorStatus, updateCurrentProfile, uploadAvatar } from '@/api/user'
 import { list as peerList } from '@/api/my/peer'
 import { list as addressBookList } from '@/api/my/address_book'
-import { list as shareRecordList } from '@/api/my/share_record'
 import { list as adminPeerList } from '@/api/peer'
 import { list as adminUserList } from '@/api/user'
 import { list as adminGroupList } from '@/api/group'
@@ -115,7 +114,7 @@ const oidcData = ref([])
 const twoFactorDialog = ref(false)
 const twoFactorMode = ref('enable')
 const twoFactor = reactive({ available: false, enabled: false, secret: '', uri: '', code: '', loading: false })
-const stats = reactive({ peers: '—', addressBooks: '—', shares: '—', users: '—', groups: '—', loading: true })
+const stats = reactive({ peers: '—', addressBooks: '—', users: '—', groups: '—', loading: true })
 const isAdmin = computed(() => userStore.role === 'admin' || userStore.role === 'super_admin')
 const isSuperAdmin = computed(() => userStore.role === 'super_admin')
 const roleLabel = computed(() => ({ admin: T('ScopedAdministrator'), super_admin: T('SuperAdministrator') }[userStore.role] || T('PersonalWorkspace')))
@@ -133,7 +132,7 @@ const metrics = computed(() => isAdmin.value ? [
 ] : [
   { label: 'Devices', value: stats.peers, route: 'MyPeer', icon: Monitor, tone: 'blue' },
   { label: 'AddressBooks', value: stats.addressBooks, route: 'MyAddressBookList', icon: Collection, tone: 'yellow' },
-  { label: 'ShareRecord', value: stats.shares, route: 'MyShareRecordList', icon: Share, tone: 'pink' },
+  { label: 'ServiceInformation', value: T('ViewDetails'), route: 'AboutService', hash: '#client-connection', icon: InfoFilled, tone: 'pink' },
 ])
 const quickLinks = computed(() => (isAdmin.value ? [
   { route: 'Peer', label: 'ManageDevices', description: 'AllDevicesDescription', icon: Monitor, tone: 'blue' },
@@ -158,7 +157,7 @@ const saveProfile = async () => {
     ElMessage.success(T('ProfileUpdated'))
   } finally { profile.saving = false }
 }
-const go = name => { if (router.hasRoute(name)) router.push({ name }) }
+const go = (name, hash = '') => { if (router.hasRoute(name)) router.push({ name, hash }) }
 const getMyOauth = async () => {
   const result = await myOauth().catch(() => false)
   if (result) oidcData.value = result.data || []
@@ -217,10 +216,9 @@ const loadStats = async () => {
     stats.loading = false
     return
   }
-  const [peers, addressBooks, shares] = await Promise.allSettled([peerList(query), addressBookList(query), shareRecordList(query)])
+  const [peers, addressBooks] = await Promise.allSettled([peerList(query), addressBookList(query)])
   stats.peers = peers.status === 'fulfilled' ? peers.value.data.total ?? peers.value.data.list?.length ?? 0 : '—'
   stats.addressBooks = addressBooks.status === 'fulfilled' ? addressBooks.value.data.total ?? addressBooks.value.data.list?.length ?? 0 : '—'
-  stats.shares = shares.status === 'fulfilled' ? shares.value.data.total ?? shares.value.data.list?.length ?? 0 : '—'
   stats.loading = false
 }
 onMounted(() => { getMyOauth(); loadStats(); loadTwoFactor() })

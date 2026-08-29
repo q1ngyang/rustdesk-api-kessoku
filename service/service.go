@@ -35,6 +35,7 @@ type Service struct {
 	*TwoFactorService
 	*SystemSettingService
 	*GeoIPService
+	*DataRetentionService
 }
 
 type Dependencies struct {
@@ -59,7 +60,7 @@ func New(c *config.Config, g *gorm.DB, l *log.Logger, authManager *internalAuth.
 	Logger = l
 	Auth = authManager
 	Lock = lo
-	AllService = &Service{StarryControlService: NewStarryControlService(c, l, authManager), BrandingService: &BrandingService{}, TwoFactorService: NewTwoFactorService(c.TwoFactor), SystemSettingService: &SystemSettingService{}, GeoIPService: NewGeoIPService(c)}
+	AllService = &Service{StarryControlService: NewStarryControlService(c, l, authManager), BrandingService: &BrandingService{}, TwoFactorService: NewTwoFactorService(c.TwoFactor), SystemSettingService: &SystemSettingService{}, GeoIPService: NewGeoIPService(c), DataRetentionService: &DataRetentionService{}}
 	return AllService
 }
 
