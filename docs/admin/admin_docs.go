@@ -7423,6 +7423,15 @@ const docTemplateadmin = `{
                 "conn_id": {
                     "type": "integer"
                 },
+                "controlled_ip": {
+                    "type": "string"
+                },
+                "controlled_username": {
+                    "type": "string"
+                },
+                "controller_username": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -7481,6 +7490,22 @@ const docTemplateadmin = `{
         "model.AuditFile": {
             "type": "object",
             "properties": {
+                "controlled_ip": {
+                    "type": "string"
+                },
+                "controlled_paths": {
+                    "description": "ControlledPaths is derived from the official RustDesk audit path plus\ninfo.files. Both source fields remain stored verbatim for audit fidelity.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "controlled_username": {
+                    "type": "string"
+                },
+                "controller_username": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
