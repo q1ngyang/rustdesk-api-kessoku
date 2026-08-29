@@ -295,8 +295,8 @@ test ! -e "$release/resources/web2"
 test -s "$release/resources/admin/index.html"
 test -s "$release/resources/client/index.html"
 test -s "$release/resources/client/third-party-licenses/@bufbuild-protobuf-2.9.0.txt"
-find "$release/resources/admin/static/chunk" -type f \
-  -name 'server_control-*.js' -print -quit | grep -q .
+grep -RFl --include='*.js' '/server-control/v1' \
+  "$release/resources/admin/static/chunk" | grep -q .
 test -z "$(find "$release" -type l -print -quit)"
 
 tar --sort=name --mtime='UTC 1970-01-01' \
