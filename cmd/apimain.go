@@ -31,7 +31,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const DatabaseVersion = 311
+const DatabaseVersion = 312
 
 const mysqlTLSProfile = "kessoku-verified-ca"
 
@@ -576,14 +576,49 @@ func Migrate(version uint) error {
 			return fmt.Errorf("migrate v309 unified branding: %w", err)
 		}
 	}
-	if err := global.DB.FirstOrCreate(&model.SecurityInvariantLock{Name: "enabled-admin"}).Error; err != nil {
-		return fmt.Errorf("create enabled-administrator invariant lock: %w", err)
-	}
+	// Normalize legacy authentication generations before any migration uses
+	// them as an authority boundary. This ordering matters for direct upgrades
+	// from releases that predate auth_version: a zero-valued active token must
+	// first become generation 1 before v312 can compare it with its owner.
 	if err := global.DB.Exec("UPDATE users SET auth_version = 1 WHERE auth_version IS NULL OR auth_version = 0").Error; err != nil {
 		return fmt.Errorf("backfill user auth version: %w", err)
 	}
 	if err := global.DB.Exec("UPDATE user_tokens SET auth_version = 1 WHERE auth_version IS NULL OR auth_version = 0").Error; err != nil {
 		return fmt.Errorf("backfill token auth version: %w", err)
+	}
+	if version >= 312 {
+		// Persist native-client type on the token itself so login-log retention
+		// cannot break device ownership recovery. Existing inventory timestamps
+		// are backfilled conservatively; empty peers remain at zero and therefore
+		// request a full sysinfo upload on their next heartbeat.
+		if err := global.DB.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Exec(`UPDATE user_tokens
+				SET client = COALESCE((
+					SELECT login_logs.client FROM login_logs
+					WHERE login_logs.user_token_id = user_tokens.id
+					ORDER BY login_logs.id DESC LIMIT 1
+				), '')
+				WHERE client IS NULL OR client = ''`).Error; err != nil {
+				return err
+			}
+			if err := tx.Exec(`UPDATE peers SET identity_source = CASE
+				WHEN uuid <> '' AND user_id > 0 THEN ?
+				ELSE ? END
+				WHERE identity_source IS NULL OR identity_source = ''`, model.PeerIdentitySourceLogin, model.PeerIdentitySourceManual).Error; err != nil {
+				return err
+			}
+			return tx.Exec(`UPDATE peers SET last_sysinfo_time = last_online_time
+				WHERE last_sysinfo_time = 0 AND last_online_time > 0
+				AND (cpu <> '' OR hostname <> '' OR memory <> '' OR os <> '' OR username <> '' OR version <> '')`).Error
+		}); err != nil {
+			return fmt.Errorf("migrate v312 device inventory metadata: %w", err)
+		}
+		if err := backfillActiveNativePeers(); err != nil {
+			return fmt.Errorf("migrate v312 active native devices: %w", err)
+		}
+	}
+	if err := global.DB.FirstOrCreate(&model.SecurityInvariantLock{Name: "enabled-admin"}).Error; err != nil {
+		return fmt.Errorf("create enabled-administrator invariant lock: %w", err)
 	}
 	if migrateLegacyRoles {
 		if err := global.DB.Exec("UPDATE users SET role = ? WHERE is_admin = ? AND (role IS NULL OR role = '' OR role NOT IN (?, ?))", model.UserRoleSuperAdmin, true, model.UserRoleAdmin, model.UserRoleSuperAdmin).Error; err != nil {
@@ -669,6 +704,93 @@ func Migrate(version uint) error {
 		global.Logger.Info("bootstrap administrator created; set its password with reset-admin-pwd --password-file")
 	}
 	return nil
+}
+
+func backfillActiveNativePeers() error {
+	if global.DB == nil {
+		return errors.New("database is unavailable")
+	}
+	now := time.Now().Unix()
+	var tokens []model.UserToken
+	if err := global.DB.Table("user_tokens").
+		Select("user_tokens.*").
+		Joins("JOIN users ON users.id = user_tokens.user_id").
+		Where("user_tokens.client IN ?", []string{model.LoginLogClientNative, model.LoginLogClientApp}).
+		Where("user_tokens.device_uuid <> '' AND user_tokens.device_id <> ''").
+		Where("user_tokens.revoked_at IS NULL AND user_tokens.expired_at > ?", now).
+		Where("users.status = ? AND users.auth_version = user_tokens.auth_version", model.COMMON_STATUS_ENABLE).
+		Order("user_tokens.issued_at DESC, user_tokens.id DESC").
+		Find(&tokens).Error; err != nil {
+		return err
+	}
+	for i := range tokens {
+		deviceID := utils.NormalizeRustDeskID(tokens[i].DeviceId)
+		if deviceID == "" {
+			continue
+		}
+		if deviceID != tokens[i].DeviceId {
+			if err := global.DB.Model(&model.UserToken{}).Where("id = ?", tokens[i].Id).Update("device_id", deviceID).Error; err != nil {
+				return err
+			}
+		}
+		err := global.DB.Transaction(func(tx *gorm.DB) error {
+			return bindMigratedNativePeer(tx, deviceID, tokens[i].DeviceUuid, tokens[i].UserId, now)
+		})
+		if errors.Is(err, service.ErrPeerIdentityConflict) {
+			if global.Logger != nil {
+				global.Logger.Warnf("skip conflicting active native device during v312 migration: token=%d id=%s", tokens[i].Id, deviceID)
+			}
+			continue
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func bindMigratedNativePeer(tx *gorm.DB, deviceID, deviceUUID string, userID uint, verifiedAt int64) error {
+	var byIDs []model.Peer
+	if err := tx.Where("id = ?", deviceID).Limit(2).Find(&byIDs).Error; err != nil {
+		return err
+	}
+	var byUUIDs []model.Peer
+	if err := tx.Where("uuid = ?", deviceUUID).Limit(2).Find(&byUUIDs).Error; err != nil {
+		return err
+	}
+	if len(byIDs) > 1 || len(byUUIDs) > 1 {
+		return service.ErrPeerIdentityConflict
+	}
+	var byID, byUUID *model.Peer
+	if len(byIDs) == 1 {
+		byID = &byIDs[0]
+	}
+	if len(byUUIDs) == 1 {
+		byUUID = &byUUIDs[0]
+	}
+	updates := map[string]interface{}{
+		"identity_source": model.PeerIdentitySourceLogin, "identity_verified_at": verifiedAt,
+	}
+	if byID != nil {
+		if byID.Uuid != "" && byID.Uuid != deviceUUID || byID.UserId != 0 && byID.UserId != userID || byUUID != nil && byUUID.RowId != byID.RowId {
+			return service.ErrPeerIdentityConflict
+		}
+		updates["uuid"] = deviceUUID
+		updates["user_id"] = userID
+		return tx.Model(byID).Updates(updates).Error
+	}
+	if byUUID != nil {
+		if byUUID.UserId != 0 && byUUID.UserId != userID {
+			return service.ErrPeerIdentityConflict
+		}
+		updates["id"] = deviceID
+		updates["user_id"] = userID
+		return tx.Model(byUUID).Updates(updates).Error
+	}
+	return tx.Create(&model.Peer{
+		Id: deviceID, Uuid: deviceUUID, UserId: userID,
+		IdentitySource: model.PeerIdentitySourceLogin, IdentityVerifiedAt: verifiedAt,
+	}).Error
 }
 
 func prepareLegacyOauthIdentityMigration() error {

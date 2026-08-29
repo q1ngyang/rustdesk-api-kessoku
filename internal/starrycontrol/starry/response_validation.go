@@ -28,6 +28,7 @@ func validateCapabilitiesResponse(result starrycontrol.Capabilities) error {
 		result.Capabilities.ConfigTransaction,
 		result.Capabilities.ConfigRollback,
 		result.Capabilities.ConnectionAuth,
+		result.Capabilities.PeerRegistry,
 	}
 	for _, version := range versions {
 		if version < 0 || version > 1 {

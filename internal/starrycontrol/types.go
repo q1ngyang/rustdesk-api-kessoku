@@ -32,6 +32,17 @@ type CapabilityVersions struct {
 	ConfigTransaction    int `json:"config_transaction"`
 	ConfigRollback       int `json:"config_rollback"`
 	ConnectionAuth       int `json:"connection_auth"`
+	PeerRegistry         int `json:"peer_registry"`
+}
+
+type PeerIdentityInput struct {
+	ID   string `json:"id"`
+	UUID string `json:"uuid"`
+}
+
+type PeerVerification struct {
+	InstanceID string `json:"instance_id"`
+	Registered bool   `json:"registered"`
 }
 
 type ConfigCapabilities struct {

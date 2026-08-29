@@ -9,6 +9,7 @@ type ServerControlProvider interface {
 	Capabilities(context.Context) (Capabilities, error)
 	Status(context.Context) (Status, error)
 	Relays(context.Context) (RelayInventory, error)
+	VerifyPeer(context.Context, PeerIdentityInput) (PeerVerification, error)
 	SimulateAllocation(context.Context, SimulationInput) (SimulationResult, error)
 	GetConfig(context.Context) (ConfigDocument, error)
 	GetConfigSchema(context.Context) (SchemaBundle, error)

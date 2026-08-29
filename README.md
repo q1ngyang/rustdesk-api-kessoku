@@ -8,7 +8,7 @@ open-source browser remote-desktop MVP, and integrates with
 [`rustdesk-server-starry`](https://github.com/q1ngyang/rustdesk-server-starry)
 through a typed, versioned Control API.
 
-> **v3.0.5 stable release.** v3.0.3 was the first supported v3 release. The
+> **v3.0.6 stable release.** v3.0.3 was the first supported v3 release. The
 > earlier v3.0.1 Release was withdrawn after significant integration defects.
 > The v3.0.2 tag records an unpublished release attempt and has no supported
 > Release assets or container image; v3.0.4 likewise remains an unpublished
@@ -36,7 +36,13 @@ Docker socket, or browser-supplied file path. Its browser client is repository-
 owned source; historical WebClient2/V2 and `resources/web*` assets remain
 excluded.
 
-## v3.0.5 highlights
+## v3.0.6 highlights
+
+- Secure automatic device discovery: active native sessions claim signed-in
+  clients, while Starry patch-v1.2.2 privately verifies the exact ID/UUID of
+  network clients that are not signed in. Complete inventory refreshes on
+  client startup/change and through a 24-hour heartbeat fallback, including
+  every matching address-book reference.
 
 - Responsive light/dark administration UI redesigned for desktop, tablet, and
   phone, centralized theme-aware branding, avatars, TOTP two-factor
@@ -61,11 +67,11 @@ excluded.
 - SQLite, MySQL, and PostgreSQL migration support; external MySQL/PostgreSQL
   connections require certificate- and hostname-verified TLS.
 - Docker `linux/amd64`, Linux x86_64 archive/binary, and amd64 DEB as the
-  v3.0.5 release scope. ARM remains best-effort and non-blocking.
+  v3.0.6 release scope. ARM remains best-effort and non-blocking.
 
 > **Upgrade notice:** v3 changes the Go module path to `/v3` and database role
-> semantics and upgrades the database to schema version 309. Read the
-> [breaking changes](docs/releases/v3.0.5/RELEASE-NOTES-v3.0.5.md#compatibility-and-upgrade-notes)
+> semantics and upgrades the database to schema version 312. Read the
+> [breaking changes](docs/releases/v3.0.6/RELEASE-NOTES-v3.0.6.md#compatibility-and-upgrade-notes)
 > before upgrading.
 
 ## Recommended deployment
@@ -74,7 +80,7 @@ Docker Compose on Linux amd64 is the recommended deployment. Use the immutable
 version tag and then record the resolved digest in your deployment:
 
 ```sh
-docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.5
+docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.6
 cp examples/compose.env.example .env
 cp examples/config.docker-builtin.yaml config.yaml
 # Edit .env/config.yaml and provision the referenced signing key first.
@@ -86,7 +92,7 @@ The Compose default binds API port 21114 and Web Client port 21122 to
 `127.0.0.1`. Publish them through two distinct reviewed HTTPS origins; see
 [`examples/Caddyfile.example`](examples/Caddyfile.example). The release also
 publishes `latest` for users who intentionally track the newest stable build,
-while production rollback should pin the `v3.0.5` digest.
+while production rollback should pin the `v3.0.6` digest.
 The exact `relay-wss-urls` map lives in mounted YAML, not an environment
 variable; follow the detailed Docker guide before startup.
 
@@ -123,9 +129,9 @@ those pages to GitHub Wiki is a separate release-owner action.
 ## Release status
 
 The authoritative gate is [`RELEASE_STATUS`](RELEASE_STATUS), with evidence
-requirements in [`RELEASE-CHECKLIST.md`](docs/releases/RELEASE-CHECKLIST.md). The v3.0.5
+requirements in [`RELEASE-CHECKLIST.md`](docs/releases/RELEASE-CHECKLIST.md). The v3.0.6
 feature and compatibility notes are in
-[`RELEASE-NOTES-v3.0.5.md`](docs/releases/v3.0.5/RELEASE-NOTES-v3.0.5.md).
+[`RELEASE-NOTES-v3.0.6.md`](docs/releases/v3.0.6/RELEASE-NOTES-v3.0.6.md).
 
 Local development checks are not permission to publish. Tagging, pushing,
 GHCR publication, GitHub Release creation, and Wiki publication require

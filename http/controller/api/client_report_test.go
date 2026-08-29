@@ -2,9 +2,12 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
@@ -47,8 +50,27 @@ func TestClientReportsRequireExactRegisteredDeviceIdentity(t *testing.T) {
 	if err := database.Create(&model.LoginLog{UserId: 42, Client: model.LoginLogClientNative, DeviceId: "desk-1", Uuid: "uuid-1"}).Error; err != nil {
 		t.Fatal(err)
 	}
+	historicalNative := sysinfo(`{"id":"desk-1","uuid":"uuid-1","hostname":"host"}`)
+	if historicalNative.Body.String() != "ID_NOT_FOUND" {
+		t.Fatalf("expired historical native login was trusted: %q", historicalNative.Body.String())
+	}
+	isAdmin := false
+	user := &model.User{IdModel: model.IdModel{Id: 42}, Username: "native-owner", Status: model.COMMON_STATUS_ENABLE, AuthVersion: 1, IsAdmin: &isAdmin}
+	if err := database.Create(user).Error; err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().Unix()
+	if err := database.Create(&model.UserToken{UserId: user.Id, DeviceId: "desk-1", DeviceUuid: "uuid-1", Client: model.LoginLogClientNative, AuthVersion: 1, IssuedAt: now, ExpiredAt: now + 3600}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if got := service.AllService.UserService.FindActiveNativeUserID("uuid-1", "desk-1", now); got != user.Id {
+		t.Fatalf("active native test fixture resolved to user %d, want %d", got, user.Id)
+	}
 	if err := database.Create(&model.Peer{Id: "desk-1", Alias: "manual placeholder"}).Error; err != nil {
 		t.Fatal(err)
+	}
+	if resolved, err := service.AllService.PeerService.ResolveReportIdentity(context.Background(), "desk-1", "uuid-1"); err != nil || resolved.UserId != user.Id {
+		t.Fatalf("active native identity did not claim placeholder: peer=%+v err=%v", resolved, err)
 	}
 	accepted := sysinfo(`{"id":" desk - 1 ","uuid":"uuid-1","hostname":"host"}`)
 	if accepted.Code != http.StatusOK || accepted.Body.String() != "SYSINFO_UPDATED" {
@@ -107,6 +129,9 @@ func TestClientReportsRequireExactRegisteredDeviceIdentity(t *testing.T) {
 	if err := database.Create(&model.LoginLog{UserId: 42, Client: model.LoginLogClientNative, DeviceId: "audit-only", Uuid: "uuid-audit"}).Error; err != nil {
 		t.Fatal(err)
 	}
+	if err := database.Create(&model.UserToken{UserId: user.Id, DeviceId: "audit-only", DeviceUuid: "uuid-audit", Client: model.LoginLogClientNative, AuthVersion: 1, IssuedAt: now + 1, ExpiredAt: now + 3600}).Error; err != nil {
+		t.Fatal(err)
+	}
 	auditBeforeSysinfo := audit(`{"action":"new","conn_id":9,"id":" audit - only ","uuid":"uuid-audit","peer":["target"]}`)
 	if auditBeforeSysinfo.Code != http.StatusOK {
 		t.Fatalf("audit before sysinfo = status %d body %q", auditBeforeSysinfo.Code, auditBeforeSysinfo.Body.String())
@@ -131,6 +156,102 @@ func TestClientReportsRequireExactRegisteredDeviceIdentity(t *testing.T) {
 	storedFile := &model.AuditFile{}
 	if err := database.First(storedFile).Error; err != nil || storedFile.PeerId != "audit-only" || storedFile.FromPeer != "remote-id" {
 		t.Fatalf("stored file audit IDs were not normalized: audit=%+v err=%v", storedFile, err)
+	}
+}
+
+type staticNetworkPeerVerifier struct {
+	id   string
+	uuid string
+}
+
+func (v staticNetworkPeerVerifier) VerifyPeerIdentity(_ context.Context, id, uuid string) (bool, error) {
+	return id == v.id && uuid == v.uuid, nil
+}
+
+func TestNetworkDiscoveryRefreshesPeerAndEveryAddressBookReference(t *testing.T) {
+	database := clientReportDatabase(t)
+	gin.SetMode(gin.TestMode)
+	const (
+		deviceID   = "301132036"
+		deviceUUID = "MDEyMzQ1Njc4OWFiY2RlZg=="
+	)
+	service.AllService.NetworkPeerVerifier = staticNetworkPeerVerifier{id: deviceID, uuid: deviceUUID}
+	addresses := []model.AddressBook{
+		{Id: deviceID, UserId: 1, Alias: "Studio", Password: "keep-one", Username: "stale-user", Hostname: "stale-host", Platform: "Linux", Tags: []byte(`["pink"]`)},
+		{Id: deviceID, UserId: 2, Alias: "Support", Password: "keep-two", Username: "old", Hostname: "old", Platform: "Linux", Tags: []byte(`["blue"]`)},
+	}
+	if err := database.Create(&addresses).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	sysinfo := func(body string) *httptest.ResponseRecorder {
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+		ctx.Request = httptest.NewRequest(http.MethodPost, "/api/sysinfo", strings.NewReader(body))
+		ctx.Request.Header.Set("Content-Type", "application/json")
+		ctx.Request.RemoteAddr = "198.51.100.20:44000"
+		(&Peer{}).SysInfo(ctx)
+		return recorder
+	}
+	first := sysinfo(`{"id":"301 132 036","uuid":"MDEyMzQ1Njc4OWFiY2RlZg==","cpu":"Ryzen 9","hostname":"render-one","memory":"64 GB","os":"Windows 11","username":"artist","version":"1.4.2"}`)
+	if first.Code != http.StatusOK || first.Body.String() != "SYSINFO_UPDATED" {
+		t.Fatalf("network sysinfo = status %d body %q", first.Code, first.Body.String())
+	}
+	peer := service.AllService.PeerService.FindById(deviceID)
+	if peer.RowId == 0 || peer.UserId != 0 || peer.IdentitySource != model.PeerIdentitySourceStarry || peer.Hostname != "render-one" || peer.LastSysinfoTime == 0 {
+		t.Fatalf("network peer was not discovered: %+v", peer)
+	}
+	var updated []model.AddressBook
+	if err := database.Where("id = ?", deviceID).Order("user_id").Find(&updated).Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(updated) != 2 || updated[0].Username != "artist" || updated[1].Hostname != "render-one" || updated[0].Alias != "Studio" || updated[0].Password != "keep-one" || string(updated[0].Tags) != `["pink"]` {
+		t.Fatalf("address-book metadata sync changed protected fields: %+v", updated)
+	}
+
+	second := sysinfo(`{"id":"301132036","uuid":"MDEyMzQ1Njc4OWFiY2RlZg==","hostname":"render-renamed","os":"Windows 11","version":"1.4.3"}`)
+	if second.Body.String() != "SYSINFO_UPDATED" {
+		t.Fatalf("second sysinfo = %q", second.Body.String())
+	}
+	peer = service.AllService.PeerService.FindById(deviceID)
+	if peer.Cpu != "" || peer.Memory != "" || peer.Username != "" || peer.Hostname != "render-renamed" || peer.Version != "1.4.3" {
+		t.Fatalf("zero-value inventory did not replace stale data: %+v", peer)
+	}
+	if err := database.Where("id = ?", deviceID).Order("user_id").Find(&updated).Error; err != nil {
+		t.Fatal(err)
+	}
+	if updated[0].Username != "" || updated[0].Hostname != "render-renamed" || updated[1].Hostname != "render-renamed" {
+		t.Fatalf("address books retained stale target metadata: %+v", updated)
+	}
+
+	// An older client may upload its cached address-book metadata after the
+	// target has refreshed. The verified server inventory must win while the
+	// client's personal fields still remain editable.
+	staleUpload := []*model.AddressBook{{
+		Id: deviceID, Username: "artist", Hostname: "render-one", Platform: "Linux",
+		Alias: "Renamed locally", Password: "new-secret", Tags: []byte(`["green"]`),
+	}}
+	if err := service.AllService.AddressBookService.UpdateAddressBook(staleUpload, 1); err != nil {
+		t.Fatal(err)
+	}
+	storedAddress := service.AllService.AddressBookService.InfoByUserIdAndId(1, deviceID)
+	if storedAddress.Username != "" || storedAddress.Hostname != "render-renamed" || storedAddress.Platform != "Windows" {
+		t.Fatalf("stale client metadata replaced verified inventory: %+v", storedAddress)
+	}
+	if storedAddress.Alias != "Renamed locally" || storedAddress.Password != "new-secret" || string(storedAddress.Tags) != `["green"]` {
+		t.Fatalf("verified enrichment replaced personal address-book fields: %+v", storedAddress)
+	}
+
+	if err := database.Model(&model.Peer{}).Where("row_id = ?", peer.RowId).Update("last_sysinfo_time", 0).Error; err != nil {
+		t.Fatal(err)
+	}
+	heartbeat := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(heartbeat)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/heartbeat", strings.NewReader(`{"id":"301 132 036","uuid":"MDEyMzQ1Njc4OWFiY2RlZg==","ver":10402}`))
+	ctx.Request.Header.Set("Content-Type", "application/json")
+	(&Index{}).Heartbeat(ctx)
+	if heartbeat.Code != http.StatusOK || !strings.Contains(heartbeat.Body.String(), `"sysinfo":true`) {
+		t.Fatalf("stale peer heartbeat did not request sysinfo: status=%d body=%q", heartbeat.Code, heartbeat.Body.String())
 	}
 }
 
@@ -159,7 +280,7 @@ func clientReportDatabase(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := database.AutoMigrate(&model.Peer{}, &model.LoginLog{}, &model.AuditConn{}, &model.AuditFile{}); err != nil {
+	if err := database.AutoMigrate(&model.User{}, &model.UserToken{}, &model.Peer{}, &model.AddressBook{}, &model.LoginLog{}, &model.AuditConn{}, &model.AuditFile{}); err != nil {
 		t.Fatal(err)
 	}
 	logger := logrus.New()

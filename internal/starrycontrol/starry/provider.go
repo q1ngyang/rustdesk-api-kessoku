@@ -98,6 +98,9 @@ func NewProvider(instance config.StarryInstance, control config.ServerControl) (
 		if !ok {
 			return "", errors.New("missing authenticated request metadata")
 		}
+		if metadata.Service {
+			return signer.SignService(instance.ExpectedInstanceID, scope)
+		}
 		return signer.Sign(instance.ExpectedInstanceID, scope, metadata.ActorUserID)
 	}, control.MaxResponseBytes())
 	if err != nil {
@@ -155,6 +158,20 @@ func (p *Provider) Relays(ctx context.Context) (starrycontrol.RelayInventory, er
 	}
 	if err := validateRelaysResponse(result); err != nil {
 		return starrycontrol.RelayInventory{}, err
+	}
+	return result, nil
+}
+
+func (p *Provider) VerifyPeer(ctx context.Context, input starrycontrol.PeerIdentityInput) (starrycontrol.PeerVerification, error) {
+	result := starrycontrol.PeerVerification{}
+	if !validIdentifier(input.ID, 128) || !validIdentifier(input.UUID, 256) {
+		return result, starrycontrol.ErrRequestInvalid
+	}
+	if err := p.call(ctx, clientgen.Request{Method: http.MethodPost, Path: "/control/v1/peers:verify", Scope: "starry.peer.verify", Body: input}, &result); err != nil {
+		return result, err
+	}
+	if result.InstanceID != p.instanceID {
+		return starrycontrol.PeerVerification{}, contractResponseError()
 	}
 	return result, nil
 }

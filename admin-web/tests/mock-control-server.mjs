@@ -182,7 +182,7 @@ async function handleAdminAPI (request, response, url) {
   if (operation === '/capabilities' && request.method === 'GET') {
     control(response, {
       protocol: { name: 'starry-control', version: 'v1' },
-      instance: { id: instanceID, starry_version: 'patch-v1.2.0-local' },
+      instance: { id: instanceID, starry_version: 'patch-v1.2.2-local' },
       capabilities: { config_transaction: true, allocation_simulation: true, runtime_reload: true },
       config: { schema_version: 3, schema_digest: 'sha256:qa-schema-digest' },
     })

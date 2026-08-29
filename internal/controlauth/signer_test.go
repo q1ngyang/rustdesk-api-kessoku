@@ -43,7 +43,7 @@ func TestSignerProducesShortScopedServiceJWT(t *testing.T) {
 	if err != nil || !token.Valid {
 		t.Fatalf("verify control JWT: %v", err)
 	}
-	if claims.Subject != ServiceSubject || claims.AuthorizedParty != "kessoku-production" || claims.Actor.Subject != "user:42" {
+	if claims.Subject != ServiceSubject || claims.AuthorizedParty != "kessoku-production" || claims.Actor == nil || claims.Actor.Subject != "user:42" {
 		t.Fatalf("unexpected control claims: %+v", claims)
 	}
 	if len(claims.Audience) != 1 || claims.Audience[0] != "urn:starry-control:0191f6a0-0000-7000-8000-000000000001" {
@@ -58,7 +58,19 @@ func TestSignerProducesShortScopedServiceJWT(t *testing.T) {
 	if token.Header["kid"] != "control-1" || token.Header["alg"] != "EdDSA" {
 		t.Fatalf("unexpected header: %+v", token.Header)
 	}
-
+	serviceSigned, err := signer.SignService("0191f6a0-0000-7000-8000-000000000001", "starry.peer.verify")
+	if err != nil {
+		t.Fatal(err)
+	}
+	serviceClaims := &Claims{}
+	if _, err := jwt.ParseWithClaims(serviceSigned, serviceClaims, func(token *jwt.Token) (interface{}, error) {
+		return publicKey, nil
+	}, jwt.WithValidMethods([]string{"EdDSA"}), jwt.WithTimeFunc(func() time.Time { return now })); err != nil {
+		t.Fatal(err)
+	}
+	if serviceClaims.Actor != nil || serviceClaims.Subject != ServiceSubject {
+		t.Fatalf("service token unexpectedly delegated an actor: %+v", serviceClaims)
+	}
 	if _, err := NewSigner("issuer", "azp", "kid", path, 6*time.Minute); err == nil {
 		t.Fatal("control lifetime over five minutes accepted")
 	}

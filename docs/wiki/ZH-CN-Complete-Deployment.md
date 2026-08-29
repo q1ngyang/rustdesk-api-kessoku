@@ -140,9 +140,9 @@ STARRY_DATA_DIR=/opt/rustdesk-stack/data/starry
 镜像建议固定为：
 
 ```dotenv
-KESSOKU_IMAGE=ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.5
+KESSOKU_IMAGE=ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.6
 STARRY_IMAGE=ghcr.io/q1ngyang/rustdesk-server-starry
-STARRY_VERSION=1.1.16-patch-v1.2.0
+STARRY_VERSION=1.1.16-patch-v1.2.2
 ```
 
 此时暂时保留：

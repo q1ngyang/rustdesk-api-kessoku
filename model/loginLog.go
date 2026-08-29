@@ -9,7 +9,7 @@ type LoginLog struct {
 	Ip          string `json:"ip"`
 	Type        string `json:"type"`     //account,oauth
 	Platform    string `json:"platform"` //windows,linux,mac,android,ios
-	UserTokenId uint   `json:"user_token_id" gorm:"default:0;not null;"`
+	UserTokenId uint   `json:"user_token_id" gorm:"default:0;not null;index"`
 	IsDeleted   uint   `json:"is_deleted" gorm:"default:0;not null;"`
 	TimeModel
 }

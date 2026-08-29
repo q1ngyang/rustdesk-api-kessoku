@@ -11,7 +11,7 @@ Flutter Web output, externally built JavaScript, or downloaded WASM.
 ## Supported MVP
 
 - outgoing remote-control sessions through forced Relay over WSS;
-- RustDesk 1.4.9 protocol compatibility against Starry patch-v1.2.0;
+- RustDesk 1.4.9 protocol compatibility against Starry patch-v1.2.2;
 - signed peer-key verification and fail-closed encrypted sessions;
 - VP9 video through browser WebCodecs and Canvas 2D rendering; and
 - bounded mouse plus basic keyboard input.

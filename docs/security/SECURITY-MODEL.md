@@ -194,13 +194,15 @@ See [WEB-CLIENT.md](../deployment/WEB-CLIENT.md).
 - A compromised administrator can request all operations exposed by the typed
   API, but cannot turn it into a raw command or arbitrary-URL proxy.
 - RustDesk 1.4.9 audit/sysinfo uploads have no authorization header. The
-  compatibility surface is limited to 64 KiB, bounded fields, and an exact
-  already-persisted peer ID/UUID; the request cannot change its owner. A UUID
-  is not a secret, so someone who knows both values can still submit spoofed
-  operational telemetry.
+  compatibility surface is limited to 64 KiB and bounded fields. A missing or
+  changed identity requires either an active native Kessoku session or an
+  exact ID/UUID match in Starry's private HBBS registry; Starry exposes no peer
+  listing or metadata through that check. An already verified exact identity
+  remains a compatibility trust anchor, so a UUID must not be treated as a
+  reusable secret or immutable external attestation.
 - Audit rows are operational evidence, not an immutable external audit ledger.
   Export them to append-only storage where non-repudiation is required.
-- The published Starry `1.1.16-patch-v1.2.0` image and binaries are pinned by
+- The published Starry `1.1.16-patch-v1.2.2` image and binaries are pinned by
   digest/hash. RustDesk 1.4.9 forced-Relay sessions passed audit native/native
   and enforce native/native, WSS/WSS, WSS/native, and native/WSS. Direct P2P
   and a separate Secure TCP case were not claimed by that matrix.

@@ -13,7 +13,7 @@ the profile below.
   `6c578292e8ebbbec708b76986ba8c4bc7c509747`.
 - That tag pins its protocol submodule to
   `7e1c392c62d39c364127307cd408421dd5f8cfb0`.
-- Starry compatibility target: published `patch-v1.2.0` WSS paths.
+- Starry compatibility target: published `patch-v1.2.2` WSS paths.
 - Browser transport is forced Relay over WSS. Direct TCP, UDP and P2P are not
   part of this profile.
 

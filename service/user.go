@@ -253,6 +253,7 @@ func (us *UserService) persistIssuedToken(u *model.User, llog *model.LoginLog, i
 		AuthVersion: issued.AuthVersion,
 		IssuedAt:    issued.IssuedAt,
 		ExpiredAt:   issued.ExpiresAt,
+		Client:      llog.Client,
 	}
 	tx := DB.Begin()
 	if tx.Error != nil {
@@ -940,11 +941,31 @@ func (us *UserService) UserThirdInfo(userId uint, op string) *model.UserThird {
 	return ut
 }
 
-// FindLatestUserIdFromLoginLogByUuid 根据uuid和设备id查找最后登录的用户id
-func (us *UserService) FindLatestUserIdFromLoginLogByUuid(uuid string, deviceId string) uint {
-	llog := &model.LoginLog{}
-	DB.Where("uuid = ? and device_id = ? and client in ?", uuid, utils.NormalizeRustDeskID(deviceId), []string{model.LoginLogClientNative, model.LoginLogClientApp}).Order("id desc").First(llog)
-	return llog.UserId
+// FindActiveNativeUserID resolves ownership only from a currently valid native
+// client session. Historical login logs alone are not authority: the token may
+// have expired, been revoked, or been invalidated by an auth-version change.
+func (us *UserService) FindActiveNativeUserID(uuid string, deviceID string, now int64) uint {
+	if DB == nil || uuid == "" {
+		return 0
+	}
+	deviceID = utils.NormalizeRustDeskID(deviceID)
+	if deviceID == "" {
+		return 0
+	}
+	token := &model.UserToken{}
+	err := DB.Table("user_tokens").
+		Select("user_tokens.*").
+		Joins("JOIN users ON users.id = user_tokens.user_id").
+		Where("user_tokens.device_uuid = ? AND user_tokens.device_id = ?", uuid, deviceID).
+		Where("user_tokens.client IN ?", []string{model.LoginLogClientNative, model.LoginLogClientApp}).
+		Where("user_tokens.revoked_at IS NULL AND user_tokens.expired_at > ?", now).
+		Where("users.status = ? AND users.auth_version = user_tokens.auth_version", model.COMMON_STATUS_ENABLE).
+		Order("user_tokens.issued_at DESC, user_tokens.id DESC").
+		First(token).Error
+	if err != nil {
+		return 0
+	}
+	return token.UserId
 }
 
 // IsPasswordEmptyById 根据用户id判断密码是否为空，主要用于第三方登录的自动注册

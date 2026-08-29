@@ -15,9 +15,11 @@ type UserToken struct {
 	RevokedAt     *int64  `json:"revoked_at,omitempty" gorm:"index"`
 	RevokedReason string  `json:"revoked_reason,omitempty" gorm:"default:'';not null;"`
 	CredentialID  string  `json:"credential_id" gorm:"-"`
-	Client        string  `json:"client" gorm:"-"`
-	Platform      string  `json:"platform" gorm:"-"`
-	CreatedIP     string  `json:"created_ip" gorm:"-"`
+	// Client is persisted so an active native session remains identifiable even
+	// after login-audit retention removes its LoginLog row.
+	Client    string `json:"client" gorm:"size:32;default:'';not null;index"`
+	Platform  string `json:"platform" gorm:"-"`
+	CreatedIP string `json:"created_ip" gorm:"-"`
 	TimeModel
 }
 

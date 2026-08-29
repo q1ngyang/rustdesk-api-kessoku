@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	request "github.com/q1ngyang/rustdesk-api-kessoku/v3/http/request/api"
@@ -37,7 +38,7 @@ func (a *Audit) AuditConn(c *gin.Context) {
 	if len(af.Peer) > 0 {
 		af.Peer[0] = utils.NormalizeRustDeskID(af.Peer[0])
 	}
-	if !validAuditConnReport(af) || !peerReportIdentityMatches(af.Id, af.Uuid) {
+	if !validAuditConnReport(af) || !peerReportIdentityMatches(c.Request.Context(), af.Id, af.Uuid) {
 		response.Error(c, response.TranslateMsg(c, "ParamsError"))
 		return
 	}
@@ -106,7 +107,7 @@ func (a *Audit) AuditFile(c *gin.Context) {
 	}
 	aff.Id = utils.NormalizeRustDeskID(aff.Id)
 	aff.PeerId = utils.NormalizeRustDeskID(aff.PeerId)
-	if !validAuditFileReport(aff) || !peerReportIdentityMatches(aff.Id, aff.Uuid) {
+	if !validAuditFileReport(aff) || !peerReportIdentityMatches(c.Request.Context(), aff.Id, aff.Uuid) {
 		response.Error(c, response.TranslateMsg(c, "ParamsError"))
 		return
 	}
@@ -121,23 +122,12 @@ func (a *Audit) AuditFile(c *gin.Context) {
 	response.Success(c, "")
 }
 
-func peerReportIdentityMatches(peerID, uuid string) bool {
+func peerReportIdentityMatches(ctx context.Context, peerID, uuid string) bool {
 	if !boundedReportField(peerID, 128) || !boundedReportField(uuid, 256) {
 		return false
 	}
-	peer := service.AllService.PeerService.FindById(peerID)
-	if peer.RowId != 0 && peer.Uuid == uuid {
-		return true
-	}
-	// A client may emit its first connection/file audit before its next
-	// sysinfo retry. Recover only from an exact prior native-login identity;
-	// browser sessions and unknown UUIDs cannot claim a peer.
-	userID := service.AllService.UserService.FindLatestUserIdFromLoginLogByUuid(uuid, peerID)
-	if userID == 0 || service.AllService.PeerService.BindLoginIdentity(peerID, uuid, userID) != nil {
-		return false
-	}
-	peer = service.AllService.PeerService.FindById(peerID)
-	return peer.RowId != 0 && peer.Uuid == uuid && peer.UserId == userID
+	peer, err := service.AllService.PeerService.ResolveReportIdentity(ctx, peerID, uuid)
+	return err == nil && peer != nil && peer.RowId != 0 && peer.Uuid == uuid
 }
 
 func validAuditConnReport(form *request.AuditConnForm) bool {

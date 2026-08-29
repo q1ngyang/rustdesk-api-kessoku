@@ -2,8 +2,8 @@
 
 **English** | [简体中文](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Upgrade-and-Rollback)
 
-Back up data and keys before changing an image or schema. Kessoku v3.0.5 uses
-database version `309`; an older image must not write a database already
+Back up data and keys before changing an image or schema. Kessoku v3.0.6 uses
+database version `312`; an older image must not write a database already
 migrated by this release.
 
 ## Before an upgrade
@@ -51,7 +51,15 @@ Obtain a consistent SQLite copy by stopping the service briefly or using a
 SQLite-aware snapshot. Store the backup outside the deployment directory and
 verify that its files can be listed and read before proceeding.
 
-## Upgrade Kessoku only
+## Upgrade Starry for network discovery
+
+Before Kessoku v3.0.6, upgrade the center HBBS and its Control Agent to Starry
+`1.1.16-patch-v1.2.2` when clients that are not signed in must be discovered.
+Relay-only nodes need no change for this capability. Preserve the Starry data,
+identity key, instance ID, certificates, and service-JWT trust, then verify ID
+registration, native peer-to-peer, forced Relay, and WSS.
+
+## Upgrade Kessoku
 
 Edit `KESSOKU_IMAGE` in `.env` to the new explicit tag, then run:
 
@@ -63,7 +71,7 @@ docker compose --env-file .env -f compose.yaml ps
 docker compose --env-file .env -f compose.yaml logs --tail 180 kessoku-api
 ```
 
-Do not upgrade Starry in the same step. First verify:
+After starting Kessoku, first verify:
 
 - no configuration or database migration error appears;
 - administrator and ordinary-user login work;
@@ -72,10 +80,10 @@ Do not upgrade Starry in the same step. First verify:
 - one native and one forced-Relay session work;
 - the built-in browser client works when enabled.
 
-## Upgrade Starry
+## Upgrade other Starry nodes
 
-After Kessoku is stable, change `STARRY_VERSION`, then update HBBS first and
-HBBR second:
+After Kessoku is stable, update any remaining Starry nodes. Change
+`STARRY_VERSION`, then update HBBS first and HBBR second:
 
 ```sh
 docker compose --env-file .env -f compose.yaml config --quiet
@@ -125,7 +133,7 @@ Restoring only `rustdeskapi.db` can break TOTP secrets and uploaded-image
 references. Restoring only signing keys without the matching database can also
 produce confusing token behavior. Treat them as one versioned recovery set.
 
-For a rollback from v3 database `309` to v3.0.1, v3.0.0, or any v2 image,
+For a rollback from v3 database `312` to v3.0.5 or any older image,
 restore the complete matching recovery set. Never delete new tables or lower
 the database version to force an older process to start.
 

@@ -1,6 +1,9 @@
 # Database and Authentication Migration Guide
 
-For the unified branding and WebClient connection-audit upgrade from 308 to
+For the verified native-device discovery and inventory refresh upgrade from
+311 to 312, first follow
+[`MIGRATION-v3.0.6.md`](v3.0.6/MIGRATION-v3.0.6.md). For the unified branding
+and WebClient connection-audit upgrade from 308 to
 309, first follow [`MIGRATION-309.md`](MIGRATION-309.md). For the
 account-synchronized language/theme preference upgrade from 307 to 308, first
 follow [`MIGRATION-308.md`](MIGRATION-308.md). For the theme-aware
@@ -18,8 +21,8 @@ the authoritative path for older databases and v2/v3 role compatibility.
 
 This guide documents the version 301 authentication foundation. The historical
 v3.0.1 migration then reaches database version 302 for enterprise roles and
-scoped administration. The supported v3.0.5 release continues to use version
-309. Follow [`MIGRATION-v3.0.5.md`](v3.0.5/MIGRATION-v3.0.5.md) for the complete
+scoped administration. The supported v3.0.6 release reaches version 312.
+Follow [`MIGRATION-v3.0.6.md`](v3.0.6/MIGRATION-v3.0.6.md) for the complete
 upgrade and rollback procedure, and rehearse every step against a restored
 production backup before a maintenance window.
 

@@ -10,6 +10,7 @@ import (
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/utils"
 	"net/http"
 	"strings"
+	"time"
 )
 
 const maxClientReportBytes = 64 << 10
@@ -41,43 +42,13 @@ func (p *Peer) SysInfo(c *gin.Context) {
 		return
 	}
 	fpe := f.ToPeer()
-	pe := service.AllService.PeerService.FindById(f.Id)
-	if pe.RowId == 0 {
-		userID := service.AllService.UserService.FindLatestUserIdFromLoginLogByUuid(f.Uuid, f.Id)
-		if userID == 0 {
-			c.String(http.StatusOK, "ID_NOT_FOUND")
-			return
-		}
-		pe = fpe
-		pe.UserId = userID
-		err = service.AllService.PeerService.Create(pe)
-		if err != nil {
-			response.Error(c, response.TranslateMsg(c, "OperationFailed")+err.Error())
-			return
-		}
-	} else {
-		// An administrator may create an ID-only placeholder before the native
-		// client reports its system information.  Bind that empty identity only
-		// after an exact login-log match; once a UUID exists, never let another
-		// device overwrite it.
-		if pe.Uuid != "" && pe.Uuid != f.Uuid {
-			c.String(http.StatusOK, "ID_NOT_FOUND")
-			return
-		}
-		if pe.Uuid == "" || pe.UserId == 0 {
-			pe.UserId = service.AllService.UserService.FindLatestUserIdFromLoginLogByUuid(f.Uuid, f.Id)
-			if pe.UserId == 0 {
-				c.String(http.StatusOK, "ID_NOT_FOUND")
-				return
-			}
-		}
-		fpe.RowId = pe.RowId
-		fpe.UserId = pe.UserId
-		err = service.AllService.PeerService.Update(fpe)
-		if err != nil {
-			response.Error(c, response.TranslateMsg(c, "OperationFailed")+err.Error())
-			return
-		}
+	if _, err = service.AllService.PeerService.ResolveReportIdentity(c.Request.Context(), f.Id, f.Uuid); err != nil {
+		c.String(http.StatusOK, "ID_NOT_FOUND")
+		return
+	}
+	if err = service.AllService.PeerService.StoreSysinfo(fpe, c.ClientIP(), time.Now().Unix()); err != nil {
+		response.Error(c, response.TranslateMsg(c, "OperationFailed")+err.Error())
+		return
 	}
 	//SYSINFO_UPDATED 上传成功
 	//ID_NOT_FOUND 下次心跳会上传

@@ -204,6 +204,7 @@ func controlRequestPolicy(method, path string) (requestPolicy, bool) {
 		"GET /control/v1/capabilities":          {scope: "starry.control.read"},
 		"GET /control/v1/status":                {scope: "starry.control.read"},
 		"GET /control/v1/relays":                {scope: "starry.relay.read"},
+		"POST /control/v1/peers:verify":         {scope: "starry.peer.verify", bodyRequired: true},
 		"POST /control/v1/allocations:simulate": {scope: "starry.relay.simulate", bodyRequired: true},
 		"GET /control/v1/config":                {scope: "starry.config.read"},
 		"GET /control/v1/config/schema":         {scope: "starry.config.read"},

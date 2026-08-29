@@ -10,7 +10,7 @@ endpoint for the built-in browser client.
 The node supports the official
 [`rustdesk/rustdesk-server:1.1.16`](https://hub.docker.com/r/rustdesk/rustdesk-server/tags?name=1.1.16)
 HBBR. The recommended default is the HBBR bundled in
-[`q1ngyang/rustdesk-server-starry:1.1.16-patch-v1.2.0`](https://github.com/q1ngyang/rustdesk-server-starry).
+[`q1ngyang/rustdesk-server-starry:1.1.16-patch-v1.2.2`](https://github.com/q1ngyang/rustdesk-server-starry).
 That HBBR remains
 unmodified upstream code, but using the same pinned upstream revision as the
 Starry centre avoids independent HBBS/HBBR version drift. Both image choices
@@ -75,7 +75,7 @@ only the public key through `KEY`.
 The active Compose line is the recommended image:
 
 ```yaml
-image: ${STARRY_IMAGE:-ghcr.io/q1ngyang/rustdesk-server-starry}:${STARRY_VERSION:-1.1.16-patch-v1.2.0}
+image: ${STARRY_IMAGE:-ghcr.io/q1ngyang/rustdesk-server-starry}:${STARRY_VERSION:-1.1.16-patch-v1.2.2}
 # image: ${OFFICIAL_HBBR_IMAGE:-rustdesk/rustdesk-server:1.1.16}
 ```
 
@@ -83,7 +83,7 @@ The matching `.env` entries are:
 
 ```dotenv
 STARRY_IMAGE=ghcr.io/q1ngyang/rustdesk-server-starry
-STARRY_VERSION=1.1.16-patch-v1.2.0
+STARRY_VERSION=1.1.16-patch-v1.2.2
 # OFFICIAL_HBBR_IMAGE=rustdesk/rustdesk-server:1.1.16
 ```
 

@@ -214,6 +214,107 @@ func assertRestoredMigrationFixture(t *testing.T, database *gorm.DB) {
 	}
 }
 
+func TestMigrateV312RecoversOnlyActiveNativeDevices(t *testing.T) {
+	database, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "device-v312.db")), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(&model.Version{}, &model.User{}, &model.UserToken{}, &model.LoginLog{}, &model.Peer{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Create(&model.Version{Version: 311}).Error; err != nil {
+		t.Fatal(err)
+	}
+	isAdmin := false
+	user := &model.User{Username: "migration-native", Status: model.COMMON_STATUS_ENABLE, AuthVersion: 1, IsAdmin: &isAdmin}
+	if err := database.Create(user).Error; err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().Unix()
+	active := &model.UserToken{UserId: user.Id, DeviceId: " 384 308 369 ", DeviceUuid: "uuid-active", AuthVersion: 1, IssuedAt: now, ExpiredAt: now + 3600}
+	if err := database.Create(active).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Create(&model.LoginLog{UserId: user.Id, Client: model.LoginLogClientNative, DeviceId: active.DeviceId, Uuid: active.DeviceUuid, UserTokenId: active.Id}).Error; err != nil {
+		t.Fatal(err)
+	}
+	revokedAt := now - 10
+	revoked := &model.UserToken{UserId: user.Id, DeviceId: "999 000 111", DeviceUuid: "uuid-revoked", AuthVersion: 1, IssuedAt: now - 100, ExpiredAt: now + 3600, RevokedAt: &revokedAt}
+	if err := database.Create(revoked).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Create(&model.LoginLog{UserId: user.Id, Client: model.LoginLogClientNative, DeviceId: revoked.DeviceId, Uuid: revoked.DeviceUuid, UserTokenId: revoked.Id}).Error; err != nil {
+		t.Fatal(err)
+	}
+	disabledUser := &model.User{Username: "migration-disabled", Status: model.COMMON_STATUS_DISABLED, AuthVersion: 1, IsAdmin: &isAdmin}
+	if err := database.Create(disabledUser).Error; err != nil {
+		t.Fatal(err)
+	}
+	excluded := []struct {
+		token  model.UserToken
+		client string
+	}{
+		{token: model.UserToken{UserId: user.Id, DeviceId: "expired", DeviceUuid: "uuid-expired", AuthVersion: 1, IssuedAt: now - 7200, ExpiredAt: now - 1}, client: model.LoginLogClientNative},
+		{token: model.UserToken{UserId: user.Id, DeviceId: "browser", DeviceUuid: "uuid-browser", AuthVersion: 1, IssuedAt: now, ExpiredAt: now + 3600}, client: model.LoginLogClientWebAdmin},
+		{token: model.UserToken{UserId: user.Id, DeviceId: "stale-auth", DeviceUuid: "uuid-stale-auth", AuthVersion: 2, IssuedAt: now, ExpiredAt: now + 3600}, client: model.LoginLogClientNative},
+		{token: model.UserToken{UserId: disabledUser.Id, DeviceId: "disabled", DeviceUuid: "uuid-disabled", AuthVersion: 1, IssuedAt: now, ExpiredAt: now + 3600}, client: model.LoginLogClientNative},
+	}
+	for i := range excluded {
+		if err := database.Create(&excluded[i].token).Error; err != nil {
+			t.Fatal(err)
+		}
+		if err := database.Create(&model.LoginLog{
+			UserId: excluded[i].token.UserId, Client: excluded[i].client,
+			DeviceId: excluded[i].token.DeviceId, Uuid: excluded[i].token.DeviceUuid,
+			UserTokenId: excluded[i].token.Id,
+		}).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := database.Create(&model.Peer{Id: "384308369", Alias: "preserve-me"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	// Simulate a direct upgrade from a release that predates auth_version. The
+	// generic generation backfill must run before v312 evaluates this session.
+	if err := database.Model(&model.User{}).Where("id = ?", user.Id).Update("auth_version", 0).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Model(&model.UserToken{}).Where("id = ?", active.Id).Update("auth_version", 0).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	oldDB, oldLogger := global.DB, global.Logger
+	t.Cleanup(func() { global.DB, global.Logger = oldDB, oldLogger })
+	global.DB, global.Logger = database, logrus.New()
+	if err := Migrate(DatabaseVersion); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.First(active, active.Id).Error; err != nil {
+		t.Fatal(err)
+	}
+	if active.Client != model.LoginLogClientNative || active.DeviceId != "384308369" || active.AuthVersion != 1 {
+		t.Fatalf("active token migration incomplete: %+v", active)
+	}
+	peer := &model.Peer{}
+	if err := database.Where("id = ?", "384308369").First(peer).Error; err != nil {
+		t.Fatal(err)
+	}
+	if peer.Uuid != active.DeviceUuid || peer.UserId != user.Id || peer.IdentitySource != model.PeerIdentitySourceLogin || peer.LastSysinfoTime != 0 || peer.Alias != "preserve-me" {
+		t.Fatalf("active native peer migration incomplete: %+v", peer)
+	}
+	excludedUUIDs := []string{revoked.DeviceUuid}
+	for i := range excluded {
+		excludedUUIDs = append(excludedUUIDs, excluded[i].token.DeviceUuid)
+	}
+	var excludedPeerCount int64
+	if err := database.Model(&model.Peer{}).Where("uuid IN ?", excludedUUIDs).Count(&excludedPeerCount).Error; err != nil {
+		t.Fatal(err)
+	}
+	if excludedPeerCount != 0 {
+		t.Fatalf("%d ineligible sessions were resurrected as peers", excludedPeerCount)
+	}
+}
+
 func testMigrationFixture(t *testing.T, database *gorm.DB) {
 	t.Helper()
 	oldDB, oldLogger := global.DB, global.Logger
