@@ -8,15 +8,16 @@ open-source browser remote-desktop MVP, and integrates with
 [`rustdesk-server-starry`](https://github.com/q1ngyang/rustdesk-server-starry)
 through a typed, versioned Control API.
 
-> **v3.0.4 stable release.** v3.0.3 was the first supported v3 release. The
+> **v3.0.5 stable release.** v3.0.3 was the first supported v3 release. The
 > earlier v3.0.1 Release was withdrawn after significant integration defects.
 > The v3.0.2 tag records an unpublished release attempt and has no supported
-> Release assets or container image.
+> Release assets or container image; v3.0.4 likewise remains an unpublished
+> failed-candidate record.
 > The implementation and Linux
 > amd64 checks are complete, the official Starry contract is pinned, and both
 > the published Starry native-client matrix and built-in browser forced-Relay
-> fixture pass. The immutable tag is published only through the protected
-> candidate/release workflow. Verify the GitHub Release checksums and pin the
+> fixture pass. The complete candidate and publication-readiness checks finish
+> before the protected workflow creates the immutable tag. Verify the GitHub Release checksums and pin the
 > versioned GHCR digest for production.
 
 ## Component boundary
@@ -35,7 +36,7 @@ Docker socket, or browser-supplied file path. Its browser client is repository-
 owned source; historical WebClient2/V2 and `resources/web*` assets remain
 excluded.
 
-## v3.0.4 highlights
+## v3.0.5 highlights
 
 - Responsive light/dark administration UI redesigned for desktop, tablet, and
   phone, centralized theme-aware branding, avatars, TOTP two-factor
@@ -60,11 +61,11 @@ excluded.
 - SQLite, MySQL, and PostgreSQL migration support; external MySQL/PostgreSQL
   connections require certificate- and hostname-verified TLS.
 - Docker `linux/amd64`, Linux x86_64 archive/binary, and amd64 DEB as the
-  v3.0.4 release scope. ARM remains best-effort and non-blocking.
+  v3.0.5 release scope. ARM remains best-effort and non-blocking.
 
 > **Upgrade notice:** v3 changes the Go module path to `/v3` and database role
 > semantics and upgrades the database to schema version 309. Read the
-> [breaking changes](docs/releases/v3.0.4/RELEASE-NOTES-v3.0.4.md#compatibility-and-upgrade-notes)
+> [breaking changes](docs/releases/v3.0.5/RELEASE-NOTES-v3.0.5.md#compatibility-and-upgrade-notes)
 > before upgrading.
 
 ## Recommended deployment
@@ -73,7 +74,7 @@ Docker Compose on Linux amd64 is the recommended deployment. Use the immutable
 version tag and then record the resolved digest in your deployment:
 
 ```sh
-docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.4
+docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.5
 cp examples/compose.env.example .env
 cp examples/config.docker-builtin.yaml config.yaml
 # Edit .env/config.yaml and provision the referenced signing key first.
@@ -85,7 +86,7 @@ The Compose default binds API port 21114 and Web Client port 21122 to
 `127.0.0.1`. Publish them through two distinct reviewed HTTPS origins; see
 [`examples/Caddyfile.example`](examples/Caddyfile.example). The release also
 publishes `latest` for users who intentionally track the newest stable build,
-while production rollback should pin the `v3.0.4` digest.
+while production rollback should pin the `v3.0.5` digest.
 The exact `relay-wss-urls` map lives in mounted YAML, not an environment
 variable; follow the detailed Docker guide before startup.
 
@@ -122,9 +123,9 @@ those pages to GitHub Wiki is a separate release-owner action.
 ## Release status
 
 The authoritative gate is [`RELEASE_STATUS`](RELEASE_STATUS), with evidence
-requirements in [`RELEASE-CHECKLIST.md`](docs/releases/RELEASE-CHECKLIST.md). The v3.0.4
+requirements in [`RELEASE-CHECKLIST.md`](docs/releases/RELEASE-CHECKLIST.md). The v3.0.5
 feature and compatibility notes are in
-[`RELEASE-NOTES-v3.0.4.md`](docs/releases/v3.0.4/RELEASE-NOTES-v3.0.4.md).
+[`RELEASE-NOTES-v3.0.5.md`](docs/releases/v3.0.5/RELEASE-NOTES-v3.0.5.md).
 
 Local development checks are not permission to publish. Tagging, pushing,
 GHCR publication, GitHub Release creation, and Wiki publication require

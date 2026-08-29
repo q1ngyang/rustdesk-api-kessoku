@@ -15,6 +15,24 @@ WIKI = ROOT / "docs" / "wiki"
 REPOSITORY = "q1ngyang/rustdesk-api-kessoku"
 LINK = re.compile(r"!?\[[^\]\n]*\]\(([^)\n]+)\)")
 FENCE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
+RELEASE_TAG = re.compile(r"^v[0-9]+\.[0-9]+\.[0-9]+(?:[.-][A-Za-z0-9.]+)?$")
+
+
+def current_release_tag(root: Path = ROOT) -> str:
+    """Read the single approved release identity used by docs and workflows."""
+    values: dict[str, str] = {}
+    for raw in (root / "RELEASE_STATUS").read_text(encoding="utf-8").splitlines():
+        if not raw or raw.startswith("#"):
+            continue
+        key, separator, value = raw.partition(": ")
+        if not separator or key in values:
+            raise ValueError("RELEASE_STATUS must contain unique 'key: value' entries")
+        values[key] = value
+    if set(values) != {"status", "release_tag"}:
+        raise ValueError("RELEASE_STATUS must contain only status and release_tag")
+    if values["status"] != "APPROVED" or not RELEASE_TAG.fullmatch(values["release_tag"]):
+        raise ValueError("RELEASE_STATUS does not name an approved semantic version tag")
+    return values["release_tag"]
 
 
 def markdown_links(body: str) -> list[tuple[int, str]]:
@@ -68,17 +86,19 @@ def link_error(source: Path, raw: str, root: Path = ROOT) -> str | None:
 
 
 def paired_documents() -> list[tuple[Path, Path]]:
+    release_tag = current_release_tag()
+    release_dir = ROOT / "docs" / "releases" / release_tag
     pairs = [
         (ROOT / "README.md", ROOT / "README.zh-CN.md"),
         (ROOT / "docs/README.md", ROOT / "docs/README.zh-CN.md"),
         (ROOT / "docs/deployment/CONTAINER.md", ROOT / "docs/deployment/CONTAINER.zh-CN.md"),
         (
-            ROOT / "docs/releases/v3.0.4/RELEASE-NOTES-v3.0.4.md",
-            ROOT / "docs/releases/v3.0.4/RELEASE-NOTES-v3.0.4.zh-CN.md",
+            release_dir / f"RELEASE-NOTES-{release_tag}.md",
+            release_dir / f"RELEASE-NOTES-{release_tag}.zh-CN.md",
         ),
         (
-            ROOT / "docs/releases/v3.0.4/MIGRATION-v3.0.4.md",
-            ROOT / "docs/releases/v3.0.4/MIGRATION-v3.0.4.zh-CN.md",
+            release_dir / f"MIGRATION-{release_tag}.md",
+            release_dir / f"MIGRATION-{release_tag}.zh-CN.md",
         ),
         (
             ROOT / "docs/releases/v2.8.3/RELEASE-NOTES-v2.8.3.md",
@@ -99,6 +119,11 @@ def paired_documents() -> list[tuple[Path, Path]]:
 
 def main() -> int:
     errors: list[str] = []
+    try:
+        release_tag = current_release_tag()
+    except ValueError as error:
+        print(f"documentation error: {error}", file=sys.stderr)
+        return 1
     pairs = paired_documents()
     paths = subprocess.check_output(
         ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", "*.md"],
@@ -146,8 +171,8 @@ def main() -> int:
         ROOT / "docs/deployment/CONTAINER.zh-CN.md",
         ROOT / "examples" / "compose.env.example",
     ):
-        if "v3.0.4" not in required.read_text(encoding="utf-8"):
-            errors.append(f"v3.0.4 is missing from {required.relative_to(ROOT)}")
+        if release_tag not in required.read_text(encoding="utf-8"):
+            errors.append(f"{release_tag} is missing from {required.relative_to(ROOT)}")
 
     if errors:
         for error in errors:

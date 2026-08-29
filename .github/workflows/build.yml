@@ -1,7 +1,13 @@
 name: Release candidate (non-publishing)
+run-name: Candidate ${{ inputs.release_tag }} from master
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Approved release tag recorded in RELEASE_STATUS"
+        required: true
+        type: string
 
 # This workflow can only create short-lived Actions artifacts. RELEASE_STATUS,
 # the immutable Starry contract, and the embedded reviewed admin-web source all fail
@@ -14,7 +20,7 @@ defaults:
     shell: bash
 
 concurrency:
-  group: kessoku-candidate-${{ github.ref }}
+  group: kessoku-candidate-${{ github.sha }}
   cancel-in-progress: false
 
 env:
@@ -76,25 +82,27 @@ jobs:
 
       - name: Resolve fail-closed candidate version
         id: version
+        env:
+          REQUESTED_RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
           status="$(sed -n 's/^status: //p' RELEASE_STATUS)"
           release_tag="$(sed -n 's/^release_tag: //p' RELEASE_STATUS)"
           keys="$(sed -n 's/^\([a-z_]*\): .*/\1/p' RELEASE_STATUS | LC_ALL=C sort | tr '\n' ' ')"
           test "$keys" = "release_tag status "
-          printf '%s' "$status" | grep -Eq '^(BLOCKED|APPROVED)$'
-
-          if [ "$release_tag" = UNSET ]; then
-            test "$status" = BLOCKED
-            artifact_label="candidate-$(printf '%.12s' "$GITHUB_SHA")"
-            deb_version="0.0.0~${artifact_label}-1"
-          else
-            printf '%s' "$release_tag" \
-              | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.]+)?$'
-            test "$release_tag" = v3.0.4
-            artifact_label="$release_tag"
-            deb_version="$(printf '%s' "${release_tag#v}" | tr '-' '~')-1"
+          test "$status" = APPROVED
+          test "${GITHUB_REF_TYPE}" = branch
+          test "${GITHUB_REF_NAME}" = master
+          printf '%s' "$release_tag" \
+            | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.]+)?$'
+          test "$release_tag" = "$REQUESTED_RELEASE_TAG"
+          if git ls-remote --exit-code origin "refs/tags/${release_tag}" \
+            >/dev/null 2>&1; then
+            echo "release tag already exists: ${release_tag}" >&2
+            exit 1
           fi
+          artifact_label="$release_tag"
+          deb_version="$(printf '%s' "${release_tag#v}" | tr '-' '~')-1"
 
           {
             echo "artifact_label=$artifact_label"
@@ -191,9 +199,7 @@ jobs:
           env -u KESSOKU_TEST_POSTGRES_DSN -u KESSOKU_TEST_MYSQL_DSN \
             go test -race -timeout=10m ./...
           go install github.com/swaggo/swag/cmd/swag@v1.16.6
-          swag init -g cmd/apimain.go --output docs/api --instanceName api --exclude http/controller/admin
-          swag init -g cmd/apimain.go --output docs/admin --instanceName admin --exclude http/controller/api
-          git diff --exit-code -- docs
+          scripts/verify-generated-api-docs.sh
 
       - name: Build runtime tree
         env:
@@ -352,6 +358,7 @@ jobs:
       - name: Verify bilingual docs and recommended Compose
         run: |
           python3 scripts/check_docs.py
+          python3 scripts/check_release_identity.py
           python3 -m unittest discover -s scripts -p 'test_documentation.py'
           docker compose --env-file examples/compose.env.example \
             -f docker-compose.yaml config
@@ -450,8 +457,14 @@ jobs:
       - name: Assemble exact archive, package, and image context
         env:
           ARTIFACT_LABEL: ${{ needs.build.outputs.artifact_label }}
+          RELEASE_TAG: ${{ needs.build.outputs.release_tag }}
         run: |
           set -euo pipefail
+          release_dir="docs/releases/${RELEASE_TAG}"
+          notes_file="${release_dir}/RELEASE-NOTES-${RELEASE_TAG}.md"
+          chinese_notes="${release_dir}/RELEASE-NOTES-${RELEASE_TAG}.zh-CN.md"
+          test -s "$notes_file"
+          test -s "$chinese_notes"
           mkdir -p candidate/docker candidate/release-assets
           cp Dockerfile candidate/docker/Dockerfile
           cp -a runtime/release candidate/docker/release
@@ -473,8 +486,7 @@ jobs:
             docs/releases/RELEASE-PROCESS.md \
             internal/starrycontrol/CONTRACT_VERSION candidate/release-assets/
           cp docs/deployment/CONTAINER.md docs/deployment/CONTAINER.zh-CN.md \
-            docs/releases/v3.0.4/RELEASE-NOTES-v3.0.4.md \
-            docs/releases/v3.0.4/RELEASE-NOTES-v3.0.4.zh-CN.md docker-compose.yaml \
+            "$notes_file" "$chinese_notes" docker-compose.yaml \
             candidate/release-assets/
           cp examples/compose.env.example \
             candidate/release-assets/compose.env.example

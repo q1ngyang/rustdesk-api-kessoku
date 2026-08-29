@@ -24,6 +24,7 @@ jobs:
       - name: Check documentation links and pairs
         run: |
           python3 scripts/check_docs.py
+          python3 scripts/check_release_identity.py
           python3 -m unittest discover -s scripts -p 'test_documentation.py'
 
       - name: Validate recommended Docker deployment
@@ -95,6 +96,13 @@ jobs:
 
       - name: Test
         run: go test -timeout=3m ./...
+
+      - name: Verify generated API documentation
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          go install github.com/swaggo/swag/cmd/swag@v1.16.6
+          scripts/verify-generated-api-docs.sh
 
   frontends:
     name: Verify embedded frontends

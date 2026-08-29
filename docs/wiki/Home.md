@@ -39,7 +39,7 @@ authorization, and Relay allocation.
 
 ## Safe defaults
 
-- Use the immutable v3.0.4 image tag, then pin its resolved digest.
+- Use the immutable v3.0.5 image tag, then pin its resolved digest.
 - Keep public registration, Swagger, and legacy-token compatibility disabled
   unless they are intentionally required. Publish the browser client only on
   its own HTTPS origin with working Starry WSS paths.
@@ -53,7 +53,7 @@ authorization, and Relay allocation.
 
 ## Release and legal status
 
-v3.0.4 is the stable release. Production deployments should verify release
+v3.0.5 is the stable release. Production deployments should verify release
 checksums and pin the versioned GHCR digest. The project is MIT licensed and is
 not affiliated with RustDesk. The repository-owned browser client is MIT;
 third-party licences are included with release artifacts. Historical

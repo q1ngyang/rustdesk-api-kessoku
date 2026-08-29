@@ -25,7 +25,8 @@ purpose.
 | [operations/](operations/) | Operator and rollback runbooks |
 | [security/](security/) | Security model and trust boundaries |
 | [releases/](releases/) | Release procedure, checklist, and migration history |
-| [releases/v3.0.4/](releases/v3.0.4/) | Current v3.0.4 release notes and migration guide |
+| [releases/v3.0.5/](releases/v3.0.5/) | Current v3.0.5 release notes and migration guide |
+| [releases/v3.0.4/](releases/v3.0.4/) | Failed, unpublished v3.0.4 candidate documents |
 | [releases/v3.0.3/](releases/v3.0.3/) | Previous supported v3.0.3 release documents |
 | [releases/v3.0.2/](releases/v3.0.2/) | Failed, unpublished v3.0.2 release-attempt documents |
 | [releases/v3.0.1/](releases/v3.0.1/) | Withdrawn v3.0.1 historical release documents |

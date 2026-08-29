@@ -24,7 +24,8 @@
 | [operations/](operations/) | 运维、恢复和故障回退手册 |
 | [security/](security/) | 安全模型与信任边界 |
 | [releases/](releases/) | 发布流程、检查清单和迁移历史 |
-| [releases/v3.0.4/](releases/v3.0.4/) | 当前 v3.0.4 发布说明和数据库迁移指南 |
+| [releases/v3.0.5/](releases/v3.0.5/) | 当前 v3.0.5 发布说明和数据库迁移指南 |
+| [releases/v3.0.4/](releases/v3.0.4/) | 发布失败且未公开的 v3.0.4 候选文档 |
 | [releases/v3.0.3/](releases/v3.0.3/) | 上一个受支持的 v3.0.3 发布文档 |
 | [releases/v3.0.2/](releases/v3.0.2/) | 发布失败且未公开的 v3.0.2 历史记录 |
 | [releases/v3.0.1/](releases/v3.0.1/) | 已撤回 v3.0.1 的历史发布文档 |
