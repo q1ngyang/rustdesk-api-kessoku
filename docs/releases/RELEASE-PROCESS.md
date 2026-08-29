@@ -19,6 +19,8 @@ Before tagging, the reviewed commit must pass the checks in
   documentation consistency;
 - reproducible builds, audits, tests, and licence/SBOM checks for both embedded
   frontends;
+- workflow linting plus online resolution of every immutable GitHub Action
+  commit pin;
 - database migrations through version 309 and backup/rollback guidance for the
   database, TOTP key, media, configuration, and signing keys;
 - the pinned Starry contract, supported native-client matrix, separate-origin

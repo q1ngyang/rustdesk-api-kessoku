@@ -356,9 +356,12 @@ jobs:
           persist-credentials: false
 
       - name: Verify bilingual docs and recommended Compose
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           python3 scripts/check_docs.py
           python3 scripts/check_release_identity.py
+          python3 scripts/check_action_pins.py
           python3 -m unittest discover -s scripts -p 'test_documentation.py'
           docker compose --env-file examples/compose.env.example \
             -f docker-compose.yaml config
