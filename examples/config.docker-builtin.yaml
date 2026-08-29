@@ -69,6 +69,11 @@ logger:
   path: "./runtime/log.txt"
   level: "info"
   report-caller: false
+  max-size-mb: 20
+  max-backups: 5
+  max-age-days: 14
+  compress: true
+  local-time: true
 
 proxy:
   enable: false
@@ -100,6 +105,8 @@ server-control:
   read-only: true
   request-timeout: 5s
   response-max-bytes: 1048576
+  # logger.path is listed automatically. External component logs require
+  # deployment-owned regular files mounted into Kessoku and explicit entries.
   log-directory: ""
   log-sources: []
   instances: []

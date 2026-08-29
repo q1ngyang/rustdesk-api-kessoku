@@ -1,8 +1,10 @@
 package admin
 
 type AuditQuery struct {
-	PeerId   string `form:"peer_id"`
-	FromPeer string `form:"from_peer"`
+	PeerId      string `form:"peer_id"`
+	FromPeer    string `form:"from_peer"`
+	CreatedFrom string `form:"created_from"`
+	CreatedTo   string `form:"created_to"`
 	PageQuery
 }
 

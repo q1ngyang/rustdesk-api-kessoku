@@ -32,9 +32,14 @@ func (ct *LoginLog) List(c *gin.Context) {
 		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
+	dateRange, err := service.ParseCreatedAtRange(query.CreatedFrom, query.CreatedTo)
+	if err != nil {
+		response.Fail(c, 101, response.TranslateMsg(c, "ParamsError"))
+		return
+	}
 	u := service.AllService.UserService.CurUser(c)
 	res := service.AllService.LoginLogService.List(query.Page, query.PageSize, func(tx *gorm.DB) *gorm.DB {
-		return tx.Where("user_id = ? and is_deleted = ?", u.Id, model.IsDeletedNo).Order("id desc")
+		return dateRange.Apply(tx).Where("user_id = ? and is_deleted = ?", u.Id, model.IsDeletedNo).Order("id desc")
 	})
 	response.Success(c, res)
 }

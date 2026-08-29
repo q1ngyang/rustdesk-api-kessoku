@@ -9,8 +9,8 @@ Kessoku 镜像发布于
 ## 拉取镜像
 
 ```sh
-docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.3
-docker image inspect ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.3 \
+docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.4
+docker image inspect ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.4 \
   --format '{{json .RepoDigests}}'
 ```
 

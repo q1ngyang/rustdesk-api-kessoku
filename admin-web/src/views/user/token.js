@@ -3,6 +3,7 @@ import { batchRemove, list, remove } from '@/api/user_token'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute } from 'vue-router'
 import { T } from '@/utils/i18n'
+import { withDateRange } from '@/utils/dateRange'
 
 export function useRepositories () {
   const route = useRoute()
@@ -16,11 +17,12 @@ export function useRepositories () {
     page_size: 10,
     is_my: 0,
     user_id: user_id ? parseInt(user_id) : null,
+    date_range: [],
   })
 
   const getList = async () => {
     listRes.loading = true
-    const res = await list(listQuery).catch(_ => false)
+    const res = await list(withDateRange(listQuery)).catch(_ => false)
     listRes.loading = false
     if (res) {
       listRes.list = res.data.list

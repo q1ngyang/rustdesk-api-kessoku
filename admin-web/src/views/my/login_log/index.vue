@@ -2,6 +2,7 @@
   <div>
     <el-card class="list-query" shadow="hover">
       <el-form inline label-width="80px">
+        <el-form-item :label="T('DateRange')"><DateRangeFilter v-model="listQuery.date_range"/></el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handlerQuery">{{ T('Filter') }}</el-button>
           <el-button type="danger" @click="toBatchDelete">{{ T('BatchDelete') }}</el-button>
@@ -11,7 +12,8 @@
     <el-card class="list-body" shadow="hover">
       <el-table :data="listRes.list" v-loading="listRes.loading" border @selection-change="handleSelectionChange">
         <el-table-column type="selection" align="center" width="50"/>
-        <el-table-column prop="client" label="client" align="center" width="120"/>
+        <el-table-column prop="id" :label="T('IndexNum')" align="center" width="86"/>
+        <el-table-column prop="client" align="center" width="142"><template #header><InfoLabel compact :label="T('ClientType')" :help="T('LoginClientHelp')"/></template></el-table-column>
         <el-table-column prop="device_id" :label="T('Device')" align="center" min-width="170">
           <template #default="{row}">
             {{ row.device_id || '-' }}
@@ -19,7 +21,7 @@
         </el-table-column>
         <el-table-column prop="uuid" label="UUID" align="center" min-width="250"><template #default="{row}">{{ row.uuid || '-' }}</template></el-table-column>
         <el-table-column prop="ip" label="IP" align="center" width="170"><template #default="{row}"><IpAddress :value="row.ip"/></template></el-table-column>
-        <el-table-column prop="type" label="type" align="center" width="100"/>
+        <el-table-column prop="type" align="center" width="126"><template #header><InfoLabel compact :label="T('Type')" :help="T('LoginTypeHelp')"/></template></el-table-column>
         <el-table-column prop="platform" label="Platform/UA" align="center" width="120" show-overflow-tooltip/>
         <el-table-column prop="created_at" :label="T('CreatedAt')" align="center" width="168"><template #default="{row}"><DateTimeCell :value="row.created_at"/></template></el-table-column>
         <el-table-column :label="T('Actions')" align="center" width="110" fixed="right">
@@ -47,6 +49,8 @@
   import { T } from '@/utils/i18n'
   import IpAddress from '@/components/common/IpAddress.vue'
   import DateTimeCell from '@/components/common/DateTimeCell.vue'
+  import DateRangeFilter from '@/components/common/DateRangeFilter.vue'
+  import InfoLabel from '@/components/common/InfoLabel.vue'
 
   const {
     listRes,

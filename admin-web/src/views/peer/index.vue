@@ -246,6 +246,7 @@
   import createABForm from '@/views/peer/createABForm.vue'
   import { useUserStore } from '@/store/user'
   import IpAddress from '@/components/common/IpAddress.vue'
+  import { normalizeRustDeskId } from '@/utils/rustdesk'
 
   const userStore = useUserStore()
   const isSuperAdmin = computed(() => userStore.role === 'super_admin')
@@ -293,6 +294,7 @@
     }
   }
   const handlerQuery = () => {
+    listQuery.id = normalizeRustDeskId(listQuery.id)
     if (listQuery.page === 1) {
       getList()
     } else {
@@ -358,6 +360,7 @@
     formData.version = ''
   }
   const submit = async () => {
+    formData.id = normalizeRustDeskId(formData.id)
     const api = formData.row_id ? update : create
     const res = await api(formData).catch(_ => false)
     if (res) {
@@ -421,6 +424,7 @@
       }).filter(item => item.id)
       //移除不需要的key
       values.forEach(item => {
+        item.id = normalizeRustDeskId(item.id)
         item.group_id = parseInt(item.group_id)
         Object.keys(item).forEach(key => {
           if (!canKeys.includes(key)) {

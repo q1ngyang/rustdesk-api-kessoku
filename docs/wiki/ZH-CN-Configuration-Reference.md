@@ -179,8 +179,13 @@ postgresql:
 | `logger.path` | `./runtime/log.txt` | Docker 示例把 `/app/runtime` 放在临时内存文件系统；长期日志由容器日志驱动收集 |
 | `logger.level` | `info` | `trace`、`debug`、`info`、`warn`、`error`、`fatal` |
 | `logger.report-caller` | `false` | 是否记录源码调用位置；排障时可临时开启 |
+| `logger.max-size-mb` | `20` | 单个日志文件达到该大小后轮转，最大 `1024` |
+| `logger.max-backups` | `5` | 最多保留的轮转文件数量，最大 `100` |
+| `logger.max-age-days` | `14` | 轮转文件最长保留天数，最大 `3650` |
+| `logger.compress` | `true` | 压缩历史轮转文件 |
+| `logger.local-time` | `true` | 轮转文件名使用服务器本地时间 |
 
-不要用 `debug` 长期开启生产日志，也不要把访问令牌或完整配置粘贴到故障报告中。
+示例还将 Docker `json-file` 输出限制为 5 个、每个 20 MiB。不要用 `debug` 长期开启生产日志，也不要把访问令牌或完整配置粘贴到故障报告中。
 
 ## `auth`：访问令牌和内部认证接口
 
@@ -278,7 +283,7 @@ web-client:
 | `read-only` | 首次接入为 `true`；只有经过演练的变更窗口才关闭 |
 | `request-timeout` | 默认 `5s`，最大 `30s` |
 | `response-max-bytes` | 默认 `1048576`，最大 `4194304` |
-| `log-directory` | 可选的日志根目录；配置日志来源时必须是绝对、只由部署者控制的目录 |
+| `log-directory` | 可选的日志根目录；配置外部日志来源时必须是绝对、只由部署者控制的目录 |
 | `log-sources` | 日志来源白名单；每项包含唯一 `id`、`label`、组件、可选实例 ID 和简单文件名 |
 
 每个 `instances[]`：
@@ -300,15 +305,33 @@ web-client:
 
 所有凭据值都是文件路径。完整示例和上线顺序见[Starry 管理](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Starry-Control)。
 
-日志组件只允许 `kessoku`、`starry`、`relay`、`control-agent`，文件名不能包含路径或目录
-穿越。后台只读取有大小和行数上限的最新窗口，并在展示、导出前脱敏常见认证头、令牌、
-密码、会话 Cookie、客户端密钥和私钥内容；长期留存仍应交给部署日志系统。开启控制写入
-后可以调整当前 Kessoku 进程的日志级别；Starry patch v1.2 尚无安全的运行时调级接口，
-仍需在维护窗口修改部署的 `RUST_LOG` 并重启。
+`logger.path` 指向普通文件时，Kessoku 自身日志会自动成为日志来源，无需重复填写。
+Starry、Relay 与 Control Agent 通常输出到容器标准输出，Kessoku 不会访问 Docker Socket；
+部署者需要让现有日志采集器把所需来源写为普通文本文件，挂载到同一只读目录，再逐项加入
+`log-sources`。日志组件只允许 `kessoku`、`starry`、`relay`、`control-agent`，文件名不能
+包含路径或目录穿越。例如：
 
-## 后台系统设置
+```yaml
+server-control:
+  log-directory: "/app/deployment-logs"
+  log-sources:
+    - { id: "starry-center", label: "Starry Center", component: "starry", instance-id: "starry-main", file: "starry.log" }
+    - { id: "relay-osaka", label: "Relay · Osaka", component: "relay", instance-id: "starry-main", file: "relay-osaka.log" }
+    - { id: "control-agent", label: "Control Agent", component: "control-agent", instance-id: "starry-main", file: "control-agent.log" }
+```
 
-超级管理员在 `/dash/` 的“系统设置”中维护工作区公告和 IP 信息数据库。GeoIP 只接受
+如果上述目录与 `logger.path` 不同，Kessoku 自身日志不会被隐式加入；需要让 Kessoku 日志
+也落在该目录并显式声明。后台只读取有大小和行数上限的最新窗口，并在展示、导出前脱敏
+常见认证头、令牌、密码、会话 Cookie、客户端密钥和私钥内容；长期留存仍应交给部署日志
+系统。开启控制写入后可以调整当前 Kessoku 进程的日志级别；Starry patch v1.2 尚无安全
+的运行时调级接口，仍需在维护窗口修改部署的 `RUST_LOG` 并重启。
+
+## 后台平台设置
+
+超级管理员在 `/dash/` 的“系统管理”中维护公告、IP 信息、登录有效期和数据保留策略。
+网页与官方客户端登录时长可以分别缩短，但不能超过部署配置
+`auth.maximum-token-ttl`。用户 Token 只会在会话过期或撤销后开始计算保留期，不会清理
+仍有效的会话；连接、文件、登录和 Starry 控制审计按创建时间分批清理。GeoIP 只接受
 公网 HTTPS MMDB 地址；单文件下载上限 128 MiB，验证成功后原子替换，可设置 1～2160
 小时的自动更新周期。默认 City/ASN 数据来自 P3TERX GeoLite 镜像。这些设置保存在数据库
 中，不属于品牌配置或 YAML；下载文件位于持久化 `/app/data` 下的 `geoip` 目录，应与

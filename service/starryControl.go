@@ -65,6 +65,8 @@ var (
 
 type StarryControlService struct {
 	config       config.ServerControl
+	logDirectory string
+	logSources   []config.ControlLogSource
 	instances    map[string]ServerControlInstance
 	providers    map[string]starrycontrol.ServerControlProvider
 	providerErrs map[string]error
@@ -72,8 +74,11 @@ type StarryControlService struct {
 }
 
 func NewStarryControlService(cfg *config.Config, logger *logrus.Logger, authManager *internalAuth.Manager) *StarryControlService {
+	logDirectory, logSources := controlLogConfiguration(cfg)
 	service := &StarryControlService{
 		config:       cfg.ServerControl,
+		logDirectory: logDirectory,
+		logSources:   logSources,
 		instances:    make(map[string]ServerControlInstance, len(cfg.ServerControl.Instances)),
 		providers:    make(map[string]starrycontrol.ServerControlProvider, len(cfg.ServerControl.Instances)),
 		providerErrs: make(map[string]error),
@@ -126,8 +131,15 @@ func NewStarryControlService(cfg *config.Config, logger *logrus.Logger, authMana
 }
 
 func (s *StarryControlService) Instances() []ServerControlInstance {
+	labels := map[string]string{}
+	if AllService != nil && AllService.BrandingService != nil {
+		labels = AllService.BrandingService.Public().ServerInstanceNames
+	}
 	result := make([]ServerControlInstance, 0, len(s.instances))
 	for _, instance := range s.instances {
+		if label := strings.TrimSpace(labels[instance.ID]); label != "" {
+			instance.Name = label
+		}
 		result = append(result, instance)
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].ID < result[j].ID })
@@ -313,13 +325,13 @@ func (s *StarryControlService) ReloadRuntime(ctx context.Context, instanceID str
 	})
 }
 
-func (s *StarryControlService) AuditEvents(ctx context.Context, page, pageSize uint) (*model.AdminAuditEventList, error) {
+func (s *StarryControlService) AuditEvents(ctx context.Context, page, pageSize uint, dateRange CreatedAtRange) (*model.AdminAuditEventList, error) {
 	return auditedControlCall(s, ctx, "server_control.audit_events.read", "*", map[string]interface{}{
 		"page":      page,
 		"page_size": pageSize,
 	}, func() (*model.AdminAuditEventList, error) {
 		result := &model.AdminAuditEventList{Pagination: model.Pagination{Page: int64(page), PageSize: int64(pageSize)}}
-		tx := DB.Model(&model.AdminAuditEvent{}).Where("target_type = ?", "starry_instance")
+		tx := dateRange.Apply(DB.Model(&model.AdminAuditEvent{}).Where("target_type = ?", "starry_instance"))
 		if err := tx.Count(&result.Total).Error; err != nil {
 			return nil, err
 		}
@@ -335,13 +347,13 @@ func (s *StarryControlService) LogSources(ctx context.Context, instanceID string
 		if _, exists := s.instances[instanceID]; !exists {
 			return nil, starrycontrol.ErrInstanceNotFound
 		}
-		result := make([]ControlLogSource, 0, len(s.config.LogSources))
-		for _, source := range s.config.LogSources {
+		result := make([]ControlLogSource, 0, len(s.logSources))
+		for _, source := range s.logSources {
 			if source.InstanceID != "" && source.InstanceID != "*" && source.InstanceID != instanceID {
 				continue
 			}
 			item := s.publicLogSource(source)
-			file, err := openControlLog(filepath.Join(s.config.LogDirectory, source.File))
+			file, err := openControlLog(filepath.Join(s.logDirectory, source.File))
 			if err == nil {
 				item.Available = true
 				_ = file.Close()
@@ -364,7 +376,7 @@ func (s *StarryControlService) Logs(ctx context.Context, instanceID, sourceID st
 		if limit > 2000 {
 			limit = 2000
 		}
-		path := filepath.Join(s.config.LogDirectory, source.File)
+		path := filepath.Join(s.logDirectory, source.File)
 		file, err := openControlLog(path)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
@@ -445,12 +457,49 @@ func (s *StarryControlService) logSource(instanceID, sourceID string) (config.Co
 	if _, exists := s.instances[instanceID]; !exists {
 		return config.ControlLogSource{}, starrycontrol.ErrInstanceNotFound
 	}
-	for _, source := range s.config.LogSources {
+	for _, source := range s.logSources {
 		if source.ID == sourceID && (source.InstanceID == "" || source.InstanceID == "*" || source.InstanceID == instanceID) {
 			return source, nil
 		}
 	}
 	return config.ControlLogSource{}, starrycontrol.ErrRequestInvalid
+}
+
+// controlLogConfiguration makes Kessoku's own configured file logger visible
+// without requiring deployments to duplicate the same path in log-sources.
+// Starry, Relay, and control-agent logs remain an explicit deployment
+// allowlist because they require deliberate read-only mounts into Kessoku.
+func controlLogConfiguration(cfg *config.Config) (string, []config.ControlLogSource) {
+	if cfg == nil {
+		return "", nil
+	}
+	directory := cfg.ServerControl.LogDirectory
+	sources := append([]config.ControlLogSource(nil), cfg.ServerControl.LogSources...)
+	loggerPath := strings.TrimSpace(cfg.Logger.Path)
+	if loggerPath == "" {
+		return directory, sources
+	}
+	absoluteLoggerPath, err := filepath.Abs(loggerPath)
+	if err != nil {
+		return directory, sources
+	}
+	loggerDirectory := filepath.Dir(absoluteLoggerPath)
+	if directory == "" {
+		directory = loggerDirectory
+	}
+	absoluteDirectory, err := filepath.Abs(directory)
+	if err != nil || filepath.Clean(absoluteDirectory) != filepath.Clean(loggerDirectory) {
+		return directory, sources
+	}
+	for _, source := range sources {
+		if source.ID == "kessoku" || source.Component == "kessoku" {
+			return directory, sources
+		}
+	}
+	sources = append(sources, config.ControlLogSource{
+		ID: "kessoku", Label: "Kessoku", Component: "kessoku", InstanceID: "*", File: filepath.Base(absoluteLoggerPath),
+	})
+	return directory, sources
 }
 
 func (s *StarryControlService) publicLogSource(source config.ControlLogSource) ControlLogSource {

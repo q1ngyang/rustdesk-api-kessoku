@@ -2,10 +2,12 @@ package service
 
 import (
 	"encoding/json"
+	"strings"
+
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/utils"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"strings"
 )
 
 type AddressBookService struct {
@@ -13,19 +15,19 @@ type AddressBookService struct {
 
 func (s *AddressBookService) Info(id string) *model.AddressBook {
 	p := &model.AddressBook{}
-	DB.Where("id = ?", id).First(p)
+	DB.Where("id = ?", utils.NormalizeRustDeskID(id)).First(p)
 	return p
 }
 
 func (s *AddressBookService) InfoByUserIdAndId(userid uint, id string) *model.AddressBook {
 	p := &model.AddressBook{}
-	DB.Where("user_id = ? and id = ?", userid, id).First(p)
+	DB.Where("user_id = ? and id = ?", userid, utils.NormalizeRustDeskID(id)).First(p)
 	return p
 }
 
 func (s *AddressBookService) InfoByUserIdAndIdAndCid(userid uint, id string, cid uint) *model.AddressBook {
 	p := &model.AddressBook{}
-	DB.Where("user_id = ? and id = ? and collection_id = ?", userid, id, cid).First(p)
+	DB.Where("user_id = ? and id = ? and collection_id = ?", userid, utils.NormalizeRustDeskID(id), cid).First(p)
 	return p
 }
 func (s *AddressBookService) InfoByRowId(id uint) *model.AddressBook {
@@ -48,6 +50,7 @@ func (s *AddressBookService) ListByUserIds(userIds []uint, page, pageSize uint) 
 
 // AddAddressBook
 func (s *AddressBookService) AddAddressBook(ab *model.AddressBook) error {
+	ab.Id = utils.NormalizeRustDeskID(ab.Id)
 	ab.Collection = nil
 	return DB.Omit(clause.Associations).Create(ab).Error
 }
@@ -79,6 +82,7 @@ func (s *AddressBookService) updateAddressBook(tx *gorm.DB, abs []*model.Address
 	//2.1 获取peers中的id
 	aBIds := make(map[string]*model.AddressBook)
 	for _, ab := range abs {
+		ab.Id = utils.NormalizeRustDeskID(ab.Id)
 		aBIds[ab.Id] = ab
 	}
 	//2.2 获取数据库中的id
@@ -152,6 +156,7 @@ func (s *AddressBookService) FromPeer(peer *model.Peer) (a *model.AddressBook) {
 
 // Create 创建
 func (s *AddressBookService) Create(u *model.AddressBook) error {
+	u.Id = utils.NormalizeRustDeskID(u.Id)
 	u.Collection = nil
 	res := DB.Omit(clause.Associations).Create(u).Error
 	return res
@@ -162,6 +167,7 @@ func (s *AddressBookService) Delete(u *model.AddressBook) error {
 
 // Update 更新
 func (s *AddressBookService) Update(u *model.AddressBook) error {
+	u.Id = utils.NormalizeRustDeskID(u.Id)
 	u.Collection = nil
 	return DB.Model(u).Omit(clause.Associations).Updates(u).Error
 }
@@ -173,6 +179,7 @@ func (s *AddressBookService) UpdateByMap(u *model.AddressBook, data map[string]i
 
 // UpdateAll 更新
 func (s *AddressBookService) UpdateAll(u *model.AddressBook) error {
+	u.Id = utils.NormalizeRustDeskID(u.Id)
 	u.Collection = nil
 	return DB.Model(u).Select("*").Omit(clause.Associations, "created_at").Updates(u).Error
 }

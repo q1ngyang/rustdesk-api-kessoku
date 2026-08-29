@@ -4,10 +4,15 @@ import { LIMITS } from "./limits";
 import type { Cliprdr, DisplayInfo, Message as AppMessage, PeerInfo, RelayResponse, RendezvousMessage as RendezvousEnvelope } from "./generated/kessoku_wire";
 
 export function validatePeerId(value: string): string {
-  if (value.length === 0 || value.length > LIMITS.peerId || !/^[A-Za-z0-9_-]+$/.test(value)) {
+  const normalized = normalizePeerId(value);
+  if (normalized.length === 0 || normalized.length > LIMITS.peerId || !/^[A-Za-z0-9_-]+$/.test(normalized)) {
     throw new Error("Peer ID contains unsupported characters");
   }
-  return value;
+  return normalized;
+}
+
+export function normalizePeerId(value: string): string {
+  return value.replace(/[\s\u200B\uFEFF]+/gu, "");
 }
 
 export function boundedText(value: string, label: string): string {

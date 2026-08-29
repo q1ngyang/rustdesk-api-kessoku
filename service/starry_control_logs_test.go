@@ -1,10 +1,15 @@
 package service
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/config"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/starrycontrol"
+	"github.com/sirupsen/logrus"
 )
 
 func TestRedactLogLineCoversHeadersStructuredAndJSONSecrets(t *testing.T) {
@@ -52,5 +57,49 @@ func TestOpenControlLogRejectsSymlinksAndNonRegularFiles(t *testing.T) {
 	if file, err := openControlLog(directory); err == nil {
 		_ = file.Close()
 		t.Fatal("directory log source accepted")
+	}
+}
+
+func TestKessokuLoggerIsAnImplicitControlLogSource(t *testing.T) {
+	securityAuditDatabase(t, true)
+	directory := t.TempDir()
+	logPath := filepath.Join(directory, "kessoku.log")
+	if err := os.WriteFile(logPath, []byte("level=info msg=ready\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{
+		Logger:        config.Logger{Path: logPath},
+		ServerControl: config.ServerControl{Instances: []config.StarryInstance{{ID: "center", Name: "Center"}}},
+	}
+	service := NewStarryControlService(cfg, logrus.New(), nil)
+	ctx := starrycontrol.WithRequestMetadata(context.Background(), starrycontrol.RequestMetadata{ActorUserID: 1, RequestID: "logs-implicit-source"})
+	sources, err := service.LogSources(ctx, "center")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sources) != 1 || sources[0].ID != "kessoku" || !sources[0].Available || !sources[0].LevelMutable {
+		t.Fatalf("implicit sources = %+v", sources)
+	}
+	ctx = starrycontrol.WithRequestMetadata(context.Background(), starrycontrol.RequestMetadata{ActorUserID: 1, RequestID: "logs-implicit-read"})
+	result, err := service.Logs(ctx, "center", "kessoku", 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Entries) != 1 || result.Entries[0].Text != "level=info msg=ready" {
+		t.Fatalf("implicit Kessoku log result = %+v", result)
+	}
+}
+
+func TestExplicitCrossDirectorySourcesDoNotExpandLoggerAccess(t *testing.T) {
+	cfg := &config.Config{
+		Logger: config.Logger{Path: filepath.Join(t.TempDir(), "kessoku.log")},
+		ServerControl: config.ServerControl{
+			LogDirectory: t.TempDir(),
+			LogSources:   []config.ControlLogSource{{ID: "starry", Label: "Starry", Component: "starry", File: "starry.log"}},
+		},
+	}
+	directory, sources := controlLogConfiguration(cfg)
+	if directory != cfg.ServerControl.LogDirectory || len(sources) != 1 || sources[0].ID != "starry" {
+		t.Fatalf("cross-directory logger widened allowlist: directory=%q sources=%+v", directory, sources)
 	}
 }

@@ -391,7 +391,12 @@ func (s *StarryControl) ReloadRuntime(c *gin.Context) {
 func (s *StarryControl) AuditEvents(c *gin.Context) {
 	page := uintQuery(c.Query("page"), 1, 1_000_000)
 	pageSize := uintQuery(c.Query("page_size"), 50, 100)
-	result, err := service.AllService.StarryControlService.AuditEvents(controlContext(c), page, pageSize)
+	dateRange, rangeErr := service.ParseCreatedAtRange(c.Query("created_from"), c.Query("created_to"))
+	if rangeErr != nil {
+		controlError(c, starrycontrol.ErrRequestInvalid)
+		return
+	}
+	result, err := service.AllService.StarryControlService.AuditEvents(controlContext(c), page, pageSize, dateRange)
 	writeControlResult(c, result, err)
 }
 

@@ -2,7 +2,7 @@
 
 **English** | [简体中文](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Upgrade-and-Rollback)
 
-Back up data and keys before changing an image or schema. Kessoku v3.0.3 uses
+Back up data and keys before changing an image or schema. Kessoku v3.0.4 uses
 database version `309`; an older image must not write a database already
 migrated by this release.
 

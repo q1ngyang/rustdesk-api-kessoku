@@ -12,6 +12,7 @@
             ></el-option>
           </el-select>
         </el-form-item>
+        <el-form-item :label="T('DateRange')"><DateRangeFilter v-model="listQuery.date_range"/></el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handlerQuery">{{ T('Filter') }}</el-button>
           <el-button type="danger" @click="toBatchDelete">{{ T('BatchDelete') }}</el-button>
@@ -21,10 +22,11 @@
     <el-card class="list-body" shadow="hover">
       <el-table :data="listRes.list" v-loading="listRes.loading" border @selection-change="handleSelectionChange">
         <el-table-column type="selection" align="center" width="50"/>
-        <el-table-column prop="id" label="ID" align="center" width="80"/>
-        <el-table-column :label="T('Owner')" align="center">
+        <el-table-column prop="id" :label="T('IndexNum')" align="center" width="86"/>
+        <el-table-column :label="T('Status')" align="center" width="110"><template #default="{row}"><el-tag :type="sessionStatus(row).type" effect="light">{{ T(sessionStatus(row).label) }}</el-tag></template></el-table-column>
+        <el-table-column :label="T('Username')" align="center" width="168">
           <template #default="{row}">
-            <span v-if="row.user_id"> <el-tag>{{ allUsers?.find(u => u.id === row.user_id)?.username }}</el-tag> </span>
+            <UsernameCell :value="usernameFor(row.user_id)"/>
           </template>
         </el-table-column>
         <el-table-column :label="T('SessionIdentifier')" align="center" min-width="180">
@@ -34,7 +36,7 @@
         </el-table-column>
         <el-table-column prop="device_id" :label="T('Device')" align="center" min-width="170"><template #default="{row}">{{ row.device_id || '-' }}</template></el-table-column>
         <el-table-column prop="device_uuid" label="UUID" align="center" min-width="250"><template #default="{row}">{{ row.device_uuid || '-' }}</template></el-table-column>
-        <el-table-column :label="T('ClientType')" align="center" width="125"><template #default="{row}">{{ row.client || '-' }}</template></el-table-column>
+        <el-table-column prop="client" align="center" width="142"><template #header><InfoLabel compact :label="T('ClientType')" :help="T('LoginClientHelp')"/></template><template #default="{row}">{{ row.client || '-' }}</template></el-table-column>
         <el-table-column :label="T('Platform')" align="center" width="120"><template #default="{row}">{{ row.platform || '-' }}</template></el-table-column>
         <el-table-column :label="T('CreatedIP')" align="center" width="170"><template #default="{row}"><IpAddress :value="row.created_ip"/></template></el-table-column>
         <el-table-column :label="T('IssuedAt')" align="center" min-width="175"><template #default="{row}">{{ formatUnix(row.issued_at) }}</template></el-table-column>
@@ -44,7 +46,6 @@
             {{ formatUnix(row.expired_at) }}
           </template>
         </el-table-column>
-        <el-table-column :label="T('Status')" align="center" width="110"><template #default="{row}"><el-tag :type="sessionStatus(row).type" effect="light">{{ T(sessionStatus(row).label) }}</el-tag></template></el-table-column>
         <el-table-column :label="T('Actions')" align="center" width="148" fixed="right">
           <template #default="{row}">
             <el-button type="danger" plain :disabled="Boolean(row.revoked_at) || expired(row)" @click="del(row)">{{ T('Logout') }}</el-button>
@@ -70,6 +71,9 @@
   import { useRepositories } from '@/views/user/token.js'
   import { T } from '@/utils/i18n'
   import IpAddress from '@/components/common/IpAddress.vue'
+  import DateRangeFilter from '@/components/common/DateRangeFilter.vue'
+  import InfoLabel from '@/components/common/InfoLabel.vue'
+  import UsernameCell from '@/components/common/UsernameCell.vue'
 
   const { allUsers, getAllUsers } = loadAllUsers()
   getAllUsers()
@@ -89,6 +93,7 @@
   watch(() => listQuery.page, getList)
 
   watch(() => listQuery.page_size, handlerQuery)
+  const usernameFor = userId => allUsers.value?.find(user => user.id === userId)?.username || ''
   const compactIdentifier = (value, id) => value ? `${value.slice(0, 8)}…${value.slice(-4)}` : `session-${id}`
   const formatUnix = value => value ? new Date(value * 1000).toLocaleString() : '-'
   const formatDate = value => value ? new Date(value).toLocaleString() : '-'

@@ -12,6 +12,7 @@ import (
 	apiResp "github.com/q1ngyang/rustdesk-api-kessoku/v3/http/response/api"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/utils"
 )
 
 type Login struct {
@@ -52,6 +53,7 @@ func (l *Login) Login(c *gin.Context) {
 		response.Error(c, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
+	f.Id = utils.NormalizeRustDeskID(f.Id)
 
 	errList := global.Validator.ValidStruct(c, f)
 	if len(errList) > 0 {

@@ -3,6 +3,7 @@ package logger
 import (
 	nested "github.com/antonfisher/nested-logrus-formatter"
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/natefinch/lumberjack.v2"
 	"io"
 	"os"
 )
@@ -16,6 +17,11 @@ type Config struct {
 	Path         string
 	Level        string
 	ReportCaller bool
+	MaxSizeMB    int
+	MaxBackups   int
+	MaxAgeDays   int
+	Compress     bool
+	LocalTime    bool
 }
 
 func New(c *Config) *log.Logger {
@@ -31,11 +37,25 @@ func New(c *Config) *log.Logger {
 	f := c.Path
 	var write io.Writer
 	if f != "" {
-		fwriter, err := os.OpenFile(f, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+		probe, err := os.OpenFile(f, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 		if err != nil {
 			panic("open log file fail!")
 		}
-		write = io.MultiWriter(fwriter, os.Stdout)
+		_ = probe.Close()
+		maxSize := c.MaxSizeMB
+		if maxSize <= 0 {
+			maxSize = 20
+		}
+		maxBackups := c.MaxBackups
+		if maxBackups <= 0 {
+			maxBackups = 5
+		}
+		maxAge := c.MaxAgeDays
+		if maxAge <= 0 {
+			maxAge = 14
+		}
+		rotating := &lumberjack.Logger{Filename: f, MaxSize: maxSize, MaxBackups: maxBackups, MaxAge: maxAge, Compress: c.Compress, LocalTime: c.LocalTime}
+		write = io.MultiWriter(rotating, os.Stdout)
 	} else {
 		write = os.Stdout
 	}

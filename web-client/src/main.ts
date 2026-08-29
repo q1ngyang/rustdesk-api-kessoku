@@ -13,6 +13,7 @@ import { loadProfile, type ClientProfile } from "./profile";
 import { configureLocale, documentLocale, localeOptions, t } from "./i18n";
 import { LIMITS } from "./limits";
 import { applyTheme, resolveTheme, type ThemePreference } from "./preferences";
+import { normalizePeerId } from "./wire";
 
 let initialProfile: ClientProfile | undefined;
 let initialProfileError: unknown;
@@ -510,11 +511,11 @@ void profileReady.then((loaded) => {
   });
   void browserSession(loaded).then(session => {
     if (session.authenticated) {
-		syncAccountPreferences(loaded, session, !accountGrantDelivered);
-		localDisplayName = session.displayName || session.username;
-		localAvatar = session.avatar;
-		if (!accountGrantDelivered) setAccountSession(true, session.username, session.displayName, session.avatar);
-	}
+      syncAccountPreferences(loaded, session, !accountGrantDelivered);
+      localDisplayName = session.displayName || session.username;
+      localAvatar = session.avatar;
+      if (!accountGrantDelivered) setAccountSession(true, session.username, session.displayName, session.avatar);
+    }
   }).catch(() => undefined);
 }, (error: unknown) => {
   setState("error", error instanceof Error ? error.message : t("profileRejected"));
@@ -532,7 +533,8 @@ form.addEventListener("submit", (event) => {
   setState("loading", t("requesting"));
   const accountName = username.input.value;
   const accountSecret = accountPassword.input.value;
-  const target = peerId.input.value;
+  const target = normalizePeerId(peerId.input.value);
+  peerId.input.value = target;
   activePeerID = target;
   const remoteSecret = utf8.encode(remotePassword.input.value);
   accountPassword.input.value = "";
@@ -546,46 +548,46 @@ form.addEventListener("submit", (event) => {
     return;
   }
   const tokenRequest = granted ? Promise.resolve(connectionToken)
-	: accountSessionActive ? browserSessionGrant(profile)
-	  : loginChallenge !== "" ? completeTwoFactor(profile, accountName, loginChallenge, twoFactor.input.value)
-	    : login(profile, accountName, accountSecret);
+    : accountSessionActive ? browserSessionGrant(profile)
+      : loginChallenge !== "" ? completeTwoFactor(profile, accountName, loginChallenge, twoFactor.input.value)
+        : login(profile, accountName, accountSecret);
   void tokenRequest.then(async (result) => {
-	if (typeof result !== "string") {
-		loginChallenge = result.challenge;
-		accountPassword.wrap.hidden = true;
-		accountPassword.input.required = false;
-		twoFactor.wrap.hidden = false;
-		twoFactor.input.required = true;
-		username.input.readOnly = true;
-		panelCopy.textContent = t("twoFactorCopy");
-		wipe(remoteSecret);
-		setState("idle", t("twoFactor"));
-		twoFactor.input.focus();
-		return;
-	}
-	loginChallenge = "";
-	twoFactor.input.value = "";
-	twoFactor.wrap.hidden = true;
-	twoFactor.input.required = false;
-	connectionToken = result;
-	if (!granted && !accountSessionActive) {
-		setAccountSession(true, accountName);
-		const session = await browserSession(profile!).catch(() => undefined);
-		if (session?.authenticated) {
-			syncAccountPreferences(profile!, session, false);
-			setAccountSession(true, session.username, session.displayName, session.avatar);
-		}
-	}
-	await client.connect(profile!, { peerId: target, token: result, remotePassword: remoteSecret });
+    if (typeof result !== "string") {
+      loginChallenge = result.challenge;
+      accountPassword.wrap.hidden = true;
+      accountPassword.input.required = false;
+      twoFactor.wrap.hidden = false;
+      twoFactor.input.required = true;
+      username.input.readOnly = true;
+      panelCopy.textContent = t("twoFactorCopy");
+      wipe(remoteSecret);
+      setState("idle", t("twoFactor"));
+      twoFactor.input.focus();
+      return;
+    }
+    loginChallenge = "";
+    twoFactor.input.value = "";
+    twoFactor.wrap.hidden = true;
+    twoFactor.input.required = false;
+    connectionToken = result;
+    if (!granted && !accountSessionActive) {
+      setAccountSession(true, accountName);
+      const session = await browserSession(profile!).catch(() => undefined);
+      if (session?.authenticated) {
+        syncAccountPreferences(profile!, session, false);
+        setAccountSession(true, session.username, session.displayName, session.avatar);
+      }
+    }
+    await client.connect(profile!, { peerId: target, token: result, remotePassword: remoteSecret });
   }).catch(async (error: unknown) => {
     wipe(remoteSecret);
-	if (loginChallenge !== "") {
-		setState("error", error instanceof Error ? error.message : "Authentication failed");
-		twoFactor.input.value = "";
-		twoFactor.input.focus();
-		} else {
-			if (client.state !== "error" && client.state !== "disconnected") client.disconnect(error instanceof Error ? error.message : "Connection failed");
-		}
+    if (loginChallenge !== "") {
+      setState("error", error instanceof Error ? error.message : "Authentication failed");
+      twoFactor.input.value = "";
+      twoFactor.input.focus();
+    } else if (client.state !== "error" && client.state !== "disconnected") {
+      client.disconnect(error instanceof Error ? error.message : "Connection failed");
+    }
   }).finally(() => {
     busy = false;
     const locked = client.state !== "idle" && client.state !== "disconnected" && client.state !== "error";

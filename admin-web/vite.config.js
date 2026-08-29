@@ -15,6 +15,7 @@ let alias = {
   '@': path.resolve(import.meta.dirname, './src'),
   'vue$': 'vue/dist/vue.runtime.esm-bundler.js',
 }
+const sourceRoot = path.resolve(import.meta.dirname, './src') + path.sep
 
 const conf = {
   base: './', // index.html文件所在位置
@@ -52,9 +53,11 @@ const conf = {
               default :
                 return '__vendor'
             }
-          }else if(id.includes('Gwen-admin/src')){
-            //src 下的都打包到一起 不然很多小文件
-            return 'gwen'
+          } else if (id.startsWith(sourceRoot)) {
+            // Keep application modules in one stable chunk. Route discovery is
+            // concurrent in Rolldown; leaving dozens of same-named route chunks
+            // implicit can assign shared modules differently between builds.
+            return 'kessoku-app'
           }
         },
         chunkFileNames: 'static/chunk/[name]-[hash].js',

@@ -252,7 +252,7 @@
 
       <el-tab-pane :label="T('Audit')" name="audit">
         <el-card shadow="never" v-loading="loading.audit">
-          <template #header><div class="card-header"><span>{{ T('ControlPlaneAudit') }}</span><el-button @click="loadAudit">{{ T('Refresh') }}</el-button></div></template>
+          <template #header><div class="card-header"><span>{{ T('ControlPlaneAudit') }}</span><div class="audit-filter"><DateRangeFilter v-model="audit.date_range"/><el-button @click="loadAudit">{{ T('Filter') }}</el-button></div></div></template>
           <el-table :data="audit.list || []" border>
             <el-table-column prop="created_at" :label="T('Time')" min-width="180" />
             <el-table-column prop="actor_user_id" :label="T('Actor')" width="90" />
@@ -277,6 +277,8 @@
       <el-tab-pane :label="T('Logs')" name="logs">
         <el-card shadow="never" v-loading="loading.logs">
           <template #header><div class="card-header"><span>{{ T('DiagnosticLogs') }}</span><div class="log-actions"><el-button @click="loadLogs">{{ T('Refresh') }}</el-button><el-button :disabled="!logResult.entries.length" @click="exportLogs">{{ T('Export') }}</el-button></div></div></template>
+          <el-alert v-if="!logSources.length" class="log-deployment-alert" :title="T('LogSourcesNotConfigured')" :description="T('LogSourcesNotConfiguredDescription')" type="warning" :closable="false" show-icon/>
+          <el-alert v-else-if="unavailableLogSources.length" class="log-deployment-alert" :title="T('LogSourcesUnavailable')" :description="T('LogSourcesUnavailableDescription', { sources: unavailableLogSources.map(source => source.label).join(', ') })" type="warning" :closable="false" show-icon/>
           <div class="log-toolbar">
             <el-select v-model="selectedLogSource" :placeholder="T('SelectLogSource')" @change="loadLogs">
               <el-option v-for="source in logSources" :key="source.id" :value="source.id" :label="`${source.label} · ${source.component}`"><template #default><span>{{ source.label }}</span><StatusValue :value="source.available" class="log-source-state"/></template></el-option>
@@ -307,9 +309,11 @@ import SchemaField from '@/components/schema/SchemaField.vue'
 import InfoLabel from '@/components/common/InfoLabel.vue'
 import StatusValue from '@/components/common/StatusValue.vue'
 import StarryLogo from '@/components/brand/StarryLogo.vue'
+import DateRangeFilter from '@/components/common/DateRangeFilter.vue'
 import { useAppStore } from '@/store/app'
 import { T } from '@/utils/i18n'
 import { downBlob } from '@/utils/file'
+import { withDateRange } from '@/utils/dateRange'
 import {
   applyConfig,
   getCapabilities,
@@ -352,7 +356,7 @@ const applyComment = ref('')
 const editorMode = ref('yaml')
 const activeTab = ref('status')
 const simulationInput = reactive({ clientA: '', clientB: '', transport: 'native' })
-const audit = reactive({ list: [], page: 1, page_size: 50, total: 0 })
+const audit = reactive({ list: [], page: 1, page_size: 50, total: 0, date_range: [] })
 const logSources = ref([])
 const selectedLogSource = ref('')
 const logLimit = ref(400)
@@ -388,6 +392,7 @@ const detailColumns = computed(() => appStore.setting.viewportWidth < 720 ? 1 : 
 const metricColumns = computed(() => appStore.setting.viewportWidth < 720 ? 1 : appStore.setting.viewportWidth < 1100 ? 2 : 4)
 const wideColumns = computed(() => appStore.setting.viewportWidth < 720 ? 1 : 3)
 const activeLogSource = computed(() => logSources.value.find(item => item.id === selectedLogSource.value))
+const unavailableLogSources = computed(() => logSources.value.filter(item => !item.available))
 const filteredLogEntries = computed(() => {
   const needle = logFilter.value.trim().toLowerCase()
   return needle ? logResult.entries.filter(item => item.text.toLowerCase().includes(needle) || item.level.includes(needle)) : logResult.entries
@@ -438,7 +443,7 @@ async function loadConfig () {
 
 async function loadAudit () {
   await withLoading('audit', async () => {
-    const data = (await listAuditEvents(audit.page, audit.page_size)).data || {}
+    const data = (await listAuditEvents(audit.page, audit.page_size, withDateRange({ date_range: audit.date_range }))).data || {}
     audit.list = data.list || []
     audit.total = data.total || 0
     audit.page = data.page || audit.page
@@ -664,6 +669,7 @@ onMounted(loadInstances)
 .control-tabs :deep(.el-tabs__item) { height: 38px; padding: 0 16px; color: var(--text-secondary); font-size: 12px; font-weight: 700; }
 .control-tabs :deep(.el-tabs__item.is-active) { color: var(--primary); }
 .control-tabs :deep(.el-tabs__active-bar) { height: 3px; border-radius: 999px; background: var(--primary); }
+.audit-filter { display: flex; min-width: 0; align-items: center; gap: 8px; }
 .status-card { height: 100%; }
 .section { margin-top: 14px; }
 .card-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -679,6 +685,7 @@ code { overflow-wrap: anywhere; color: var(--text-secondary); font-family: ui-mo
 :deep(.el-textarea__inner) { padding: 14px; border-radius: 12px; background: #171b24; color: #dfe5f1; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; line-height: 1.65; tab-size: 2; }
 :deep(.el-pagination) { margin-top: 14px; }
 .log-actions,.log-toolbar { display: flex; align-items: center; gap: 9px; }.log-toolbar { margin-bottom: 12px; flex-wrap: wrap; }.log-toolbar > .el-select:first-child { width: min(320px, 100%); }.log-toolbar > .el-input { min-width: 200px; flex: 1; }.log-source-state { float: right; margin-left: 18px; }
+.log-deployment-alert { margin-bottom: 12px; }
 .log-viewer { min-height: 320px; max-height: 620px; overflow: auto; padding: 12px 0; border: 1px solid #282e3a; border-radius: 14px; background: #11151c; color: #dce2ec; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .log-line { display: grid; min-width: 760px; gap: 10px; padding: 3px 12px; grid-template-columns: 42px 48px minmax(0,1fr); font-size: 11px; line-height: 1.55; }.log-line:hover { background: rgba(255,255,255,.035); }.log-line > span { color: #667084; text-align: right; }.log-line > b { color: #8da0bd; font-size: 9px; text-transform: uppercase; }.log-line code { color: inherit; font-size: inherit; white-space: pre-wrap; }.log-level--error,.log-level--fatal,.log-level--panic { color: #ff7f8a !important; }.log-level--warn { color: #e9c95c !important; }.log-level--debug,.log-level--trace { color: #9d89e8 !important; }
 

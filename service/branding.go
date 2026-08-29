@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -17,23 +18,25 @@ const brandingSingletonID uint = 1
 type BrandingService struct{}
 
 type PublicBranding struct {
-	AdminTitle                  string `json:"admin_title"`
-	AdminSubtitle               string `json:"admin_subtitle"`
-	BrandLogoLightURL           string `json:"brand_logo_light_url"`
-	BrandLogoDarkURL            string `json:"brand_logo_dark_url"`
-	BrandIconLightURL           string `json:"brand_icon_light_url"`
-	BrandIconDarkURL            string `json:"brand_icon_dark_url"`
-	LoginBackgroundLightURL     string `json:"login_background_light_url"`
-	LoginBackgroundDarkURL      string `json:"login_background_dark_url"`
-	WebClientBackgroundLightURL string `json:"web_client_background_light_url"`
-	WebClientBackgroundDarkURL  string `json:"web_client_background_dark_url"`
-	LoginKicker                 string `json:"login_kicker"`
-	LoginHeading                string `json:"login_heading"`
-	LoginCopy                   string `json:"login_copy"`
-	FooterHTML                  string `json:"footer_html"`
-	LoginCustomHTML             string `json:"login_custom_html"`
-	LoginCustomCSS              string `json:"login_custom_css"`
-	WebClientTitle              string `json:"web_client_title"`
+	DefaultsInitialized         bool              `json:"defaults_initialized"`
+	AdminTitle                  string            `json:"admin_title"`
+	AdminSubtitle               string            `json:"admin_subtitle"`
+	BrandLogoLightURL           string            `json:"brand_logo_light_url"`
+	BrandLogoDarkURL            string            `json:"brand_logo_dark_url"`
+	BrandIconLightURL           string            `json:"brand_icon_light_url"`
+	BrandIconDarkURL            string            `json:"brand_icon_dark_url"`
+	LoginBackgroundLightURL     string            `json:"login_background_light_url"`
+	LoginBackgroundDarkURL      string            `json:"login_background_dark_url"`
+	WebClientBackgroundLightURL string            `json:"web_client_background_light_url"`
+	WebClientBackgroundDarkURL  string            `json:"web_client_background_dark_url"`
+	LoginKicker                 string            `json:"login_kicker"`
+	LoginHeading                string            `json:"login_heading"`
+	LoginCopy                   string            `json:"login_copy"`
+	FooterHTML                  string            `json:"footer_html"`
+	LoginCustomHTML             string            `json:"login_custom_html"`
+	LoginCustomCSS              string            `json:"login_custom_css"`
+	WebClientTitle              string            `json:"web_client_title"`
+	ServerInstanceNames         map[string]string `json:"server_instance_names"`
 }
 
 type PublicWebClientBranding struct {
@@ -79,7 +82,7 @@ func (s *BrandingService) Get() (*model.BrandingSetting, error) {
 }
 
 func (s *BrandingService) Public() PublicBranding {
-	result := PublicBranding{AdminTitle: Config.Admin.Title}
+	result := PublicBranding{AdminTitle: Config.Admin.Title, ServerInstanceNames: map[string]string{}}
 	if DB == nil {
 		return result
 	}
@@ -93,7 +96,8 @@ func (s *BrandingService) Public() PublicBranding {
 	legacyIconLight := firstBrandValue(setting.AdminIconLightURL, setting.WebClientIconLightURL, setting.AdminIconURL, setting.WebClientIconURL)
 	legacyIconDark := firstBrandValue(setting.AdminIconDarkURL, setting.WebClientIconDarkURL, setting.AdminIconURL, setting.WebClientIconURL)
 	result = PublicBranding{
-		AdminTitle: setting.AdminTitle, AdminSubtitle: setting.AdminSubtitle,
+		DefaultsInitialized: setting.SchemaVersion >= 1,
+		AdminTitle:          setting.AdminTitle, AdminSubtitle: setting.AdminSubtitle,
 		BrandLogoLightURL: firstBrandValue(setting.BrandLogoLightURL, legacyLogoLight), BrandLogoDarkURL: firstBrandValue(setting.BrandLogoDarkURL, legacyLogoDark),
 		BrandIconLightURL: firstBrandValue(setting.BrandIconLightURL, legacyIconLight), BrandIconDarkURL: firstBrandValue(setting.BrandIconDarkURL, legacyIconDark),
 		LoginBackgroundLightURL:     firstBrandValue(setting.LoginBackgroundLightURL, setting.LoginBackgroundURL),
@@ -101,12 +105,34 @@ func (s *BrandingService) Public() PublicBranding {
 		WebClientBackgroundLightURL: setting.WebClientBackgroundLightURL, WebClientBackgroundDarkURL: setting.WebClientBackgroundDarkURL,
 		LoginKicker: setting.LoginKicker, LoginHeading: setting.LoginHeading, LoginCopy: setting.LoginCopy,
 		FooterHTML: firstBrandValue(setting.FooterHTML, setting.LoginFooter), LoginCustomHTML: setting.LoginCustomHTML, LoginCustomCSS: setting.LoginCustomCSS,
-		WebClientTitle: setting.WebClientTitle,
+		WebClientTitle: setting.WebClientTitle, ServerInstanceNames: decodeServerInstanceNames(setting.ServerInstanceNamesJSON),
 	}
 	if result.AdminTitle == "" {
 		result.AdminTitle = Config.Admin.Title
 	}
 	return result
+}
+
+func decodeServerInstanceNames(raw string) map[string]string {
+	result := map[string]string{}
+	if strings.TrimSpace(raw) != "" {
+		_ = json.Unmarshal([]byte(raw), &result)
+	}
+	if result == nil {
+		result = map[string]string{}
+	}
+	return result
+}
+
+func encodeServerInstanceNames(names map[string]string) string {
+	if names == nil {
+		return "{}"
+	}
+	encoded, err := json.Marshal(names)
+	if err != nil {
+		return "{}"
+	}
+	return string(encoded)
 }
 
 // PublicForWebClient resolves persisted relative media paths against the
@@ -141,17 +167,20 @@ func (s *BrandingService) UpdateContext(ctx context.Context, actorUserID uint, r
 	}
 	defer finalizeSecurityAudit(event, &operationErr, "branding_update_failed")
 	next.Id = brandingSingletonID
+	next.SchemaVersion = 1
 	next.UpdatedBy = actorUserID
 	return DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		values := map[string]interface{}{
-			"admin_title": next.AdminTitle, "admin_subtitle": next.AdminSubtitle,
+			"schema_version": 1,
+			"admin_title":    next.AdminTitle, "admin_subtitle": next.AdminSubtitle,
 			"brand_logo_light_url": next.BrandLogoLightURL, "brand_logo_dark_url": next.BrandLogoDarkURL,
 			"brand_icon_light_url": next.BrandIconLightURL, "brand_icon_dark_url": next.BrandIconDarkURL,
 			"login_background_light_url": next.LoginBackgroundLightURL, "login_background_dark_url": next.LoginBackgroundDarkURL,
 			"web_client_background_light_url": next.WebClientBackgroundLightURL, "web_client_background_dark_url": next.WebClientBackgroundDarkURL,
 			"login_kicker": next.LoginKicker, "login_heading": next.LoginHeading, "login_copy": next.LoginCopy,
 			"footer_html": next.FooterHTML, "login_custom_html": next.LoginCustomHTML, "login_custom_css": next.LoginCustomCSS,
-			"web_client_title": next.WebClientTitle,
+			"web_client_title":           next.WebClientTitle,
+			"server_instance_names_json": next.ServerInstanceNamesJSON,
 			// Mirror canonical assets into v307 fields so rollback remains usable.
 			"admin_logo_light_url": next.BrandLogoLightURL, "admin_logo_dark_url": next.BrandLogoDarkURL,
 			"admin_icon_light_url": next.BrandIconLightURL, "admin_icon_dark_url": next.BrandIconDarkURL,
@@ -185,6 +214,32 @@ func validateBranding(setting *model.BrandingSetting) error {
 			return fmt.Errorf("%s is invalid or too long", field.name)
 		}
 	}
+	instanceNames := decodeServerInstanceNames(setting.ServerInstanceNamesJSON)
+	configuredInstances := map[string]struct{}{}
+	if Config != nil {
+		configuredInstances = make(map[string]struct{}, len(Config.ServerControl.Instances))
+		for _, instance := range Config.ServerControl.Instances {
+			configuredInstances[instance.ID] = struct{}{}
+		}
+	}
+	if len(instanceNames) > len(configuredInstances) {
+		return errors.New("server_instance_names contains unknown instances")
+	}
+	cleanNames := make(map[string]string, len(instanceNames))
+	for id, name := range instanceNames {
+		name = strings.TrimSpace(name)
+		if _, exists := configuredInstances[id]; !exists || len(name) > 120 || strings.ContainsRune(name, '\x00') {
+			return fmt.Errorf("server_instance_names contains an invalid entry for %q", id)
+		}
+		if name != "" {
+			cleanNames[id] = name
+		}
+	}
+	encodedInstanceNames := encodeServerInstanceNames(cleanNames)
+	if len(encodedInstanceNames) > 8192 {
+		return errors.New("server_instance_names is too large")
+	}
+	setting.ServerInstanceNamesJSON = encodedInstanceNames
 	for name, value := range map[string]string{
 		"brand_logo_light_url": setting.BrandLogoLightURL, "brand_logo_dark_url": setting.BrandLogoDarkURL,
 		"brand_icon_light_url": setting.BrandIconLightURL, "brand_icon_dark_url": setting.BrandIconDarkURL,

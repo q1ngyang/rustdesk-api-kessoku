@@ -7,6 +7,7 @@ import (
 	requstform "github.com/q1ngyang/rustdesk-api-kessoku/v3/http/request/api"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/response"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/utils"
 	"net/http"
 	"strings"
 )
@@ -34,6 +35,7 @@ func (p *Peer) SysInfo(c *gin.Context) {
 		response.Error(c, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
+	f.Id = utils.NormalizeRustDeskID(f.Id)
 	if !validPeerReport(f) {
 		response.Error(c, response.TranslateMsg(c, "ParamsError"))
 		return

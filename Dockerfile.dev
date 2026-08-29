@@ -32,6 +32,10 @@ RUN --mount=type=cache,target=/root/.npm \
 # branch, URL, or alternate path can be supplied as a build argument.
 COPY admin-web/ ./
 COPY .github/workflows/build.yml /src/.github/workflows/build.yml
+# Admin source-policy tests verify the cross-origin WebClient contract as one
+# reviewed monorepo surface. Keep the required peer sources visible in this
+# isolated build stage without installing or executing a second dependency tree.
+COPY web-client/src/ /src/web-client/src/
 RUN --mount=type=cache,target=/root/.npm \
     npm audit --omit=dev --audit-level=high && \
     npm audit signatures && \

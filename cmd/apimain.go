@@ -31,7 +31,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const DatabaseVersion = 309
+const DatabaseVersion = 311
 
 const mysqlTLSProfile = "kessoku-verified-ca"
 
@@ -247,6 +247,11 @@ func InitGlobal() {
 		Path:         global.Config.Logger.Path,
 		Level:        global.Config.Logger.Level,
 		ReportCaller: global.Config.Logger.ReportCaller,
+		MaxSizeMB:    global.Config.Logger.MaxSizeMB,
+		MaxBackups:   global.Config.Logger.MaxBackups,
+		MaxAgeDays:   global.Config.Logger.MaxAgeDays,
+		Compress:     global.Config.Logger.Compress,
+		LocalTime:    global.Config.Logger.LocalTime,
 	})
 
 	global.InitI18n()
@@ -335,6 +340,7 @@ func InitGlobal() {
 	})
 	global.LoginLimiter.RegisterProvider(utils.B64StringCaptchaProvider{})
 	DatabaseAutoUpdate()
+	service.AllService.DataRetentionService.Start()
 	if err := service.AllService.GeoIPService.Init(); err != nil {
 		global.Logger.Warnf("initialize GeoIP lookup: %v", err)
 	}

@@ -83,6 +83,9 @@ func (c Config) Validate() error {
 	if err := c.TwoFactor.Validate(); err != nil {
 		return err
 	}
+	if err := c.Logger.Validate(); err != nil {
+		return err
+	}
 	if c.Proxy.Enable {
 		return errors.New("proxy.enable is not supported for OAuth/OIDC because a proxy can bypass destination address validation")
 	}
@@ -126,6 +129,11 @@ func Init(rowVal *Config, path string) *viper.Viper {
 	v.SetDefault("two-factor::issuer", "RustDesk API Kessoku")
 	v.SetDefault("two-factor::key-file", "./data/totp.key")
 	v.SetDefault("two-factor::challenge-ttl", 5*time.Minute)
+	v.SetDefault("logger::max-size-mb", 20)
+	v.SetDefault("logger::max-backups", 5)
+	v.SetDefault("logger::max-age-days", 14)
+	v.SetDefault("logger::compress", true)
+	v.SetDefault("logger::local-time", true)
 	v.SetConfigFile(path)
 	v.SetConfigType("yaml")
 	if legacyWebClientProviderEnvironmentPresent(os.Environ()) {

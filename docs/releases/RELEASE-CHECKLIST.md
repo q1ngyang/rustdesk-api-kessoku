@@ -1,7 +1,7 @@
-# Kessoku v3.0.3 release checklist
+# Kessoku v3.0.4 release checklist
 
 This checklist defines the release gate for the exact source commit named by
-the immutable `v3.0.3` tag. Detailed runtime evidence is retained by the
+the immutable `v3.0.4` tag. Detailed runtime evidence is retained by the
 candidate workflow rather than duplicated here.
 
 ## Source and compatibility
@@ -21,7 +21,7 @@ candidate workflow rather than duplicated here.
 - [x] Separate-origin WebClient authentication, grant handoff, connection
   auditing, theme/language preferences, and forced-Relay protocol behavior
   have automated coverage.
-- [x] v3.0.1 withdrawal, the unpublished v3.0.2 release attempt, breaking
+- [x] v3.0.1 withdrawal, the unpublished v3.0.2 release attempt, v3.0.3 history, breaking
   changes, complete backups, LinuxDo removal, and safe rollback are documented
   in English and Simplified Chinese.
 
@@ -48,15 +48,14 @@ uploaded media, and runtime logs are never release inputs.
 The following steps occur after the immutable tag is created and are visible in
 GitHub Actions/Release evidence, not as modifications to the tagged source:
 
-- [ ] Non-publishing candidate workflow on `v3.0.3` succeeds.
+- [ ] Non-publishing candidate workflow on `v3.0.4` succeeds.
 - [ ] Linux amd64 binary, archive, DEB, container smoke, checksum, provenance,
   and SBOM gates pass in that candidate.
 - [ ] Protected release workflow consumes that exact candidate run ID.
 - [ ] GitHub Release assets and `SHA256SUMS` verify.
-- [ ] GHCR `v3.0.3` and `latest` resolve to the same image index digest.
+- [ ] GHCR `v3.0.4` and `latest` resolve to the same image index digest.
 - [ ] The reviewed bilingual Wiki is published and its navigation is verified.
-- [ ] The withdrawn v3.0.1 container package version is removed only after the
-  new image and `latest` have been verified.
+- [ ] The Release body is at most 12 lines and links to the full bilingual notes.
 
 Supported release artifacts are Linux amd64 only. ARM remains best-effort
 source compatibility, and Windows is outside the blocking release matrix.

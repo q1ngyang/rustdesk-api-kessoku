@@ -8,7 +8,12 @@ import { computed } from 'vue'
 const props = defineProps({ value: { type: [String, Number, Date], default: '' }, unix: Boolean })
 const parts = computed(() => {
   if (props.value === '' || props.value === null || props.value === undefined) return { date: '-', time: '' }
-  const raw = props.unix && typeof props.value === 'number' ? props.value * 1000 : props.value
+  let raw = props.value
+  if (props.unix) {
+    const seconds = Number(props.value)
+    if (!Number.isFinite(seconds) || seconds <= 0) return { date: '-', time: '' }
+    raw = seconds * 1000
+  }
   const date = new Date(raw)
   if (Number.isNaN(date.getTime())) return { date: '-', time: '' }
   return {

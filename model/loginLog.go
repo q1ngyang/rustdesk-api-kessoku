@@ -17,8 +17,16 @@ type LoginLog struct {
 const (
 	LoginLogClientWebAdmin = "webadmin"
 	LoginLogClientWeb      = "webclient"
-	LoginLogClientApp      = "app"
+	// LoginLogClientNative is the value sent by current official RustDesk
+	// desktop and mobile clients in deviceInfo.type.
+	LoginLogClientNative = "client"
+	// LoginLogClientApp is retained for older API clients and stored records.
+	LoginLogClientApp = "app"
 )
+
+func IsNativeLoginClient(client string) bool {
+	return client == LoginLogClientNative || client == LoginLogClientApp
+}
 
 const (
 	LoginLogTypeAccount = "account"

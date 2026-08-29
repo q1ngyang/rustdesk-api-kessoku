@@ -66,6 +66,11 @@ logger:
   path: "./runtime/log.txt"
   level: "info"
   report-caller: false
+  max-size-mb: 20
+  max-backups: 5
+  max-age-days: 14
+  compress: true
+  local-time: true
 
 proxy:
   enable: false
@@ -94,6 +99,9 @@ server-control:
   read-only: true
   request-timeout: 5s
   response-max-bytes: 1048576
+  # logger.path is listed automatically. To show Starry/Relay files too, have
+  # the deployment log collector write them into one mounted directory, set
+  # that absolute in-container directory here, and allowlist simple filenames.
   log-directory: ""
   log-sources: []
   instances: []

@@ -10,6 +10,14 @@ export const systemSettingDefaults = Object.freeze({
   geoip_last_updated_at: null,
   geoip_last_error: '',
   geoip_updating: false,
+  web_login_hours: 168,
+  client_login_hours: 168,
+  login_maximum_hours: 168,
+  user_token_retention_days: 0,
+  login_log_retention_days: 0,
+  audit_conn_retention_days: 0,
+  audit_file_retention_days: 0,
+  control_audit_retention_days: 0,
 })
 
 export const loadSystemSettingForm = async form => {
@@ -23,4 +31,11 @@ export const saveSystemSettingForm = form => updateSystemSettings({
   geoip_country_url: form.geoip_country_url,
   geoip_asn_url: form.geoip_asn_url,
   geoip_update_hours: form.geoip_update_hours,
+  web_login_hours: form.web_login_hours,
+  client_login_hours: form.client_login_hours,
+  user_token_retention_days: form.user_token_retention_days,
+  login_log_retention_days: form.login_log_retention_days,
+  audit_conn_retention_days: form.audit_conn_retention_days,
+  audit_file_retention_days: form.audit_file_retention_days,
+  control_audit_retention_days: form.control_audit_retention_days,
 })

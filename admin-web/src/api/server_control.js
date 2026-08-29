@@ -65,9 +65,9 @@ export const reloadRuntime = (id, sourceDigest, idempotencyKey) => request({
   data: { expected_source_digest: sourceDigest },
 })
 
-export const listAuditEvents = (page = 1, pageSize = 50) => request({
+export const listAuditEvents = (page = 1, pageSize = 50, filters = {}) => request({
   url: `${base}/audit-events`,
-  params: { page, page_size: pageSize },
+  params: { page, page_size: pageSize, ...filters },
 })
 
 export function newIdempotencyKey () {

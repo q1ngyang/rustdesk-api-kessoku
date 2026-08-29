@@ -7,6 +7,7 @@ import (
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/response"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/utils"
 	"net/http"
 	"time"
 )
@@ -31,6 +32,10 @@ func (a *Audit) AuditConn(c *gin.Context) {
 	if err != nil {
 		response.Error(c, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
+	}
+	af.Id = utils.NormalizeRustDeskID(af.Id)
+	if len(af.Peer) > 0 {
+		af.Peer[0] = utils.NormalizeRustDeskID(af.Peer[0])
 	}
 	if !validAuditConnReport(af) || !peerReportIdentityMatches(af.Id, af.Uuid) {
 		response.Error(c, response.TranslateMsg(c, "ParamsError"))
@@ -99,6 +104,8 @@ func (a *Audit) AuditFile(c *gin.Context) {
 		response.Error(c, response.TranslateMsg(c, "ParamsError")+err.Error())
 		return
 	}
+	aff.Id = utils.NormalizeRustDeskID(aff.Id)
+	aff.PeerId = utils.NormalizeRustDeskID(aff.PeerId)
 	if !validAuditFileReport(aff) || !peerReportIdentityMatches(aff.Id, aff.Uuid) {
 		response.Error(c, response.TranslateMsg(c, "ParamsError"))
 		return
@@ -119,7 +126,18 @@ func peerReportIdentityMatches(peerID, uuid string) bool {
 		return false
 	}
 	peer := service.AllService.PeerService.FindById(peerID)
-	return peer.RowId != 0 && peer.Uuid == uuid
+	if peer.RowId != 0 && peer.Uuid == uuid {
+		return true
+	}
+	// A client may emit its first connection/file audit before its next
+	// sysinfo retry. Recover only from an exact prior native-login identity;
+	// browser sessions and unknown UUIDs cannot claim a peer.
+	userID := service.AllService.UserService.FindLatestUserIdFromLoginLogByUuid(uuid, peerID)
+	if userID == 0 || service.AllService.PeerService.BindLoginIdentity(peerID, uuid, userID) != nil {
+		return false
+	}
+	peer = service.AllService.PeerService.FindById(peerID)
+	return peer.RowId != 0 && peer.Uuid == uuid && peer.UserId == userID
 }
 
 func validAuditConnReport(form *request.AuditConnForm) bool {

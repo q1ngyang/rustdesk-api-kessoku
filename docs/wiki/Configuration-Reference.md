@@ -52,6 +52,15 @@ database: losing it makes enabled TOTP registrations unverifiable. The
 `issuer` appears in authenticator apps; `challenge-ttl` must be one to ten
 minutes. Enabling or disabling TOTP revokes all existing sessions.
 
+## Application logging
+
+`logger.path` enables the Kessoku file log and is on by default in every
+example configuration. Rotation is bounded by `max-size-mb: 20`,
+`max-backups: 5`, and `max-age-days: 14`; archived files are compressed and
+use local timestamps by default. Container examples also cap the Docker
+`json-file` stream at five 20 MiB files. Keep `level: info` for normal
+operation and enable debug logging only for a limited troubleshooting window.
+
 ## Database transport
 
 SQLite uses the local data file. MySQL and PostgreSQL are never allowed to
@@ -99,11 +108,17 @@ Each enabled instance fixes:
 The browser cannot override these values. `server-control.read-only: true` is
 the normal profile outside an approved configuration window.
 
-The optional diagnostics viewer is a deployment-owned allowlist. Set one
-absolute `log-directory`, then add `log-sources` entries containing a unique
+Kessoku automatically exposes its own `logger.path` when it resolves to a
+regular file. The remaining diagnostics viewer is a deployment-owned
+allowlist. Set one absolute `log-directory`, then add `log-sources` entries containing a unique
 `id`, display `label`, component (`kessoku`, `starry`, `relay`, or
 `control-agent`), optional configured `instance-id`, and a simple `file` name.
-Paths, traversal, and browser-provided filenames are rejected. Kessoku reads
+Starry, Relay, and the Control Agent normally log to container stdout. Kessoku
+does not receive the Docker socket: use the deployment log collector to write
+the selected streams as regular text files and mount that directory into
+Kessoku. If this directory differs from the directory containing
+`logger.path`, add the Kessoku file explicitly as well. Paths, traversal, and
+browser-provided filenames are rejected. Kessoku reads
 only a bounded newest window and redacts common authorization, token,
 password, session-cookie, client-secret, and private-key values before display
 or export. Keep older logs and retention policy in the deployment logging
@@ -113,8 +128,11 @@ maintenance restart.
 
 ## Operator-managed system settings
 
-Super administrators manage the workspace announcement and IP information
-database under **System settings** in `/dash/`. GeoIP sources must be public
+Super administrators manage announcements, IP information, login lifetimes,
+and record-retention periods under **System management** in `/dash/`. Web and
+native-client lifetimes may be shortened independently but cannot exceed the
+deployment-owned `auth.maximum-token-ttl`. Token cleanup never removes an
+active session; its retention clock starts after expiry or revocation. GeoIP sources must be public
 HTTPS MMDB URLs; downloads are limited to 128 MiB, validated before atomic
 replacement, and refreshed every 1–2160 hours. The default City and ASN files
 come from the P3TERX GeoLite mirror. These values are stored in the database,

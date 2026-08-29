@@ -11,6 +11,7 @@ function keyboard(key: string, extra: Partial<KeyboardEvent> = {}): KeyboardEven
 describe("wire policy", () => {
   it("accepts only bounded RustDesk IDs", () => {
     expect(validatePeerId("123_ABC-9")).toBe("123_ABC-9");
+    expect(validatePeerId(" 123 456 789 ")).toBe("123456789");
     expect(() => validatePeerId("bad/id")).toThrow();
     expect(() => validatePeerId("")).toThrow();
   });

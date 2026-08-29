@@ -58,9 +58,9 @@ docker compose --env-file .env -f compose.yaml logs --tail 200 kessoku-api
 更新 Starry 时 HBBS/HBBR 必须同时使用相同 `STARRY_VERSION`，但可以先重建 HBBS、完成
 健康检查后再重建 HBBR。不要把 HBBR 换成独立移动版本的官方镜像。
 
-## 从 v2 升级到 v3.0.3
+## 从 v2 升级到 v3.0.4
 
-v3.0.3 把数据库升级到版本 `309`，包含企业角色和管理员资源范围，并新增品牌、TOTP、
+v3.0.4 把数据库升级到版本 `309`，包含企业角色和管理员资源范围，并新增品牌、TOTP、
 公告、GeoIP、用户界面偏好和 WebClient 审计字段：
 
 - 旧 `is_admin=true` 账户迁移为 `super_admin`，避免原管理员意外失去权限；
@@ -75,7 +75,7 @@ v3.0.3 把数据库升级到版本 `309`，包含企业角色和管理员资源�
 
 1. 停止旧 Kessoku 写入并创建完整数据库备份；
 2. 对恢复副本先执行升级，处理 OAuth/OIDC 身份重复或空字段；
-3. 生产环境启动 v3.0.3，检查日志中的数据库迁移；
+3. 生产环境启动 v3.0.4，检查日志中的数据库迁移；
 4. 确认至少一个启用的 `super_admin`；
 5. 分别测试普通用户、范围管理员和超级管理员；
 6. 测试范围管理员只能看到获授的用户组、用户、公共地址簿和设备；
@@ -83,7 +83,7 @@ v3.0.3 把数据库升级到版本 `309`，包含企业角色和管理员资源�
 8. 再启用新的 Ed25519 认证、浏览器客户端或 Starry 高级集成。
 
 详细预检和数据库查询见
-[`MIGRATION-v3.0.3.zh-CN.md`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/releases/v3.0.3/MIGRATION-v3.0.3.zh-CN.md)及
+[`MIGRATION-v3.0.4.zh-CN.md`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/releases/v3.0.4/MIGRATION-v3.0.4.zh-CN.md)及
 [`MIGRATION.md`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/releases/MIGRATION.md)。身份冲突必须由管理员明确决定合并或解绑，不能只为
 通过唯一索引而随意删除记录。
 

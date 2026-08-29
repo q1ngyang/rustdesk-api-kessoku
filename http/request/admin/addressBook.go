@@ -2,7 +2,9 @@ package admin
 
 import (
 	"encoding/json"
+
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/utils"
 )
 
 type AddressBookForm struct {
@@ -32,7 +34,7 @@ func (a AddressBookForm) ToAddressBook() *model.AddressBook {
 
 	return &model.AddressBook{
 		RowId:            a.RowId,
-		Id:               a.Id,
+		Id:               utils.NormalizeRustDeskID(a.Id),
 		Username:         a.Username,
 		Password:         a.Password,
 		Hostname:         a.Hostname,
@@ -59,7 +61,7 @@ func (a AddressBookForm) ToAddressBooks() []*model.AddressBook {
 	for _, userId := range a.UserIds {
 		abs = append(abs, &model.AddressBook{
 			RowId:            a.RowId,
-			Id:               a.Id,
+			Id:               utils.NormalizeRustDeskID(a.Id),
 			Username:         a.Username,
 			Password:         a.Password,
 			Hostname:         a.Hostname,

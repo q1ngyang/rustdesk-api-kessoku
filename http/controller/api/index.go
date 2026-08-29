@@ -6,6 +6,7 @@ import (
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/response"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/utils"
 	"net/http"
 	"time"
 )
@@ -45,12 +46,13 @@ func (i *Index) Heartbeat(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{})
 		return
 	}
+	info.Id = utils.NormalizeRustDeskID(info.Id)
 	if info.Uuid == "" {
 		c.JSON(http.StatusOK, gin.H{})
 		return
 	}
 	peer := service.AllService.PeerService.FindById(info.Id)
-	if peer == nil || peer.RowId == 0 {
+	if peer == nil || peer.RowId == 0 || peer.Uuid == "" || peer.Uuid != info.Uuid {
 		c.JSON(http.StatusOK, gin.H{})
 		return
 	}

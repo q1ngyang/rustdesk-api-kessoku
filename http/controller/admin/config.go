@@ -1,7 +1,10 @@
 package admin
 
 import (
+	"encoding/json"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -19,26 +22,28 @@ type Config struct {
 // timestamps.  Binding the database model made a GET response impossible to
 // POST back because its serialized timestamp format is not a request format.
 type brandingForm struct {
-	AdminTitle                  string `json:"admin_title"`
-	AdminSubtitle               string `json:"admin_subtitle"`
-	BrandLogoLightURL           string `json:"brand_logo_light_url"`
-	BrandLogoDarkURL            string `json:"brand_logo_dark_url"`
-	BrandIconLightURL           string `json:"brand_icon_light_url"`
-	BrandIconDarkURL            string `json:"brand_icon_dark_url"`
-	LoginBackgroundLightURL     string `json:"login_background_light_url"`
-	LoginBackgroundDarkURL      string `json:"login_background_dark_url"`
-	WebClientBackgroundLightURL string `json:"web_client_background_light_url"`
-	WebClientBackgroundDarkURL  string `json:"web_client_background_dark_url"`
-	LoginKicker                 string `json:"login_kicker"`
-	LoginHeading                string `json:"login_heading"`
-	LoginCopy                   string `json:"login_copy"`
-	FooterHTML                  string `json:"footer_html"`
-	LoginCustomHTML             string `json:"login_custom_html"`
-	LoginCustomCSS              string `json:"login_custom_css"`
-	WebClientTitle              string `json:"web_client_title"`
+	AdminTitle                  string            `json:"admin_title"`
+	AdminSubtitle               string            `json:"admin_subtitle"`
+	BrandLogoLightURL           string            `json:"brand_logo_light_url"`
+	BrandLogoDarkURL            string            `json:"brand_logo_dark_url"`
+	BrandIconLightURL           string            `json:"brand_icon_light_url"`
+	BrandIconDarkURL            string            `json:"brand_icon_dark_url"`
+	LoginBackgroundLightURL     string            `json:"login_background_light_url"`
+	LoginBackgroundDarkURL      string            `json:"login_background_dark_url"`
+	WebClientBackgroundLightURL string            `json:"web_client_background_light_url"`
+	WebClientBackgroundDarkURL  string            `json:"web_client_background_dark_url"`
+	LoginKicker                 string            `json:"login_kicker"`
+	LoginHeading                string            `json:"login_heading"`
+	LoginCopy                   string            `json:"login_copy"`
+	FooterHTML                  string            `json:"footer_html"`
+	LoginCustomHTML             string            `json:"login_custom_html"`
+	LoginCustomCSS              string            `json:"login_custom_css"`
+	WebClientTitle              string            `json:"web_client_title"`
+	ServerInstanceNames         map[string]string `json:"server_instance_names"`
 }
 
 func (form *brandingForm) model() *model.BrandingSetting {
+	instanceNames, _ := json.Marshal(form.ServerInstanceNames)
 	return &model.BrandingSetting{
 		AdminTitle: form.AdminTitle, AdminSubtitle: form.AdminSubtitle,
 		BrandLogoLightURL: form.BrandLogoLightURL, BrandLogoDarkURL: form.BrandLogoDarkURL,
@@ -47,7 +52,7 @@ func (form *brandingForm) model() *model.BrandingSetting {
 		WebClientBackgroundLightURL: form.WebClientBackgroundLightURL, WebClientBackgroundDarkURL: form.WebClientBackgroundDarkURL,
 		LoginKicker: form.LoginKicker, LoginHeading: form.LoginHeading, LoginCopy: form.LoginCopy,
 		FooterHTML: form.FooterHTML, LoginCustomHTML: form.LoginCustomHTML, LoginCustomCSS: form.LoginCustomCSS,
-		WebClientTitle: form.WebClientTitle,
+		WebClientTitle: form.WebClientTitle, ServerInstanceNamesJSON: string(instanceNames),
 	}
 }
 
@@ -147,12 +152,19 @@ func (co *Config) UpdateBranding(c *gin.Context) {
 }
 
 type systemSettingForm struct {
-	Announcement     string `json:"announcement"`
-	GeoIPEnabled     bool   `json:"geoip_enabled"`
-	GeoIPCityURL     string `json:"geoip_city_url"`
-	GeoIPCountryURL  string `json:"geoip_country_url"`
-	GeoIPASNURL      string `json:"geoip_asn_url"`
-	GeoIPUpdateHours uint   `json:"geoip_update_hours"`
+	Announcement              *string `json:"announcement"`
+	GeoIPEnabled              *bool   `json:"geoip_enabled"`
+	GeoIPCityURL              *string `json:"geoip_city_url"`
+	GeoIPCountryURL           *string `json:"geoip_country_url"`
+	GeoIPASNURL               *string `json:"geoip_asn_url"`
+	GeoIPUpdateHours          *uint   `json:"geoip_update_hours"`
+	WebLoginHours             *uint   `json:"web_login_hours"`
+	ClientLoginHours          *uint   `json:"client_login_hours"`
+	UserTokenRetentionDays    *uint   `json:"user_token_retention_days"`
+	LoginLogRetentionDays     *uint   `json:"login_log_retention_days"`
+	AuditConnRetentionDays    *uint   `json:"audit_conn_retention_days"`
+	AuditFileRetentionDays    *uint   `json:"audit_file_retention_days"`
+	ControlAuditRetentionDays *uint   `json:"control_audit_retention_days"`
 }
 
 func (co *Config) SystemSettings(c *gin.Context) {
@@ -172,12 +184,56 @@ func (co *Config) UpdateSystemSettings(c *gin.Context) {
 		return
 	}
 	actor := service.AllService.UserService.CurUser(c)
-	next := &model.SystemSetting{Announcement: form.Announcement, GeoIPEnabled: form.GeoIPEnabled, GeoIPCityURL: form.GeoIPCityURL, GeoIPCountryURL: form.GeoIPCountryURL, GeoIPASNURL: form.GeoIPASNURL, GeoIPUpdateHours: form.GeoIPUpdateHours}
+	next, err := service.AllService.SystemSettingService.Get()
+	if err != nil {
+		response.Fail(c, 101, response.TranslateMsg(c, "OperationFailed"))
+		return
+	}
+	previousGeoEnabled, previousCityURL, previousCountryURL, previousASNURL := next.GeoIPEnabled, next.GeoIPCityURL, next.GeoIPCountryURL, next.GeoIPASNURL
+	if form.Announcement != nil {
+		next.Announcement = *form.Announcement
+	}
+	if form.GeoIPEnabled != nil {
+		next.GeoIPEnabled = *form.GeoIPEnabled
+	}
+	if form.GeoIPCityURL != nil {
+		next.GeoIPCityURL = *form.GeoIPCityURL
+	}
+	if form.GeoIPCountryURL != nil {
+		next.GeoIPCountryURL = *form.GeoIPCountryURL
+	}
+	if form.GeoIPASNURL != nil {
+		next.GeoIPASNURL = *form.GeoIPASNURL
+	}
+	if form.GeoIPUpdateHours != nil {
+		next.GeoIPUpdateHours = *form.GeoIPUpdateHours
+	}
+	if form.WebLoginHours != nil {
+		next.WebLoginHours = *form.WebLoginHours
+	}
+	if form.ClientLoginHours != nil {
+		next.ClientLoginHours = *form.ClientLoginHours
+	}
+	if form.UserTokenRetentionDays != nil {
+		next.UserTokenRetentionDays = *form.UserTokenRetentionDays
+	}
+	if form.LoginLogRetentionDays != nil {
+		next.LoginLogRetentionDays = *form.LoginLogRetentionDays
+	}
+	if form.AuditConnRetentionDays != nil {
+		next.AuditConnRetentionDays = *form.AuditConnRetentionDays
+	}
+	if form.AuditFileRetentionDays != nil {
+		next.AuditFileRetentionDays = *form.AuditFileRetentionDays
+	}
+	if form.ControlAuditRetentionDays != nil {
+		next.ControlAuditRetentionDays = *form.ControlAuditRetentionDays
+	}
 	if err := service.AllService.SystemSettingService.UpdateContext(c.Request.Context(), actor.Id, controlRequestID(c), next); err != nil {
 		response.Fail(c, 101, err.Error())
 		return
 	}
-	if next.GeoIPEnabled {
+	if next.GeoIPEnabled && (!previousGeoEnabled || next.GeoIPCityURL != previousCityURL || next.GeoIPCountryURL != previousCountryURL || next.GeoIPASNURL != previousASNURL) {
 		service.AllService.GeoIPService.TriggerUpdate()
 	}
 	response.Success(c, nil)
@@ -237,14 +293,10 @@ type aboutInstance struct {
 
 func (co *Config) About(c *gin.Context) {
 	result := gin.H{
-		"kessoku":   gin.H{"version": service.AllService.AppService.GetAppVersion(), "github": "https://github.com/q1ngyang/rustdesk-api-kessoku"},
-		"starry":    gin.H{"github": "https://github.com/q1ngyang/rustdesk-server-starry"},
-		"instances": []aboutInstance{},
-	}
-	actor := service.AllService.UserService.CurUser(c)
-	if !service.AllService.UserService.IsSuperAdmin(actor) {
-		response.Success(c, result)
-		return
+		"kessoku":           gin.H{"version": service.AllService.AppService.GetAppVersion(), "github": "https://github.com/q1ngyang/rustdesk-api-kessoku"},
+		"starry":            gin.H{"github": "https://github.com/q1ngyang/rustdesk-server-starry"},
+		"client_connection": service.RustDeskClientConfigurationFor(&global.Config),
+		"instances":         []aboutInstance{},
 	}
 	instances := service.AllService.StarryControlService.Instances()
 	details := make([]aboutInstance, 0, len(instances))
@@ -271,7 +323,7 @@ func (co *Config) About(c *gin.Context) {
 					if version == "" {
 						version = "not_reported"
 					}
-					detail.Relays = append(detail.Relays, aboutRelay{ID: relay.ID, Version: version, Native: relay.Native.State, WSS: relay.WebSocket.State})
+					detail.Relays = append(detail.Relays, aboutRelay{ID: publicRelayHost(relay.ID), Version: version, Native: relay.Native.State, WSS: relay.WebSocket.State})
 				}
 			}
 		}
@@ -279,4 +331,26 @@ func (co *Config) About(c *gin.Context) {
 	}
 	result["instances"] = details
 	response.Success(c, result)
+}
+
+func publicRelayHost(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	if parsed, err := url.Parse(value); err == nil && parsed.Hostname() != "" {
+		return parsed.Hostname()
+	}
+	if host, _, err := net.SplitHostPort(value); err == nil {
+		return strings.Trim(host, "[]")
+	}
+	if strings.HasPrefix(value, "[") && strings.Contains(value, "]") {
+		return strings.Trim(strings.SplitN(value, "]", 2)[0], "[]")
+	}
+	if strings.Count(value, ":") == 1 {
+		if host, port, ok := strings.Cut(value, ":"); ok && host != "" && port != "" {
+			return host
+		}
+	}
+	return value
 }

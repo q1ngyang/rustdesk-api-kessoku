@@ -105,16 +105,16 @@ export const asyncRoutes = [
         component: () => import('@/views/my/tag/index.vue'),
       },
       {
-        path: 'shareRecord',
-        name: 'MyShareRecordList',
-        meta: { title: 'ShareRecord', icon: 'Share' /*keepAlive: true*/ },
-        component: () => import('@/views/my/share_record/index.vue'),
-      },
-      {
         path: 'loginLog',
         name: 'MyLoginLog',
         meta: { title: 'LoginLog', icon: 'List' /*keepAlive: true*/ },
         component: () => import('@/views/my/login_log/index.vue'),
+      },
+      {
+        path: 'about',
+        name: 'AboutService',
+        meta: { title: 'AboutService', icon: 'InfoFilled' },
+        component: () => import('@/views/about/index.vue'),
       },
     ],
   },
@@ -215,12 +215,6 @@ export const asyncRoutes = [
         meta: { title: 'AuditFileLog', icon: 'Files' /*keepAlive: true*/ },
         component: () => import('@/views/audit/fileList.vue'),
       },
-      {
-        path: '/shareRecord',
-        name: 'ShareRecord',
-        meta: { title: 'ShareRecord', icon: 'Share' /*keepAlive: true*/ },
-        component: () => import('@/views/share_record/index.vue'),
-      },
     ],
   },
   {
@@ -230,6 +224,12 @@ export const asyncRoutes = [
     meta: { title: 'SystemManagement', icon: 'Setting' },
     component: () => import('@/layout/index.vue'),
     children: [
+      {
+        path: 'platform',
+        name: 'PlatformSettings',
+        meta: { title: 'PlatformSettings', icon: 'Tools' },
+        component: () => import('@/views/settings/platform.vue'),
+      },
       {
         path: 'announcement',
         name: 'AnnouncementSettings',
@@ -264,4 +264,8 @@ export const lastRoutes = [
 export const router = createRouter({
   history: createWebHashHistory(),
   routes: constantRoutes,
+  scrollBehavior (to) {
+    if (to.hash) return { el: to.hash, top: 18, behavior: 'smooth' }
+    return { top: 0 }
+  },
 })
