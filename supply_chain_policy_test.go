@@ -234,6 +234,7 @@ func TestCompilerFrontendAndVulnerabilityScannerArePinned(t *testing.T) {
 		".github/workflows/ci.yml": {
 			"govulncheck@v1.7.0",
 			"go1.26.6",
+			"shell: bash",
 		},
 		".github/workflows/build.yml": {
 			"GO_VERSION: 1.26.6",
