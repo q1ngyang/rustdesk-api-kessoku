@@ -1,3 +1,11 @@
+rustdesk-api-kessoku (3.0.5-1) UNRELEASED; urgency=high
+
+  * Publish the reviewed v3.0.5 product scope after the unpublished v3.0.4 candidate.
+  * Synchronize generated audit API documentation before merge and release preparation.
+  * Complete candidate and publication-readiness gates before creating immutable tags.
+
+ -- q1ngyang <q1ngyang@users.noreply.github.com>  Sat, 29 Aug 2026 13:00:00 +0800
+
 rustdesk-api-kessoku (3.0.4-1) UNRELEASED; urgency=high
 
   * Fix device discovery, audit identity, remote paths, and durable record sequence display.

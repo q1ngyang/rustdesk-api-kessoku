@@ -9,9 +9,9 @@ Kessoku 不包含 HBBS/HBBR。它可以搭配官方 RustDesk Server；推荐搭�
 [`q1ngyang/rustdesk-server-starry`](https://github.com/q1ngyang/rustdesk-server-starry)，
 获得安全 TCP、WSS、按地理位置选择中继服务器、连接令牌认证和可选管理代理。
 
-当前稳定版：`v3.0.4`；v3.0.3 是首个正式支持的 v3 版本，正式支持 Docker/Linux `amd64`。
+当前稳定版：`v3.0.5`；v3.0.3 是首个正式支持的 v3 版本，正式支持 Docker/Linux `amd64`。
 此前 `v3.0.1` 因重大集成缺陷已撤回；`v3.0.2` 仅保留未公开发布尝试的标签，没有受支持
-的 Release 制品或容器镜像，请勿将这两个版本用于新部署。
+的 Release 制品或容器镜像；`v3.0.4` 同样仅保留失败候选记录。请勿将这些版本用于新部署。
 
 ## 功能
 
@@ -102,11 +102,11 @@ Kessoku 容器使用 UID/GID `65534:65534`。数据和密钥目录必须属于�
 
 ## 升级提示
 
-v3.0.4 使用数据库版本 309，除企业角色和范围授权外，还新增 TOTP、品牌与媒体、公告、
+v3.0.5 使用数据库版本 309，除企业角色和范围授权外，还新增 TOTP、品牌与媒体、公告、
 GeoIP、界面偏好和 WebClient 审计字段。v2 程序可能把范围管理员误认为无限制管理员，不能
 让 v2/v3 同时写一个数据库，也不能在没有匹配数据库、TOTP 密钥、媒体和配置备份时直接
 降级。升级前阅读
-[`MIGRATION-v3.0.4.zh-CN.md`](docs/releases/v3.0.4/MIGRATION-v3.0.4.zh-CN.md)。
+[`MIGRATION-v3.0.5.zh-CN.md`](docs/releases/v3.0.5/MIGRATION-v3.0.5.zh-CN.md)。
 
 ## 许可证
 

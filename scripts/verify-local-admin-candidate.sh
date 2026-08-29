@@ -9,6 +9,11 @@ if [[ $# -ne 0 ]]; then
 fi
 
 repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+release_tag=$(sed -n 's/^release_tag: //p' "$repo_root/RELEASE_STATUS")
+printf '%s' "$release_tag" \
+  | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.]+)?$'
+local_artifact_label="${release_tag}-local-candidate"
+release_notes_relative="docs/releases/${release_tag}"
 admin_web_root="$repo_root/admin-web"
 web_client_root="$repo_root/web-client"
 evidence_dir=${KESSOKU_LOCAL_EVIDENCE_DIR:-}
@@ -56,6 +61,7 @@ if ! grep -Fq "$admin_import_commit" "$admin_web_root/PROVENANCE.md" || \
 fi
 
 python3 "$repo_root/scripts/check_docs.py"
+python3 "$repo_root/scripts/check_release_identity.py"
 python3 -m unittest discover -s "$repo_root/scripts" -p 'test_documentation.py'
 docker compose --env-file "$repo_root/examples/compose.env.example" \
   -f "$repo_root/docker-compose.yaml" config --quiet
@@ -212,7 +218,7 @@ install -m 0644 "$build_output/GO-VERIFY.txt" \
   "$candidate/GO-VERIFY.txt"
 sh "$backend_source/scripts/copy-runtime-resources.sh" \
   "$release/resources" "$backend_source/resources" require-admin require-client
-printf '%s\n' 'v3.0.4-local-candidate' > "$release/resources/version"
+printf '%s\n' "$local_artifact_label" > "$release/resources/version"
 cp -a "$backend_source/conf" "$backend_source/docs" "$release/"
 for document in README.md README.zh-CN.md README_EN.md RELEASE_STATUS LICENSE; do
   cp -a "$backend_source/$document" "$release/"
@@ -232,7 +238,7 @@ install -m 0644 "$web_client_source/web-client.cdx.json" \
   printf 'repository=%s\n' 'q1ngyang/rustdesk-api-kessoku'
   printf 'source_commit=%s\n' "$source_sha"
   printf 'release_tag=%s\n' 'UNPUBLISHED'
-  printf 'artifact_label=%s\n' 'v3.0.4-local-candidate'
+  printf 'artifact_label=%s\n' "$local_artifact_label"
   printf 'go_version=%s\n' '1.26.6'
   printf 'admin_web_path=%s\n' 'admin-web'
   printf 'admin_web_source_commit=%s\n' "$source_sha"
@@ -397,7 +403,7 @@ test "$(curl -sS -o /dev/null -w '%{http_code}' \
 release_assets="$candidate_root/release-assets"
 mkdir -p "$release_assets"
 install -m 0644 "$candidate_root/candidate-a.tar.gz" \
-  "$release_assets/kessoku-v3.0.4-local-linux-amd64.tar.gz"
+  "$release_assets/kessoku-${local_artifact_label}-linux-amd64.tar.gz"
 install -m 0644 "$candidate_root/packages-a/"*.deb "$release_assets/"
 for artifact in ADMIN-WEB-DIST-SHA256SUMS WEB-CLIENT-DIST-SHA256SUMS BUILD-INPUTS.txt \
   GO-BUILD-INFO.txt GO-VERIFY.txt GOVULNCHECK.txt LOCAL-IMAGE-IDENTITY.txt \
@@ -411,8 +417,8 @@ install -m 0644 "$web_client_source/LICENSE" "$release_assets/WEB-CLIENT-LICENSE
 install -m 0644 "$web_client_source/NOTICE.md" "$release_assets/WEB-CLIENT-NOTICE.md"
 install -m 0644 "$backend_source/RELEASE_STATUS" \
   "$backend_source/docs/releases/RELEASE-CHECKLIST.md" \
-  "$backend_source/docs/releases/v3.0.4/RELEASE-NOTES-v3.0.4.md" \
-  "$backend_source/docs/releases/v3.0.4/RELEASE-NOTES-v3.0.4.zh-CN.md" \
+  "$backend_source/$release_notes_relative/RELEASE-NOTES-${release_tag}.md" \
+  "$backend_source/$release_notes_relative/RELEASE-NOTES-${release_tag}.zh-CN.md" \
   "$backend_source/docs/deployment/CONTAINER.md" \
   "$backend_source/docs/deployment/CONTAINER.zh-CN.md" \
   "$backend_source/docker-compose.yaml" \

@@ -108,6 +108,26 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 		`test "$status" = APPROVED`,
 		`test "$release_tag" = "${GITHUB_REF_NAME}"`,
 		`test "${GITHUB_REF_TYPE}" = tag`,
+		`test "${GITHUB_REF_TYPE}" = branch`,
+		`test "${GITHUB_REF_NAME}" = master`,
+		`.head_branch)" = master`,
+		`if: inputs.mode == 'prepare'`,
+		`if: inputs.mode == 'publish'`,
+		`candidate-${{ github.sha }}`,
+		`PUSHED_DIGEST: ${{ steps.candidate-image.outputs.digest }}`,
+		`test "$registry_digest" = "$PUSHED_DIGEST"`,
+		`docker buildx imagetools create`,
+		`test "$version_digest" = "$candidate_digest"`,
+		`test "$stable_digest" = "$candidate_digest"`,
+		`repos/${GITHUB_REPOSITORY}/git/tags`,
+		`refs/tags/${release_tag}`,
+		`exact annotated tag already exists`,
+		`gh release create "$RELEASE_TAG" --draft --verify-tag`,
+		`gh release upload "$RELEASE_TAG" candidate/release-assets/* --clobber`,
+		`gh release edit "$RELEASE_TAG" --draft=false --latest`,
+		`gh release download "$RELEASE_TAG" --dir "$downloaded_assets"`,
+		`diff -u "$expected_assets" "$actual_assets"`,
+		`(cd "$downloaded_assets" && sha256sum --check SHA256SUMS)`,
 		`kessoku-release-candidate-${{ github.sha }}`,
 		`actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f`,
 		`actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34`,
@@ -123,7 +143,6 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 		`cmp "$archive_binary" candidate/docker/release/kessoku-api`,
 		`vcs.revision='"${GITHUB_SHA}"`,
 		`vcs.modified=false`,
-		`test "$release_tag" = v3.0.4`,
 		`test "$(wc -l < release-notes.md)" -le 12`,
 	} {
 		if !strings.Contains(workflow, required) {
@@ -141,16 +160,63 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	buildWorkflow := string(buildContents)
-	if !strings.Contains(buildWorkflow, "github.com/q1ngyang/rustdesk-api-kessoku/v3/cmd") ||
+	for _, required := range []string{
+		`release_tag:`,
+		`test "${GITHUB_REF_TYPE}" = branch`,
+		`test "${GITHUB_REF_NAME}" = master`,
+		`test "$release_tag" = "$REQUESTED_RELEASE_TAG"`,
+		`git ls-remote --exit-code origin "refs/tags/${release_tag}"`,
+		`scripts/verify-generated-api-docs.sh`,
+		`github.com/q1ngyang/rustdesk-api-kessoku/v3/cmd`,
+	} {
+		if !strings.Contains(buildWorkflow, required) {
+			t.Fatalf("candidate workflow is missing pre-tag control %q", required)
+		}
+	}
+	if strings.Contains(buildWorkflow, `test "$release_tag" = v3.0.`) ||
 		strings.Contains(buildWorkflow, legacyModulePath) {
-		t.Fatal("candidate workflow must validate only the project-owned /v3 build path")
+		t.Fatal("candidate workflow hard-codes a release or validates a legacy module path")
+	}
+	ciContents, err := os.ReadFile(".github/workflows/ci.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ciWorkflow := string(ciContents)
+	for _, required := range []string{
+		`scripts/verify-generated-api-docs.sh`,
+		`python3 scripts/check_release_identity.py`,
+	} {
+		if !strings.Contains(ciWorkflow, required) {
+			t.Fatalf("pre-merge CI is missing release preflight %q", required)
+		}
+	}
+	signIndex := strings.Index(workflow, "Sign build provenance for every candidate subject")
+	loginIndex := strings.Index(workflow, "docker/login-action@")
+	imageIndex := strings.Index(workflow, "Build and push commit-addressed candidate image before tagging")
+	imageVerifyIndex := strings.Index(workflow, "Verify the pushed candidate image before tagging")
+	notesIndex := strings.Index(workflow, "Prepare concise release notes")
+	tagIndex := strings.Index(workflow, "Create immutable tag after every pre-publication gate")
+	if signIndex < 0 || loginIndex < 0 || imageIndex < 0 || imageVerifyIndex < 0 ||
+		notesIndex < 0 || tagIndex < 0 ||
+		!(signIndex < tagIndex && loginIndex < tagIndex && imageIndex < imageVerifyIndex &&
+			imageVerifyIndex < tagIndex && notesIndex < tagIndex) {
+		t.Fatal("immutable tag creation must follow signing, registry, image, and release-note preflights")
 	}
 	status, err := os.ReadFile("RELEASE_STATUS")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(status), "status: APPROVED") || !strings.Contains(string(status), "release_tag: v3.0.4") {
+	statusText := string(status)
+	releaseTag := regexp.MustCompile(`(?m)^release_tag: (v[0-9]+\.[0-9]+\.[0-9]+(?:[.-][A-Za-z0-9.]+)?)$`).FindStringSubmatch(statusText)
+	if !strings.Contains(statusText, "status: APPROVED") || len(releaseTag) != 2 {
 		t.Fatal("release source must name the explicitly approved immutable tag")
+	}
+	versionContents, err := os.ReadFile("resources/version")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(string(versionContents)) != releaseTag[1] {
+		t.Fatal("runtime version must match the approved release tag")
 	}
 }
 
@@ -168,6 +234,7 @@ func TestCompilerFrontendAndVulnerabilityScannerArePinned(t *testing.T) {
 		".github/workflows/ci.yml": {
 			"govulncheck@v1.7.0",
 			"go1.26.6",
+			"shell: bash",
 		},
 		".github/workflows/build.yml": {
 			"GO_VERSION: 1.26.6",

@@ -132,7 +132,7 @@ STARRY_DATA_DIR=/opt/rustdesk-stack/data/starry
 Keep explicit release versions:
 
 ```dotenv
-KESSOKU_IMAGE=ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.4
+KESSOKU_IMAGE=ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.5
 STARRY_IMAGE=ghcr.io/q1ngyang/rustdesk-server-starry
 STARRY_VERSION=1.1.16-patch-v1.2.0
 ```
