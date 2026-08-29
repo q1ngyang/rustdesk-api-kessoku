@@ -1,18 +1,17 @@
 # Starry Control API provenance
 
 status: PINNED
-starry_tag: 1.1.16-patch-v1.2.0
+starry_tag: 1.1.16-patch-v1.2.2
 control_contract: control/v1
 config_schema: config/v3
-candidate_sha256: f42714264d61408c8d6c709efcf87d869b9422ca83fb5c88a9735cc5a02a5e68
-release_sha256: f42714264d61408c8d6c709efcf87d869b9422ca83fb5c88a9735cc5a02a5e68
-starry_source_commit: 5e73b3af1423acf5ee20ca32a2d747eef6df3494
+candidate_sha256: 6f7dd1bbf8c7616f5c693b5cd68aaf7893f0d477c63d9277a642b8d02426d5a2
+release_sha256: 6f7dd1bbf8c7616f5c693b5cd68aaf7893f0d477c63d9277a642b8d02426d5a2
+starry_source_commit: bc17da50fead2519c4859e7f483d8a1773821d44
 config_schema_sha256: 425c1bafe956a256caff5ad761731583d31b9eee067bad9341cc53211ea19df3
 config_ui_schema_sha256: a42e43ac58f840ddbe449c6938d825cf8890d52c0ce0ba0060630bff7fc83ff4
-image_index_sha256: 3685543aee6e60c27bed5db1df2fa32af83e61a58e9bc4c0ea3464664863811b
-image_linux_amd64_sha256: 864bdb74fbb13ae6e8a077723f54a3f5541b76de3fd66be9992e352001ac56d3
+image_index_sha256: e839b849137ab3a15b6c7dbe5f7be28c494137bc56cae939aa68ffa66215ae1b
+image_linux_amd64_sha256: 00bc1e321955a7bfb1452a3c3320b8791f836f77b6bab34180a1b143f0c3ee66
 
-# Pinned from the published Starry release tag. The official release asset
-# control-openapi.yaml and the tagged contracts/control/v1/openapi.yaml have
-# the same digest as the locally validated candidate. Production builds must
-# never download a moving branch.
+# Pinned from the published Starry release tag. The immutable tagged
+# contracts/control/v1/openapi.yaml matches the locally validated candidate.
+# Production builds must never download a moving branch.

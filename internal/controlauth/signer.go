@@ -40,7 +40,7 @@ func PrivateKeyPublicFingerprint(path string) (string, error) {
 type Claims struct {
 	AuthorizedParty string   `json:"azp"`
 	Scope           []string `json:"scope"`
-	Actor           Actor    `json:"act"`
+	Actor           *Actor   `json:"act,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -81,6 +81,20 @@ func (s *Signer) Sign(instanceID, scope string, actorUserID uint) (string, error
 	if s == nil || instanceID == "" || scope == "" || actorUserID == 0 {
 		return "", errors.New("control JWT requires signer, instance, scope, and actor")
 	}
+	return s.sign(instanceID, scope, &Actor{Subject: "user:" + strconv.FormatUint(uint64(actorUserID), 10)})
+}
+
+// SignService creates a service-only JWT without an act claim. Starry treats
+// the service subject as the actor, keeping background registry checks distinct
+// from administrator-initiated control actions.
+func (s *Signer) SignService(instanceID, scope string) (string, error) {
+	if s == nil || instanceID == "" || scope == "" {
+		return "", errors.New("control JWT requires signer, instance, and scope")
+	}
+	return s.sign(instanceID, scope, nil)
+}
+
+func (s *Signer) sign(instanceID, scope string, actor *Actor) (string, error) {
 	now := s.now().UTC()
 	jti, err := uuid.NewV7()
 	if err != nil {
@@ -89,7 +103,7 @@ func (s *Signer) Sign(instanceID, scope string, actorUserID uint) (string, error
 	claims := Claims{
 		AuthorizedParty: s.authorizedParty,
 		Scope:           []string{scope},
-		Actor:           Actor{Subject: "user:" + strconv.FormatUint(uint64(actorUserID), 10)},
+		Actor:           actor,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    s.issuer,
 			Subject:   ServiceSubject,

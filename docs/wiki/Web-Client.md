@@ -2,7 +2,7 @@
 
 **English** | [简体中文](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Web-Client)
 
-Kessoku v3.0.5 builds its MIT-licensed browser client from the repository's
+Kessoku v3.0.6 builds its MIT-licensed browser client from the repository's
 `web-client/` source and packages it as `resources/client`. The management UI
 in `admin-web/` remains a separate application. Historical `resources/web`,
 `resources/web2`, WebClient2/V2, and remote browser-client downloads are
@@ -13,7 +13,7 @@ permanently rejected by build and packaging policy.
 The client initiates forced-Relay WSS sessions, verifies signed peer identity,
 uses the encrypted RustDesk session, decodes VP9 with WebCodecs, renders with
 Canvas 2D, and sends bounded mouse/basic keyboard input. Compatibility targets
-RustDesk 1.4.9 and Starry patch-v1.2.0.
+RustDesk 1.4.9 and Starry patch-v1.2.2.
 
 It intentionally excludes direct/P2P, host mode, file transfer, clipboard,
 audio, terminal, port forwarding, printing, display switching, touch/IME,

@@ -1,3 +1,11 @@
+rustdesk-api-kessoku (3.0.6-1) UNRELEASED; urgency=high
+
+  * Discover signed-in clients from active native sessions and network clients through Starry.
+  * Refresh complete device inventory and matching address-book metadata without stale cache rollback.
+  * Add database version 312 with conservative active-session and inventory migration.
+
+ -- q1ngyang <3444592+q1ngyang@users.noreply.github.com>  Sat, 29 Aug 2026 17:00:00 +0800
+
 rustdesk-api-kessoku (3.0.5-1) UNRELEASED; urgency=high
 
   * Publish the reviewed v3.0.5 product scope after the unpublished v3.0.4 candidate.

@@ -11,8 +11,8 @@ fi
 repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 starry_repo=${STARRY_REPO:-}
 kessoku_image=${KESSOKU_MATRIX_IMAGE:-rustdesk-api-kessoku:integration-local}
-starry_image=ghcr.io/q1ngyang/rustdesk-server-starry:1.1.16-patch-v1.2.0
-starry_digest=sha256:3685543aee6e60c27bed5db1df2fa32af83e61a58e9bc4c0ea3464664863811b
+starry_image=ghcr.io/q1ngyang/rustdesk-server-starry:1.1.16-patch-v1.2.2
+starry_digest=sha256:e839b849137ab3a15b6c7dbe5f7be28c494137bc56cae939aa68ffa66215ae1b
 client_image=starry-release-client@sha256:79e92e8ddd992852682168a15914e791931d65b88747d13942342255a833c7b0
 client_image_id=sha256:79e92e8ddd992852682168a15914e791931d65b88747d13942342255a833c7b0
 go_image=golang:1.26.6-bookworm@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36

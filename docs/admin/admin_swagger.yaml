@@ -751,9 +751,23 @@ definitions:
         type: string
       id:
         type: string
+      identity_source:
+        description: |-
+          IdentitySource records which trusted path established the ID/UUID pair.
+          It is deliberately independent from UserId: a network-discovered device
+          can later be claimed by an authenticated RustDesk account.
+        type: string
+      identity_verified_at:
+        type: integer
       last_online_ip:
         type: string
       last_online_time:
+        type: integer
+      last_sysinfo_time:
+        description: |-
+          LastSysinfoTime is not UpdatedAt. Heartbeats update the peer frequently,
+          while this timestamp tells the server when a complete client inventory
+          was last accepted and when a refresh should be requested.
         type: integer
       memory:
         type: string
@@ -904,6 +918,9 @@ definitions:
       auth_version:
         type: integer
       client:
+        description: |-
+          Client is persisted so an active native session remains identifiable even
+          after login-audit retention removes its LoginLog row.
         type: string
       created_at:
         type: string
@@ -1092,6 +1109,8 @@ definitions:
       config_transaction:
         type: integer
       connection_auth:
+        type: integer
+      peer_registry:
         type: integer
       relay_inventory:
         type: integer

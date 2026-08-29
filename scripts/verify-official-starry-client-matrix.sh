@@ -11,8 +11,8 @@ fi
 repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 starry_repo=${STARRY_REPO:-}
 kessoku_image=${KESSOKU_MATRIX_IMAGE:-kessoku-local-matrix:current}
-starry_image=ghcr.io/q1ngyang/rustdesk-server-starry:1.1.16-patch-v1.2.0
-starry_digest=sha256:3685543aee6e60c27bed5db1df2fa32af83e61a58e9bc4c0ea3464664863811b
+starry_image=ghcr.io/q1ngyang/rustdesk-server-starry:1.1.16-patch-v1.2.2
+starry_digest=sha256:e839b849137ab3a15b6c7dbe5f7be28c494137bc56cae939aa68ffa66215ae1b
 client_image=starry-release-client:rustdesk-1.4.9-qa3
 tls_proxy_image=starry-release-tls-proxy:socat
 go_image=golang:1.26.6-bookworm@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36
@@ -39,11 +39,11 @@ printf '%s\n' "$repo_digests" \
 official_hashes=$(docker run --rm "$starry_image" \
   sha256sum /usr/bin/hbbs /usr/bin/hbbr /usr/bin/starry-control-agent)
 printf '%s\n' "$official_hashes" \
-  | grep -Fx 'a415d24ef42a3bf1b78ddacf07bd65931c7f18d6096181ce368adf994ff69c66  /usr/bin/hbbs' >/dev/null
+  | grep -Fx '0dfd7664ec288faf013e2b9a3064975efd3834626100e6de8bfa9e10fd7f9bef  /usr/bin/hbbs' >/dev/null
 printf '%s\n' "$official_hashes" \
-  | grep -Fx '0e44526134b4e836b9b4c83f470af40829d90efa85b4c91537f996078df21f87  /usr/bin/hbbr' >/dev/null
+  | grep -Fx 'b01fd38d4dac7d54a81268b793de2551f0e8b055578bd77766a9487e6683599d  /usr/bin/hbbr' >/dev/null
 printf '%s\n' "$official_hashes" \
-  | grep -Fx 'd26c89c4b1203d7111491e1acdbaff1bdcbeb9f87a782927db8454a3482844b8  /usr/bin/starry-control-agent' >/dev/null
+  | grep -Fx '9788b4d226cecd0ac39ee01b1dec9c6a535e4dc12815f5adadced31ca608a7fe  /usr/bin/starry-control-agent' >/dev/null
 
 matrix_root=$(mktemp -d /tmp/kessoku-starry-official-matrix.XXXXXX)
 case "$matrix_root" in

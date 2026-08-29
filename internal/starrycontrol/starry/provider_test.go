@@ -36,7 +36,7 @@ func TestTypedProviderSimulationAndConfigTransactions(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/control/v1/capabilities":
-			_, _ = w.Write([]byte(`{"protocol":{"name":"starry-control","version":"1.0.0","major":1},"instance":{"id":"` + instanceID + `","role":"hbbs","starry_version":"1.1.16-patch-v1.2.0","upstream_version":"1.1.16"},"capabilities":{"relay_inventory":1,"allocation_simulation":1,"config_transaction":1,"config_rollback":1,"connection_auth":1},"config":{"supported_schema_versions":[1,2,3],"active_schema_version":3,"schema_digest":"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},"limits":{"max_config_bytes":1048576,"max_plan_lifetime_seconds":600,"operation_retention_seconds":86400},"future_extension":{"ignored":true}}`))
+			_, _ = w.Write([]byte(`{"protocol":{"name":"starry-control","version":"1.0.0","major":1},"instance":{"id":"` + instanceID + `","role":"hbbs","starry_version":"1.1.16-patch-v1.2.2","upstream_version":"1.1.16"},"capabilities":{"relay_inventory":1,"allocation_simulation":1,"config_transaction":1,"config_rollback":1,"connection_auth":1},"config":{"supported_schema_versions":[1,2,3],"active_schema_version":3,"schema_digest":"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},"limits":{"max_config_bytes":1048576,"max_plan_lifetime_seconds":600,"operation_retention_seconds":86400},"future_extension":{"ignored":true}}`))
 		case "/control/v1/allocations:simulate":
 			var input starrycontrol.SimulationInput
 			if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
@@ -46,6 +46,15 @@ func TestTypedProviderSimulationAndConfigTransactions(t *testing.T) {
 				t.Errorf("unexpected simulation input: %+v", input)
 			}
 			_, _ = w.Write([]byte(`{"config_generation":42,"health_snapshot_id":"snapshot","matched_rule":null,"candidates":[],"selection":{"kind":"no_eligible_relay","relay_id":null,"predicted_index":null,"non_binding":true},"warnings":["simulation has no side effects"]}`))
+		case "/control/v1/peers:verify":
+			var input starrycontrol.PeerIdentityInput
+			if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+				t.Error(err)
+			}
+			if input.ID != "301132036" || input.UUID != "MDEyMzQ1Njc4OWFiY2RlZg==" {
+				t.Errorf("unexpected peer identity: %+v", input)
+			}
+			_, _ = w.Write([]byte(`{"instance_id":"` + instanceID + `","registered":true}`))
 		case "/control/v1/config":
 			w.Header().Set("ETag", configETag)
 			_, _ = w.Write([]byte(fmt.Sprintf(`{"status":"active","generation":42,"schema_version":3,"source_digest":"%s","effective_digest":"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd","activated_at":"2026-08-18T10:00:00Z","subsystem_acks":[{"subsystem":"config_core","accepted":true,"detail":"active"}],"last_error":null,"etag":%q,"drift":false,"document":"version: 3\n","format":"yaml"}`, candidate, configETag)))
@@ -89,6 +98,10 @@ func TestTypedProviderSimulationAndConfigTransactions(t *testing.T) {
 
 	if _, err := provider.Capabilities(ctx); err != nil {
 		t.Fatal(err)
+	}
+	verification, err := provider.VerifyPeer(ctx, starrycontrol.PeerIdentityInput{ID: "301132036", UUID: "MDEyMzQ1Njc4OWFiY2RlZg=="})
+	if err != nil || !verification.Registered || verification.InstanceID != instanceID {
+		t.Fatalf("peer verification = %+v, err=%v", verification, err)
 	}
 	expectedGeneration := uint64(42)
 	simulation, err := provider.SimulateAllocation(ctx, starrycontrol.SimulationInput{
@@ -385,5 +398,5 @@ func TestConfigResponseDriftMustMatchTheExactManagedDocument(t *testing.T) {
 }
 
 func providerCapabilitiesJSON(instanceID string, relayVersion int) string {
-	return fmt.Sprintf(`{"protocol":{"name":"starry-control","version":"1.0.0","major":1},"instance":{"id":"%s","role":"hbbs","starry_version":"1.1.16-patch-v1.2.0","upstream_version":"1.1.16"},"capabilities":{"relay_inventory":%d,"allocation_simulation":1,"config_transaction":1,"config_rollback":1,"connection_auth":1},"config":{"supported_schema_versions":[1,2,3],"active_schema_version":3,"schema_digest":"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},"limits":{"max_config_bytes":1048576,"max_plan_lifetime_seconds":600,"operation_retention_seconds":86400}}`, instanceID, relayVersion)
+	return fmt.Sprintf(`{"protocol":{"name":"starry-control","version":"1.0.0","major":1},"instance":{"id":"%s","role":"hbbs","starry_version":"1.1.16-patch-v1.2.2","upstream_version":"1.1.16"},"capabilities":{"relay_inventory":%d,"allocation_simulation":1,"config_transaction":1,"config_rollback":1,"connection_auth":1,"peer_registry":1},"config":{"supported_schema_versions":[1,2,3],"active_schema_version":3,"schema_digest":"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},"limits":{"max_config_bytes":1048576,"max_plan_lifetime_seconds":600,"operation_retention_seconds":86400}}`, instanceID, relayVersion)
 }

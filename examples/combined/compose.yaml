@@ -5,7 +5,7 @@ name: ${COMPOSE_PROJECT_NAME:-rustdesk-kessoku-starry}
 
 services:
   hbbs:
-    image: ${STARRY_IMAGE:-ghcr.io/q1ngyang/rustdesk-server-starry}:${STARRY_VERSION:-1.1.16-patch-v1.2.0}
+    image: ${STARRY_IMAGE:-ghcr.io/q1ngyang/rustdesk-server-starry}:${STARRY_VERSION:-1.1.16-patch-v1.2.2}
     container_name: rustdesk-starry-hbbs
     command:
       - hbbs
@@ -41,7 +41,7 @@ services:
         max-file: "5"
 
   hbbr:
-    image: ${STARRY_IMAGE:-ghcr.io/q1ngyang/rustdesk-server-starry}:${STARRY_VERSION:-1.1.16-patch-v1.2.0}
+    image: ${STARRY_IMAGE:-ghcr.io/q1ngyang/rustdesk-server-starry}:${STARRY_VERSION:-1.1.16-patch-v1.2.2}
     container_name: rustdesk-starry-hbbr
     command:
       - hbbr
@@ -66,7 +66,7 @@ services:
         max-file: "5"
 
   kessoku-api:
-    image: ${KESSOKU_IMAGE:-ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.5}
+    image: ${KESSOKU_IMAGE:-ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.6}
     container_name: rustdesk-api-kessoku
     restart: unless-stopped
     read_only: true

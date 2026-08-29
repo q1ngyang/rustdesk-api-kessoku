@@ -10,7 +10,7 @@ JavaScript 或下载的 WASM。
 ## MVP 支持范围
 
 - 仅通过强制 Relay over WSS 发起远控会话；
-- 面向 Starry patch-v1.2.0 的 RustDesk 1.4.9 协议兼容；
+- 面向 Starry patch-v1.2.2 的 RustDesk 1.4.9 协议兼容；
 - 签名 peer key 校验和 fail-closed 加密会话；
 - 通过浏览器 WebCodecs 解码 VP9，并用 Canvas 2D 渲染；
 - 有界鼠标与基本键盘输入。

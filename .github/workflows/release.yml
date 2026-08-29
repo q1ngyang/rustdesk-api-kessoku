@@ -298,8 +298,9 @@ jobs:
           cat > release-notes.md <<EOF
           # Kessoku ${release_tag}
 
-          - Fixes device reporting, audit records, branding defaults, and Server Control logs.
-          - Adds service configuration/QR, retention settings, date filters, and durable audit sequence IDs.
+          - Securely discovers signed-in and Starry-registered RustDesk clients.
+          - Refreshes complete device inventory and every matching address-book reference.
+          - Starry patch-v1.2.2 is required only for clients not signed in to Kessoku.
           - Image: ghcr.io/${GITHUB_REPOSITORY}:${release_tag}; latest is updated to this release.
           - Platform: linux/amd64. Pin the versioned image digest in production.
           - Verify assets with SHA256SUMS and the attached Sigstore provenance/SBOM.

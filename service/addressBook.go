@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
@@ -96,10 +97,14 @@ func (s *AddressBookService) updateAddressBook(tx *gorm.DB, abs []*model.Address
 		ab.UserId = userId
 		ab.CollectionId = 0
 		ab.Collection = nil
+		enriched, err := s.enrichVerifiedPeerMetadata(tx, ab)
+		if err != nil {
+			return err
+		}
 		if !ok {
 			ab.RowId = 0
 			//添加
-			if ab.Platform == "" || ab.Username == "" || ab.Hostname == "" {
+			if !enriched && (ab.Platform == "" || ab.Username == "" || ab.Hostname == "") {
 				peer := AllService.PeerService.FindByUserIdAndId(userId, ab.Id)
 				if peer.RowId != 0 {
 					ab.Platform = AllService.AddressBookService.PlatformFromOs(peer.Os)
@@ -128,6 +133,31 @@ func (s *AddressBookService) updateAddressBook(tx *gorm.DB, abs []*model.Address
 	}
 	return nil
 
+}
+
+// enrichVerifiedPeerMetadata makes the server's latest verified inventory
+// authoritative for dynamic address-book fields. RustDesk clients can retain
+// an older copy locally and upload it after /api/sysinfo has already refreshed
+// the target; accepting that stale copy would make inventory drift backwards.
+// Personal fields such as alias, password, tags and relay preferences are left
+// untouched.
+func (s *AddressBookService) enrichVerifiedPeerMetadata(tx *gorm.DB, ab *model.AddressBook) (bool, error) {
+	peer := &model.Peer{}
+	err := tx.Where(
+		"id = ? AND uuid <> '' AND last_sysinfo_time > 0 AND identity_source IN ?",
+		ab.Id,
+		[]string{model.PeerIdentitySourceLogin, model.PeerIdentitySourceStarry},
+	).Order("last_sysinfo_time DESC").First(peer).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	ab.Platform = s.PlatformFromOs(peer.Os)
+	ab.Username = peer.Username
+	ab.Hostname = peer.Hostname
+	return true, nil
 }
 
 func (s *AddressBookService) List(page, pageSize uint, where func(tx *gorm.DB)) (res *model.AddressBookList) {
@@ -186,16 +216,20 @@ func (s *AddressBookService) UpdateAll(u *model.AddressBook) error {
 
 // PlatformFromOs
 func (s *AddressBookService) PlatformFromOs(os string) string {
-	if strings.Contains(os, "Android") || strings.Contains(os, "android") {
+	os = strings.ToLower(os)
+	if strings.Contains(os, "android") {
 		return "Android"
 	}
-	if strings.Contains(os, "Windows") || strings.Contains(os, "windows") {
+	if strings.Contains(os, "windows") {
 		return "Windows"
 	}
-	if strings.Contains(os, "Linux") || strings.Contains(os, "linux") {
+	if strings.Contains(os, "linux") {
 		return "Linux"
 	}
-	if strings.Contains(os, "mac") || strings.Contains(os, "Mac") {
+	if strings.Contains(os, "ios") {
+		return "iOS"
+	}
+	if strings.Contains(os, "mac") {
 		return "Mac OS"
 	}
 	return ""

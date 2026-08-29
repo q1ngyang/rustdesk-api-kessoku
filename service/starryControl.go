@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/config"
 	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/auth"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/controlauth"
@@ -180,6 +181,56 @@ func (s *StarryControlService) Relays(ctx context.Context, instanceID string) (s
 		}
 		return provider.Relays(ctx)
 	})
+}
+
+// VerifyPeerIdentity checks every enabled Starry center without emitting an
+// administrator audit event. The request is authenticated as the Kessoku
+// service itself. An unavailable center never grants access; another configured
+// center must positively prove the exact identity before the report is accepted.
+func (s *StarryControlService) VerifyPeerIdentity(ctx context.Context, deviceID, deviceUUID string) (bool, error) {
+	if s == nil || deviceID == "" || deviceUUID == "" {
+		return false, starrycontrol.ErrRequestInvalid
+	}
+	generated, err := uuid.NewV7()
+	if err != nil {
+		generated = uuid.New()
+	}
+	ctx = starrycontrol.WithRequestMetadata(ctx, starrycontrol.RequestMetadata{RequestID: generated.String(), Service: true})
+	instanceIDs := make([]string, 0, len(s.instances))
+	for instanceID, instance := range s.instances {
+		if instance.Enabled {
+			instanceIDs = append(instanceIDs, instanceID)
+		}
+	}
+	sort.Strings(instanceIDs)
+	if len(instanceIDs) == 0 {
+		return false, starrycontrol.ErrUnavailable
+	}
+	checked := 0
+	var combined error
+	for _, instanceID := range instanceIDs {
+		provider, providerErr := s.provider(instanceID, false)
+		if providerErr != nil {
+			combined = errors.Join(combined, providerErr)
+			continue
+		}
+		result, verifyErr := provider.VerifyPeer(ctx, starrycontrol.PeerIdentityInput{ID: deviceID, UUID: deviceUUID})
+		if verifyErr != nil {
+			combined = errors.Join(combined, verifyErr)
+			continue
+		}
+		checked++
+		if result.Registered {
+			return true, nil
+		}
+	}
+	if combined != nil {
+		return false, combined
+	}
+	if checked == 0 {
+		return false, starrycontrol.ErrUnavailable
+	}
+	return false, nil
 }
 
 func (s *StarryControlService) SimulateAllocation(ctx context.Context, instanceID string, input starrycontrol.SimulationInput) (starrycontrol.SimulationResult, error) {

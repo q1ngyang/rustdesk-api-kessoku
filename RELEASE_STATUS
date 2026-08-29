@@ -1,5 +1,5 @@
-# The release owner approved this source candidate for the protected
-# pre-tag candidate/prepare/publication sequence in docs/releases/RELEASE-PROCESS.md. Approval does not
-# mean that a tag, image, package, GitHub Release, or Wiki has been published.
+# The release owner approved this device-discovery source candidate for the
+# protected pre-tag sequence in docs/releases/RELEASE-PROCESS.md. Approval does
+# not mean that a tag, image, package, GitHub Release, or Wiki has been published.
 status: APPROVED
-release_tag: v3.0.5
+release_tag: v3.0.6

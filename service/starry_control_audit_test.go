@@ -22,6 +22,14 @@ type auditedControlProvider struct {
 	rollback      starrycontrol.Operation
 }
 
+func (p *auditedControlProvider) VerifyPeer(ctx context.Context, input starrycontrol.PeerIdentityInput) (starrycontrol.PeerVerification, error) {
+	metadata, ok := starrycontrol.MetadataFromContext(ctx)
+	if !ok || !metadata.Service || metadata.ActorUserID != 0 {
+		return starrycontrol.PeerVerification{}, errors.New("peer verification was not service-authenticated")
+	}
+	return starrycontrol.PeerVerification{InstanceID: "starry-1", Registered: input.ID == "301132036" && input.UUID == "uuid-1"}, nil
+}
+
 func (p *auditedControlProvider) Status(context.Context) (starrycontrol.Status, error) {
 	p.statusCalls++
 	return starrycontrol.Status{}, nil
@@ -79,6 +87,27 @@ func TestServerControlReadsAndRejectedWritesAreAudited(t *testing.T) {
 	}
 	if events[1].Action != "server_control.config.apply" || events[1].Result != "failure" || events[1].ErrorCode != "CONTROL_READ_ONLY" {
 		t.Fatalf("rejected apply audit = %+v", events[1])
+	}
+}
+
+func TestPeerRegistryVerificationUsesServiceIdentityWithoutAdminAudit(t *testing.T) {
+	database := securityAuditDatabase(t, true)
+	provider := &auditedControlProvider{}
+	control := auditedControlService(provider, false)
+	verified, err := control.VerifyPeerIdentity(context.Background(), "301132036", "uuid-1")
+	if err != nil || !verified {
+		t.Fatalf("peer registry verification = %v, err=%v", verified, err)
+	}
+	verified, err = control.VerifyPeerIdentity(context.Background(), "999", "wrong")
+	if err != nil || verified {
+		t.Fatalf("unknown peer registry verification = %v, err=%v", verified, err)
+	}
+	var count int64
+	if err := database.Model(&model.AdminAuditEvent{}).Count(&count).Error; err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatalf("background peer checks created %d administrator audit events", count)
 	}
 }
 

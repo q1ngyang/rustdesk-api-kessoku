@@ -61,6 +61,11 @@ func TestLocalStarryContractCandidate(t *testing.T) {
 	if err := validateRelaysResponse(relays); err != nil {
 		t.Fatalf("relay fixture: %v", err)
 	}
+	var peerVerification starrycontrol.PeerVerification
+	readExample(t, root, "peer-verification.json", &peerVerification)
+	if peerVerification.InstanceID != capabilities.Instance.ID || !peerVerification.Registered {
+		t.Fatalf("peer-verification fixture: %#v", peerVerification)
+	}
 	var simulation starrycontrol.SimulationResult
 	readExample(t, root, "allocation-simulation.json", &simulation)
 	if err := validateSimulationResponse(simulation); err != nil {

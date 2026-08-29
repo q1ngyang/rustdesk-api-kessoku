@@ -7,7 +7,7 @@ its final prepare step. Only that same workflow may consume the verified
 candidate source commit to create public artifacts. The remote GitHub tag
 object, rather than checkout's local tag representation, is authoritative.
 
-`RELEASE_STATUS` records the release owner's approval of `v3.0.5`. Approval
+`RELEASE_STATUS` records the release owner's approval of `v3.0.6`. Approval
 does not by itself prove that a tag, image, package, Release, or Wiki exists.
 
 ## Pre-tag approval
@@ -22,7 +22,7 @@ Before tagging, the reviewed commit must pass the checks in
   frontends;
 - workflow linting plus online resolution of every immutable GitHub Action
   commit pin;
-- database migrations through version 309 and backup/rollback guidance for the
+- database migrations through version 312 and backup/rollback guidance for the
   database, TOTP key, media, configuration, and signing keys;
 - the pinned Starry contract, supported native-client matrix, separate-origin
   WebClient flow, and connection-audit evidence;
@@ -33,8 +33,8 @@ Before tagging, the reviewed commit must pass the checks in
 ## Protected sequence
 
 1. Merge the reviewed source commit to `master` and confirm required CI passes.
-2. Confirm tag `v3.0.5` does not exist. Dispatch `.github/workflows/build.yml`
-   on `master` with `release_tag=v3.0.5`. The read-only workflow rejects any
+2. Confirm tag `v3.0.6` does not exist. Dispatch `.github/workflows/build.yml`
+   on `master` with `release_tag=v3.0.6`. The read-only workflow rejects any
    non-`master` ref or existing tag and produces
    `kessoku-release-candidate-<commit>` only after every source, frontend,
    database, generated-documentation, package, image, checksum, SBOM, and
@@ -50,17 +50,17 @@ Before tagging, the reviewed commit must pass the checks in
    candidate, exercises Sigstore signing and the short Release body, then
    builds and pushes a commit-addressed `candidate-<sha>` image with OCI
    provenance and SBOM. Only after GHCR accepts that exact image does its last
-   prepare step create annotated tag `v3.0.5` at the candidate `head_sha`.
+   prepare step create annotated tag `v3.0.6` at the candidate `head_sha`.
 5. Confirm the new tag resolves to that exact commit. Never move or reuse it.
 6. Dispatch `.github/workflows/release.yml` on protected branch `master` with
-   `mode=publish`, `release_tag=v3.0.5`, and the same candidate run ID. Publish
+   `mode=publish`, `release_tag=v3.0.6`, and the same candidate run ID. Publish
    verifies through the GitHub API that the remote annotated tag still resolves
    to the candidate source commit, then promotes the already-built candidate
-   image digest to `v3.0.5` and `latest`; it does not rebuild the image after
+   image digest to `v3.0.6` and `latest`; it does not rebuild the image after
    tagging. Release assets are uploaded to a draft and downloaded again for
    name and checksum verification before the Release becomes public.
 7. After the protected environment gate, verify the GitHub Release, asset
-   checksums and attestations, GHCR `v3.0.5`, and `latest`; both image tags must
+   checksums and attestations, GHCR `v3.0.6`, and `latest`; both image tags must
    resolve to the same approved image index digest.
 8. Publish the reviewed `docs/wiki/` tree to the separate GitHub Wiki repository
    and verify bilingual navigation and upgrade links.
@@ -103,8 +103,8 @@ a tag whose identity cannot be proven.
 Deploy by immutable image digest or verified package checksum. Keep the
 pre-upgrade database backup, TOTP encryption key, media, prior image digest,
 configuration, signing keys, and PKI for the observation window. Database
-version 309 is not safe for older writers; follow
-[`MIGRATION-v3.0.5.md`](v3.0.5/MIGRATION-v3.0.5.md) and restore the complete
+version 312 is not safe for older writers; follow
+[`MIGRATION-v3.0.6.md`](v3.0.6/MIGRATION-v3.0.6.md) and restore the complete
 matching recovery set for rollback.
 
 ## Historical release records

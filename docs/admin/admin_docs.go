@@ -7771,10 +7771,21 @@ const docTemplateadmin = `{
                 "id": {
                     "type": "string"
                 },
+                "identity_source": {
+                    "description": "IdentitySource records which trusted path established the ID/UUID pair.\nIt is deliberately independent from UserId: a network-discovered device\ncan later be claimed by an authenticated RustDesk account.",
+                    "type": "string"
+                },
+                "identity_verified_at": {
+                    "type": "integer"
+                },
                 "last_online_ip": {
                     "type": "string"
                 },
                 "last_online_time": {
+                    "type": "integer"
+                },
+                "last_sysinfo_time": {
+                    "description": "LastSysinfoTime is not UpdatedAt. Heartbeats update the peer frequently,\nwhile this timestamp tells the server when a complete client inventory\nwas last accepted and when a refresh should be requested.",
                     "type": "integer"
                 },
                 "memory": {
@@ -7988,6 +7999,7 @@ const docTemplateadmin = `{
                     "type": "integer"
                 },
                 "client": {
+                    "description": "Client is persisted so an active native session remains identifiable even\nafter login-audit retention removes its LoginLog row.",
                     "type": "string"
                 },
                 "created_at": {
@@ -8276,6 +8288,9 @@ const docTemplateadmin = `{
                     "type": "integer"
                 },
                 "connection_auth": {
+                    "type": "integer"
+                },
+                "peer_registry": {
                     "type": "integer"
                 },
                 "relay_inventory": {

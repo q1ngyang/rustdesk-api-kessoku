@@ -12,7 +12,7 @@
 纯中继节点兼容官方
 [`rustdesk/rustdesk-server:1.1.16`](https://hub.docker.com/r/rustdesk/rustdesk-server/tags?name=1.1.16)
 的 HBBR。示例默认推荐
-[`q1ngyang/rustdesk-server-starry:1.1.16-patch-v1.2.0`](https://github.com/q1ngyang/rustdesk-server-starry)
+[`q1ngyang/rustdesk-server-starry:1.1.16-patch-v1.2.2`](https://github.com/q1ngyang/rustdesk-server-starry)
 镜像内附带的 HBBR：这份 HBBR
 仍是未经修改的官方上游程序，但与 Starry HBBS 使用同一固定上游版本，可以减少分别升级
 造成的版本差异。仓库的 YAML 和 `.env` 示例同时保留两种镜像写法，官方镜像默认已注释。
@@ -95,7 +95,7 @@ sudo install -d -m 0700 -o root -g root /opt/rustdesk-relay/data
 默认的 `compose.yaml` 启用推荐的 Starry 镜像：
 
 ```yaml
-image: ${STARRY_IMAGE:-ghcr.io/q1ngyang/rustdesk-server-starry}:${STARRY_VERSION:-1.1.16-patch-v1.2.0}
+image: ${STARRY_IMAGE:-ghcr.io/q1ngyang/rustdesk-server-starry}:${STARRY_VERSION:-1.1.16-patch-v1.2.2}
 # image: ${OFFICIAL_HBBR_IMAGE:-rustdesk/rustdesk-server:1.1.16}
 ```
 
@@ -103,7 +103,7 @@ image: ${STARRY_IMAGE:-ghcr.io/q1ngyang/rustdesk-server-starry}:${STARRY_VERSION
 
 ```dotenv
 STARRY_IMAGE=ghcr.io/q1ngyang/rustdesk-server-starry
-STARRY_VERSION=1.1.16-patch-v1.2.0
+STARRY_VERSION=1.1.16-patch-v1.2.2
 # OFFICIAL_HBBR_IMAGE=rustdesk/rustdesk-server:1.1.16
 ```
 

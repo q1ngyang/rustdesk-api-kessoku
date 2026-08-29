@@ -60,7 +60,7 @@ access, logout, and login again.
 
 ## Enable optional integrations
 
-1. Verify and back up database version 309 together with the TOTP key and media directory.
+1. Verify and back up database version 312 together with the TOTP key and media directory.
 2. Configure Ed25519 access-token keys and enable Kessoku authentication.
 3. Start the internal JWKS/introspection listener on private mTLS.
 4. Deploy the matching Starry release with authentication `off`, then `audit`.

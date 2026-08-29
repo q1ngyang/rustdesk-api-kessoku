@@ -3,7 +3,7 @@
 **English** | [简体中文](PROJECT-METADATA.zh-CN.md)
 
 This file records the release-owner-approved external GitHub values for
-v3.0.5. Remote changes remain restricted to the protected release process.
+v3.0.6. Remote changes remain restricted to the protected release process.
 
 ## Repository About
 
@@ -50,7 +50,7 @@ points to [`CONTAINER.md`](../docs/deployment/CONTAINER.md), which provides visi
 - the [Starry integration guide](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Starry-Control); and
 - the [built-in Web Client guide](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Web-Client).
 
-The release publishes immutable `v3.0.5` and moving `latest` tags for the same
+The release publishes immutable `v3.0.6` and moving `latest` tags for the same
 image. `latest` identifies the newest successfully published stable release;
 production operators resolve and pin the version tag's digest.
 
@@ -65,13 +65,13 @@ is a separate Git repository; after explicit approval, copy these files to
 
 The protected release workflow is prepared to:
 
-- build the exact v3.0.5 candidate on `master`, exercise publication readiness,
+- build the exact v3.0.6 candidate on `master`, exercise publication readiness,
   and only then create its immutable tag;
 - attach the Compose and environment examples plus bilingual container and
   release documents;
 - publish a short GitHub Release summary with Read more links to the reviewed
   English and Chinese notes;
-- publish one linux/amd64 GHCR image under both `v3.0.5` and `latest`, with OCI
+- publish one linux/amd64 GHCR image under both `v3.0.6` and `latest`, with OCI
   provenance and SBOM; and
 - preserve the fail-closed checks for pre-tag commit, candidate run, protected
   environment, signing, registry authentication, contract, checksums, frontend

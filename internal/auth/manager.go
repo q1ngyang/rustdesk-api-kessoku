@@ -140,7 +140,7 @@ func (m *Manager) MaximumTTL() time.Duration {
 	return m.maximumTTL
 }
 
-// IssueConnectionToken preserves the Starry patch-v1.2.0 at+jwt wire profile
+// IssueConnectionToken preserves the Starry patch-v1.2.2 at+jwt wire profile
 // while narrowing the token to the rustdesk-connect audience and a caller-
 // bounded lifetime. It is deliberately not valid at Kessoku API/admin routes.
 func (m *Manager) IssueConnectionToken(userID uint, authVersion uint64, ttl time.Duration) (IssuedToken, error) {

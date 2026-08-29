@@ -110,7 +110,7 @@ the entire data directory consistently. MySQL/PostgreSQL deployments require
 vendor-consistent database backups in addition to Kessoku keys, PKI,
 configuration, image digest, and release provenance.
 
-External databases must be configured before the first v3.0.5 start. MySQL
+External databases must be configured before the first v3.0.6 start. MySQL
 requires `tls: "true"`; PostgreSQL requires `sslmode: "verify-full"`. For
 private PKI, place the CA in `secrets/`, mount it read-only under
 `/run/secrets`, and set `mysql.ca-file` or `postgresql.ssl-root-cert` to that
