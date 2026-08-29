@@ -37,7 +37,8 @@ candidate workflow rather than duplicated here.
   and SBOM checks pass with the pinned Node/npm versions.
 - [x] SQLite, MySQL 8.4.2, and PostgreSQL 16.4 migration fixtures pass.
 - [x] Secret scanning, dependency vulnerability checks, workflow policy tests,
-  local-state exclusions, and forbidden historical browser-asset checks pass.
+  online resolution of immutable Action pins, local-state exclusions, and
+  forbidden historical browser-asset checks pass.
 - [x] Isolated staging verifies login, device discovery/manual ID refresh,
   connection and file audit creation, branding defaults, Starry status/logs,
   and a real WebClient session that reaches the registered virtual-client

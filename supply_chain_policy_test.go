@@ -134,6 +134,7 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 		`subject-checksums: candidate/release-assets/SHA256SUMS`,
 		`artifact-metadata: write`,
 		`context: candidate/docker`,
+		`version: v0.36.1`,
 		`driver-opts: image=moby/buildkit@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8`,
 		`provenance: mode=max`,
 		`sbom: true`,
@@ -185,10 +186,14 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 	for _, required := range []string{
 		`scripts/verify-generated-api-docs.sh`,
 		`python3 scripts/check_release_identity.py`,
+		`python3 scripts/check_action_pins.py`,
 	} {
 		if !strings.Contains(ciWorkflow, required) {
 			t.Fatalf("pre-merge CI is missing release preflight %q", required)
 		}
+	}
+	if !strings.Contains(buildWorkflow, `python3 scripts/check_action_pins.py`) {
+		t.Fatal("candidate workflow does not verify immutable action pins")
 	}
 	signIndex := strings.Index(workflow, "Sign build provenance for every candidate subject")
 	loginIndex := strings.Index(workflow, "docker/login-action@")
