@@ -106,14 +106,22 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 	workflow := string(contents)
 	for _, required := range []string{
 		`test "$status" = APPROVED`,
+		`id: guard`,
 		`test "$release_tag" = "${GITHUB_REF_NAME}"`,
-		`test "${GITHUB_REF_TYPE}" = tag`,
+		`if [ "${GITHUB_REF_TYPE}" = tag ]; then`,
 		`test "${GITHUB_REF_TYPE}" = branch`,
 		`test "${GITHUB_REF_NAME}" = master`,
 		`.head_branch)" = master`,
 		`if: inputs.mode == 'prepare'`,
 		`if: inputs.mode == 'publish'`,
-		`candidate-${{ github.sha }}`,
+		`verify_remote_annotated_tag`,
+		`git merge-base --is-ancestor "$candidate_sha" "$GITHUB_SHA"`,
+		`.github/workflows/release.yml |`,
+		`docs/releases/RELEASE-CHECKLIST.md |`,
+		`docs/releases/RELEASE-PROCESS.md |`,
+		`supply_chain_policy_test.go)`,
+		`source_sha=%s\n`,
+		`candidate-${{ steps.guard.outputs.source_sha }}`,
 		`PUSHED_DIGEST: ${{ steps.candidate-image.outputs.digest }}`,
 		`test "$registry_digest" = "$PUSHED_DIGEST"`,
 		`docker buildx imagetools create`,
@@ -128,7 +136,7 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 		`gh release download "$RELEASE_TAG" --dir "$downloaded_assets"`,
 		`diff -u "$expected_assets" "$actual_assets"`,
 		`(cd "$downloaded_assets" && sha256sum --check SHA256SUMS)`,
-		`kessoku-release-candidate-${{ github.sha }}`,
+		`kessoku-release-candidate-${{ steps.guard.outputs.source_sha }}`,
 		`actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f`,
 		`actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34`,
 		`subject-checksums: candidate/release-assets/SHA256SUMS`,
@@ -142,8 +150,9 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 		`github.com/q1ngyang/rustdesk-api-kessoku/v3/cmd`,
 		`chmod 0755 candidate/docker/release/kessoku-api`,
 		`cmp "$archive_binary" candidate/docker/release/kessoku-api`,
-		`vcs.revision='"${GITHUB_SHA}"`,
+		`vcs.revision='"${SOURCE_SHA}"`,
 		`vcs.modified=false`,
+		`--target "$SOURCE_SHA"`,
 		`test "$(wc -l < release-notes.md)" -le 12`,
 	} {
 		if !strings.Contains(workflow, required) {
@@ -152,6 +161,9 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 	}
 	if !strings.Contains(workflow, "environment: kessoku-release") {
 		t.Fatal("publication workflow does not require the release environment")
+	}
+	if strings.Contains(workflow, `git cat-file -t "refs/tags/${release_tag}"`) {
+		t.Fatal("publication workflow trusts checkout's local tag representation instead of the remote annotated tag")
 	}
 	if strings.Contains(workflow, legacyModulePath) {
 		t.Fatal("publication workflow still validates a project-owned /v2 module path")

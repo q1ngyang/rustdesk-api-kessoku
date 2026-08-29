@@ -4,7 +4,8 @@ Kessoku releases are fail-closed: a read-only candidate workflow verifies the
 exact `master` commit before any version tag exists. The protected release
 workflow then exercises publication readiness and creates the immutable tag as
 its final prepare step. Only that same workflow may consume the verified
-candidate from the exact tagged commit to create public artifacts.
+candidate source commit to create public artifacts. The remote GitHub tag
+object, rather than checkout's local tag representation, is authoritative.
 
 `RELEASE_STATUS` records the release owner's approval of `v3.0.5`. Approval
 does not by itself prove that a tag, image, package, Release, or Wiki exists.
@@ -51,12 +52,13 @@ Before tagging, the reviewed commit must pass the checks in
    provenance and SBOM. Only after GHCR accepts that exact image does its last
    prepare step create annotated tag `v3.0.5` at the candidate `head_sha`.
 5. Confirm the new tag resolves to that exact commit. Never move or reuse it.
-6. Dispatch `.github/workflows/release.yml` on tag `v3.0.5` with
+6. Dispatch `.github/workflows/release.yml` on protected branch `master` with
    `mode=publish`, `release_tag=v3.0.5`, and the same candidate run ID. Publish
-   promotes the already-built candidate image digest to `v3.0.5` and `latest`;
-   it does not rebuild the image after tagging. Release assets are uploaded to
-   a draft and downloaded again for name and checksum verification before the
-   Release becomes public.
+   verifies through the GitHub API that the remote annotated tag still resolves
+   to the candidate source commit, then promotes the already-built candidate
+   image digest to `v3.0.5` and `latest`; it does not rebuild the image after
+   tagging. Release assets are uploaded to a draft and downloaded again for
+   name and checksum verification before the Release becomes public.
 7. After the protected environment gate, verify the GitHub Release, asset
    checksums and attestations, GHCR `v3.0.5`, and `latest`; both image tags must
    resolve to the same approved image index digest.
@@ -64,10 +66,10 @@ Before tagging, the reviewed commit must pass the checks in
    and verify bilingual navigation and upgrade links.
 9. Keep all earlier Git tags immutable as historical and audit records.
 
-The `kessoku-release` environment must allow branch `master` for prepare mode
-and tag pattern `v*` for publish mode. Keep the required reviewer gate. Do not
-add one deployment policy per version; that previously caused a valid v3.0.2
-publication to fail only after its tag had already been created.
+The `kessoku-release` environment must allow branch `master` for both modes;
+the tag pattern `v*` remains for compatible retries. Keep the required reviewer
+gate. Do not add one deployment policy per version; that previously caused a
+valid v3.0.2 publication to fail only after its tag had already been created.
 
 The protected reviewer is the final product-acceptance gate, not a ceremonial
 click. Automation can prevent stale generated files and publication-pipeline
@@ -83,12 +85,18 @@ rendered page URLs; do not convert them to relative `.md` or raw-file links.
 A failed candidate or pre-tag `prepare` gate may be fixed on `master`, rebuilt,
 and retried under the same intended version. If the final tag API call succeeded
 but the runner lost its result, `prepare` accepts only the same annotated tag at
-the exact candidate commit and resumes idempotently. A partial `publish` keeps
-its Release as a draft; retrying the same run inputs replaces only those draft
-assets, verifies the complete asset inventory and checksums, and then publishes
-it. A retry after publication is read-only for the Release and succeeds only
-when its identity, body, and assets still match. Never create a release tag
-manually, move an exposed tag, or reuse a tag whose identity cannot be proven.
+the exact candidate commit and resumes idempotently. Publish reads the candidate
+SHA from the successful candidate run and validates the remote annotated tag
+through the GitHub API, avoiding checkout implementations that locally flatten
+an annotated tag. If `master` advanced after tagging, recovery is allowed only
+when the candidate is its ancestor and every intervening path is release
+workflow, release-process documentation, or its policy test; any product change
+fails closed. A partial `publish` keeps its Release as a draft; retrying the same
+run inputs replaces only those draft assets, verifies the complete asset
+inventory and checksums, and then publishes it. A retry after publication is
+read-only for the Release and succeeds only when its identity, body, and assets
+still match. Never create a release tag manually, move an exposed tag, or reuse
+a tag whose identity cannot be proven.
 
 ## Deployment and rollback
 

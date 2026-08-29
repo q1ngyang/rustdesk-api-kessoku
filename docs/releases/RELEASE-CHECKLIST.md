@@ -63,10 +63,11 @@ to the reviewed source:
   commit-addressed candidate image, verifies its registry digest, and only then
   creates `v3.0.5` at the candidate commit. An interrupted final tag call is
   recoverable only when the existing annotated tag resolves to that commit.
-- [ ] Protected `mode=publish` on the immutable tag consumes the same candidate
-  run ID and promotes that exact candidate image digest without rebuilding it.
-  Release assets remain a draft until their complete inventory and checksums
-  have been downloaded and re-verified.
+- [ ] Protected `mode=publish` on `master` consumes the same candidate run ID,
+  verifies the remote annotated tag against that candidate source through the
+  GitHub API, and promotes its exact image digest without rebuilding it. Release
+  assets remain a draft until their complete inventory and checksums have been
+  downloaded and re-verified.
 - [ ] GitHub Release assets and `SHA256SUMS` verify.
 - [ ] GHCR `v3.0.5` and `latest` resolve to the same image index digest.
 - [ ] The reviewed bilingual Wiki is published and its navigation is verified.

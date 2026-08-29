@@ -51,6 +51,7 @@ jobs:
           persist-credentials: false
 
       - name: Enforce mode, approval, and exact successful candidate run
+        id: guard
         env:
           CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
           GH_TOKEN: ${{ github.token }}
@@ -69,52 +70,90 @@ jobs:
             | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.]+)?$'
           test "$release_tag" = "$REQUESTED_RELEASE_TAG"
           candidate_sha="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CANDIDATE_RUN_ID}" --jq .head_sha)"
-          test "$candidate_sha" = "$GITHUB_SHA"
+          printf '%s' "$candidate_sha" | grep -Eq '^[0-9a-f]{40}$'
           test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CANDIDATE_RUN_ID}" --jq .conclusion)" = success
           test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CANDIDATE_RUN_ID}" --jq .event)" = workflow_dispatch
           test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CANDIDATE_RUN_ID}" --jq .path)" = .github/workflows/build.yml
           test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CANDIDATE_RUN_ID}" --jq .head_branch)" = master
+
+          verify_remote_annotated_tag() {
+            local tag_object_sha
+            test "$(gh api \
+              "repos/${GITHUB_REPOSITORY}/git/ref/tags/${release_tag}" \
+              --jq .object.type)" = tag
+            tag_object_sha="$(gh api \
+              "repos/${GITHUB_REPOSITORY}/git/ref/tags/${release_tag}" \
+              --jq .object.sha)"
+            printf '%s' "$tag_object_sha" | grep -Eq '^[0-9a-f]{40}$'
+            test "$(gh api \
+              "repos/${GITHUB_REPOSITORY}/git/tags/${tag_object_sha}" \
+              --jq .tag)" = "$release_tag"
+            test "$(gh api \
+              "repos/${GITHUB_REPOSITORY}/git/tags/${tag_object_sha}" \
+              --jq .object.type)" = commit
+            test "$(gh api \
+              "repos/${GITHUB_REPOSITORY}/git/tags/${tag_object_sha}" \
+              --jq .object.sha)" = "$candidate_sha"
+          }
+
           if [ "$RELEASE_MODE" = prepare ]; then
             test "${GITHUB_REF_TYPE}" = branch
             test "${GITHUB_REF_NAME}" = master
-            if tag_object_sha="$(gh api \
-              "repos/${GITHUB_REPOSITORY}/git/ref/tags/${release_tag}" \
-              --jq .object.sha 2>/dev/null)"; then
-              test "$(gh api \
-                "repos/${GITHUB_REPOSITORY}/git/ref/tags/${release_tag}" \
-                --jq .object.type)" = tag
-              test "$(gh api \
-                "repos/${GITHUB_REPOSITORY}/git/tags/${tag_object_sha}" \
-                --jq .tag)" = "$release_tag"
-              test "$(gh api \
-                "repos/${GITHUB_REPOSITORY}/git/tags/${tag_object_sha}" \
-                --jq .object.type)" = commit
-              test "$(gh api \
-                "repos/${GITHUB_REPOSITORY}/git/tags/${tag_object_sha}" \
-                --jq .object.sha)" = "$GITHUB_SHA"
+            test "$candidate_sha" = "$GITHUB_SHA"
+            if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${release_tag}" \
+              >/dev/null 2>&1; then
+              verify_remote_annotated_tag
               echo "resuming the exact prepared tag: $release_tag"
             fi
           else
-            test "${GITHUB_REF_TYPE}" = tag
-            test "$release_tag" = "${GITHUB_REF_NAME}"
-            test "$(git cat-file -t "refs/tags/${release_tag}")" = tag
-            test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/${release_tag}^{commit}")"
+            if [ "${GITHUB_REF_TYPE}" = tag ]; then
+              test "$release_tag" = "${GITHUB_REF_NAME}"
+              test "$candidate_sha" = "$GITHUB_SHA"
+            else
+              test "${GITHUB_REF_TYPE}" = branch
+              test "${GITHUB_REF_NAME}" = master
+              if [ "$candidate_sha" != "$GITHUB_SHA" ]; then
+                git merge-base --is-ancestor "$candidate_sha" "$GITHUB_SHA"
+                while IFS= read -r changed_path; do
+                  case "$changed_path" in
+                    .github/workflows/release.yml | \
+                    docs/releases/RELEASE-CHECKLIST.md | \
+                    docs/releases/RELEASE-PROCESS.md | \
+                    supply_chain_policy_test.go)
+                      ;;
+                    *)
+                      echo "::error::publish recovery contains a non-release change: ${changed_path}"
+                      exit 1
+                      ;;
+                  esac
+                done < <(git diff --name-only "${candidate_sha}..${GITHUB_SHA}")
+                echo "using reviewed release-plumbing recovery from protected master"
+              fi
+            fi
+            verify_remote_annotated_tag
+            echo "verified remote annotated tag at candidate source: $release_tag"
           fi
           if gh release view "$release_tag" >/dev/null 2>&1; then
             test "$RELEASE_MODE" = publish
             echo "resuming or verifying the existing release: $release_tag"
           fi
+          {
+            printf 'source_sha=%s\n' "$candidate_sha"
+            printf 'release_tag=%s\n' "$release_tag"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Download exact candidate from the verified run
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: kessoku-release-candidate-${{ github.sha }}
+          name: kessoku-release-candidate-${{ steps.guard.outputs.source_sha }}
           path: candidate
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
           run-id: ${{ inputs.candidate_run_id }}
 
       - name: Re-verify candidate identity and checksums
+        env:
+          SOURCE_SHA: ${{ steps.guard.outputs.source_sha }}
         run: |
           set -euo pipefail
           release_tag="$(sed -n 's/^release_tag: //p' RELEASE_STATUS)"
@@ -122,13 +161,13 @@ jobs:
           chmod 0755 candidate/docker/release/kessoku-api
           grep -Fx "repository=${GITHUB_REPOSITORY}" \
             candidate/release-assets/BUILD-INPUTS.txt
-          grep -Fx "source_commit=${GITHUB_SHA}" \
+          grep -Fx "source_commit=${SOURCE_SHA}" \
             candidate/release-assets/BUILD-INPUTS.txt
           grep -Fx "release_tag=${release_tag}" \
             candidate/release-assets/BUILD-INPUTS.txt
           grep -F $'\tpath\tgithub.com/q1ngyang/rustdesk-api-kessoku/v3/cmd' \
             candidate/release-assets/GO-BUILD-INFO.txt
-          grep -F $'\tbuild\tvcs.revision='"${GITHUB_SHA}" \
+          grep -F $'\tbuild\tvcs.revision='"${SOURCE_SHA}" \
             candidate/release-assets/GO-BUILD-INFO.txt
           grep -F $'\tbuild\tvcs.modified=false' \
             candidate/release-assets/GO-BUILD-INFO.txt
@@ -213,14 +252,14 @@ jobs:
           push: true
           provenance: mode=max
           sbom: true
-          tags: ${{ env.IMAGE_NAME }}:candidate-${{ github.sha }}
+          tags: ${{ env.IMAGE_NAME }}:candidate-${{ steps.guard.outputs.source_sha }}
           labels: |
             org.opencontainers.image.title=rustdesk-api-kessoku
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.url=https://github.com/${{ github.repository }}/releases/tag/${{ env.RELEASE_TAG }}
             org.opencontainers.image.documentation=https://github.com/${{ github.repository }}/blob/${{ env.RELEASE_TAG }}/docs/deployment/CONTAINER.md
             org.opencontainers.image.version=${{ env.RELEASE_TAG }}
-            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.revision=${{ steps.guard.outputs.source_sha }}
             org.opencontainers.image.licenses=MIT
             org.opencontainers.image.description=Kessoku RustDesk administration API with Starry control and a Relay-only WebClient
           annotations: |
@@ -229,7 +268,7 @@ jobs:
             index:org.opencontainers.image.url=https://github.com/${{ github.repository }}/releases/tag/${{ env.RELEASE_TAG }}
             index:org.opencontainers.image.documentation=https://github.com/${{ github.repository }}/blob/${{ env.RELEASE_TAG }}/docs/deployment/CONTAINER.md
             index:org.opencontainers.image.version=${{ env.RELEASE_TAG }}
-            index:org.opencontainers.image.revision=${{ github.sha }}
+            index:org.opencontainers.image.revision=${{ steps.guard.outputs.source_sha }}
             index:org.opencontainers.image.licenses=MIT
             index:org.opencontainers.image.description=Kessoku RustDesk administration API with Starry control and a Relay-only WebClient
 
@@ -237,9 +276,10 @@ jobs:
         if: inputs.mode == 'prepare'
         env:
           PUSHED_DIGEST: ${{ steps.candidate-image.outputs.digest }}
+          SOURCE_SHA: ${{ steps.guard.outputs.source_sha }}
         run: |
           set -euo pipefail
-          candidate_ref="${IMAGE_NAME}:candidate-${GITHUB_SHA}"
+          candidate_ref="${IMAGE_NAME}:candidate-${SOURCE_SHA}"
           printf '%s' "$PUSHED_DIGEST" | grep -Eq '^sha256:[0-9a-f]{64}$'
           registry_digest="$(docker buildx imagetools inspect "$candidate_ref" \
             | sed -n 's/^Digest:[[:space:]]*//p' | head -n 1)"
@@ -271,6 +311,7 @@ jobs:
         if: inputs.mode == 'prepare'
         env:
           GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ steps.guard.outputs.source_sha }}
         run: |
           set -euo pipefail
           release_tag="$(sed -n 's/^release_tag: //p' RELEASE_STATUS)"
@@ -288,7 +329,7 @@ jobs:
               --jq .object.type)" = commit
             test "$(gh api \
               "repos/${GITHUB_REPOSITORY}/git/tags/${tag_object_sha}" \
-              --jq .object.sha)" = "$GITHUB_SHA"
+              --jq .object.sha)" = "$SOURCE_SHA"
             echo "exact annotated tag already exists: $release_tag"
             exit 0
           fi
@@ -296,7 +337,7 @@ jobs:
             "repos/${GITHUB_REPOSITORY}/git/tags" \
             -f tag="$release_tag" \
             -f message="rustdesk-api-kessoku ${release_tag}" \
-            -f object="$GITHUB_SHA" \
+            -f object="$SOURCE_SHA" \
             -f type=commit --jq .sha)"
           printf '%s' "$tag_object_sha" | grep -Eq '^[0-9a-f]{40}$'
           gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
@@ -305,9 +346,11 @@ jobs:
 
       - name: Promote the exact candidate image to versioned and stable tags
         if: inputs.mode == 'publish'
+        env:
+          SOURCE_SHA: ${{ steps.guard.outputs.source_sha }}
         run: |
           set -euo pipefail
-          candidate_ref="${IMAGE_NAME}:candidate-${GITHUB_SHA}"
+          candidate_ref="${IMAGE_NAME}:candidate-${SOURCE_SHA}"
           version_ref="${IMAGE_NAME}:${RELEASE_TAG}"
           stable_ref="${IMAGE_NAME}:latest"
           candidate_digest="$(docker buildx imagetools inspect "$candidate_ref" \
@@ -326,21 +369,22 @@ jobs:
         if: inputs.mode == 'publish'
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ steps.guard.outputs.release_tag }}
+          SOURCE_SHA: ${{ steps.guard.outputs.source_sha }}
         run: |
           set -euo pipefail
           test "$(wc -l < release-notes.md)" -le 12
           release_title="rustdesk-api-kessoku $RELEASE_TAG"
           if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release create "$RELEASE_TAG" --draft --verify-tag \
-              --target "$GITHUB_SHA" --title "$release_title" \
+              --target "$SOURCE_SHA" --title "$release_title" \
               --notes-file release-notes.md
           fi
 
           test "$(gh release view "$RELEASE_TAG" --json tagName --jq .tagName)" \
             = "$RELEASE_TAG"
           test "$(gh release view "$RELEASE_TAG" --json targetCommitish \
-            --jq .targetCommitish)" = "$GITHUB_SHA"
+            --jq .targetCommitish)" = "$SOURCE_SHA"
           test "$(gh release view "$RELEASE_TAG" --json isPrerelease \
             --jq .isPrerelease)" = false
           is_draft="$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)"
@@ -348,7 +392,7 @@ jobs:
 
           if [ "$is_draft" = true ]; then
             gh release edit "$RELEASE_TAG" --draft --verify-tag \
-              --target "$GITHUB_SHA" --title "$release_title" \
+              --target "$SOURCE_SHA" --title "$release_title" \
               --notes-file release-notes.md
             gh release upload "$RELEASE_TAG" candidate/release-assets/* --clobber
           fi
