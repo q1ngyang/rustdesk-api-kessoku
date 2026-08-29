@@ -235,7 +235,11 @@ func validateBranding(setting *model.BrandingSetting) error {
 			cleanNames[id] = name
 		}
 	}
-	setting.ServerInstanceNamesJSON = encodeServerInstanceNames(cleanNames)
+	encodedInstanceNames := encodeServerInstanceNames(cleanNames)
+	if len(encodedInstanceNames) > 8192 {
+		return errors.New("server_instance_names is too large")
+	}
+	setting.ServerInstanceNamesJSON = encodedInstanceNames
 	for name, value := range map[string]string{
 		"brand_logo_light_url": setting.BrandLogoLightURL, "brand_logo_dark_url": setting.BrandLogoDarkURL,
 		"brand_icon_light_url": setting.BrandIconLightURL, "brand_icon_dark_url": setting.BrandIconDarkURL,

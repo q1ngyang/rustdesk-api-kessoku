@@ -50,7 +50,7 @@ type BrandingSetting struct {
 	// ServerInstanceNamesJSON stores operator-facing labels keyed by the
 	// immutable deployment instance ID. Connection details and credentials
 	// remain configuration-file owned.
-	ServerInstanceNamesJSON string `json:"-" gorm:"type:text;not null;default:'{}'"`
+	ServerInstanceNamesJSON string `json:"-" gorm:"type:varchar(8192);not null;default:'{}'"`
 	WebClientLogoLightURL   string `json:"web_client_logo_light_url" gorm:"type:text;not null"`
 	WebClientLogoDarkURL    string `json:"web_client_logo_dark_url" gorm:"type:text;not null"`
 	WebClientIconLightURL   string `json:"web_client_icon_light_url" gorm:"type:text;not null"`
