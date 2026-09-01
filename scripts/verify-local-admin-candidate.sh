@@ -82,8 +82,11 @@ fi
 candidate_suffix=${candidate_root##*.}
 image_tag="kessoku-local-candidate:${candidate_suffix}"
 container_name="kessoku-local-http-${candidate_suffix}"
+smoke_rustdesk_public_key='AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8='
 current_uid=$(id -u)
 current_gid=$(id -g)
+
+test "$(printf '%s' "$smoke_rustdesk_public_key" | base64 --decode | wc -c)" = 32
 
 cleanup() {
   if docker container inspect "$container_name" >/dev/null 2>&1; then
@@ -379,6 +382,7 @@ docker image inspect --format '{{json .Config.ExposedPorts}}' "$image_tag" \
   | grep -F '21122/tcp'
 
 docker run -d --name "$container_name" \
+  -e RUSTDESK_API_RUSTDESK_KEY="$smoke_rustdesk_public_key" \
   -p 127.0.0.1::21114 "$image_tag" >/dev/null
 http_port=
 for _ in $(seq 1 40); do

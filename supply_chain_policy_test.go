@@ -100,6 +100,8 @@ func TestLocalReleaseDrillsPinArtifactsAndRespectTMPDIR(t *testing.T) {
 			"local_deb_version=\"${release_version}~local.1-1\"",
 			"host_tmp_root=${TMPDIR:-/var/tmp/codex-q1ngyang}",
 			"-e EXPECTED_DEB_VERSION=\"$local_deb_version\"",
+			"smoke_rustdesk_public_key='AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8='",
+			"-e RUSTDESK_API_RUSTDESK_KEY=\"$smoke_rustdesk_public_key\"",
 			"docker container inspect --format '{{.State.Running}}'",
 			"local candidate HTTP port was not published",
 		},
