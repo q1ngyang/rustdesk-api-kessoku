@@ -100,6 +100,8 @@ func TestLocalReleaseDrillsPinArtifactsAndRespectTMPDIR(t *testing.T) {
 			"local_deb_version=\"${release_version}~local.1-1\"",
 			"host_tmp_root=${TMPDIR:-/var/tmp/codex-q1ngyang}",
 			"-e EXPECTED_DEB_VERSION=\"$local_deb_version\"",
+			"docker container inspect --format '{{.State.Running}}'",
+			"local candidate HTTP port was not published",
 		},
 	}
 	for path, required := range files {
@@ -119,8 +121,14 @@ func TestLocalReleaseDrillsPinArtifactsAndRespectTMPDIR(t *testing.T) {
 	}
 	if contents, err := os.ReadFile("scripts/verify-local-admin-candidate.sh"); err != nil {
 		t.Fatal(err)
-	} else if strings.Contains(string(contents), "2.8.3~local.1-1") {
-		t.Fatal("local candidate drill still hard-codes a legacy DEB version")
+	} else {
+		script := string(contents)
+		if strings.Contains(script, "2.8.3~local.1-1") {
+			t.Fatal("local candidate drill still hard-codes a legacy DEB version")
+		}
+		if strings.Contains(script, `docker run --rm -d --name "$container_name"`) {
+			t.Fatal("local candidate removes a failed HTTP container before diagnostics can inspect it")
+		}
 	}
 }
 

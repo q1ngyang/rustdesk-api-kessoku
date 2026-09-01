@@ -378,10 +378,28 @@ docker run --rm "$image_tag" sh -c \
 docker image inspect --format '{{json .Config.ExposedPorts}}' "$image_tag" \
   | grep -F '21122/tcp'
 
-docker run --rm -d --name "$container_name" \
+docker run -d --name "$container_name" \
   -p 127.0.0.1::21114 "$image_tag" >/dev/null
-http_port=$(docker port "$container_name" 21114/tcp | sed -n 's/.*://p')
-printf '%s' "$http_port" | grep -Eq '^[1-9][0-9]*$'
+http_port=
+for _ in $(seq 1 40); do
+  if [[ $(docker container inspect --format '{{.State.Running}}' \
+    "$container_name") != true ]]; then
+    docker logs "$container_name"
+    echo "local candidate HTTP container exited before becoming ready" >&2
+    exit 1
+  fi
+  http_port=$(docker port "$container_name" 21114/tcp 2>/dev/null \
+    | sed -n 's/.*://p' | head -n 1)
+  if [[ "$http_port" =~ ^[1-9][0-9]*$ ]]; then
+    break
+  fi
+  sleep 0.1
+done
+if [[ ! "$http_port" =~ ^[1-9][0-9]*$ ]]; then
+  docker inspect "$container_name"
+  echo "local candidate HTTP port was not published" >&2
+  exit 1
+fi
 http_ready=0
 for _ in $(seq 1 40); do
   if curl -fsS "http://127.0.0.1:${http_port}/dash/" \
