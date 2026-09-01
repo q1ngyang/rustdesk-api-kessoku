@@ -29,6 +29,9 @@ if [[ -n $(git -C "$repo_root" status --porcelain --untracked-files=all) ]]; the
 fi
 source_sha=$(git -C "$repo_root" rev-parse HEAD)
 printf '%s' "$source_sha" | grep -Eq '^[0-9a-f]{40}$'
+source_time=$(git -C "$repo_root" show -s --format=%cI "$source_sha")
+release_version=${release_tag#v}
+local_deb_version="${release_version}~local.1-1"
 if [[ -n "$evidence_dir" ]]; then
   case "$evidence_dir" in
     /*) ;;
@@ -66,16 +69,24 @@ python3 -m unittest discover -s "$repo_root/scripts" -p 'test_documentation.py'
 docker compose --env-file "$repo_root/examples/compose.env.example" \
   -f "$repo_root/docker-compose.yaml" config --quiet
 
-candidate_root=$(mktemp -d /tmp/kessoku-local-candidate.XXXXXX)
-case "$candidate_root" in
-  /tmp/kessoku-local-candidate.*) ;;
-  *) echo "unsafe temporary path" >&2; exit 70 ;;
-esac
+host_tmp_root=${TMPDIR:-/var/tmp/codex-q1ngyang}
+if [[ "$host_tmp_root" != /* || "$host_tmp_root" == / || ! -d "$host_tmp_root" || ! -w "$host_tmp_root" ]]; then
+  echo "TMPDIR must be an existing writable non-root absolute directory" >&2
+  exit 70
+fi
+candidate_root=$(mktemp -d "${host_tmp_root%/}/kessoku-local-candidate.XXXXXX")
+if [[ "$candidate_root" != "${host_tmp_root%/}/kessoku-local-candidate."* ]]; then
+  echo "unsafe temporary path" >&2
+  exit 70
+fi
 candidate_suffix=${candidate_root##*.}
 image_tag="kessoku-local-candidate:${candidate_suffix}"
 container_name="kessoku-local-http-${candidate_suffix}"
+smoke_rustdesk_public_key='AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8='
 current_uid=$(id -u)
 current_gid=$(id -g)
+
+test "$(printf '%s' "$smoke_rustdesk_public_key" | base64 --decode | wc -c)" = 32
 
 cleanup() {
   if docker container inspect "$container_name" >/dev/null 2>&1; then
@@ -195,12 +206,17 @@ docker run --rm \
       printf 'go_test_race=PASS\n'
     } | tee /out/GO-VERIFY.txt
     test -z \"\$(git status --porcelain --untracked-files=all)\"
-    CGO_ENABLED=1 go build -trimpath -buildvcs=true -ldflags '-s -w' \
+    build_ldflags='-s -w -X github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/buildinfo.Version=${release_version} -X github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/buildinfo.GitCommit=${source_sha} -X github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/buildinfo.BuildTime=${source_time}'
+    CGO_ENABLED=1 go build -trimpath -buildvcs=true -ldflags \"\$build_ldflags\" \
       -o /out/kessoku-api ./cmd
-    CGO_ENABLED=1 go build -trimpath -buildvcs=true -ldflags '-s -w' \
+    CGO_ENABLED=1 go build -trimpath -buildvcs=true -ldflags \"\$build_ldflags\" \
       -o /out/kessoku-api.rebuild ./cmd
     cmp /out/kessoku-api /out/kessoku-api.rebuild
     rm /out/kessoku-api.rebuild
+    /out/kessoku-api version --json > /out/VERSION.json
+    grep -F '\"version\":\"${release_version}\"' /out/VERSION.json
+    grep -F '\"git_commit\":\"${source_sha}\"' /out/VERSION.json
+    grep -F '\"build_time\":\"${source_time}\"' /out/VERSION.json
     go version -m /out/kessoku-api > /out/GO-BUILD-INFO.txt
     grep -F $'\tpath\tgithub.com/q1ngyang/rustdesk-api-kessoku/v3/cmd' \
       /out/GO-BUILD-INFO.txt
@@ -216,6 +232,7 @@ install -m 0644 "$build_output/GO-BUILD-INFO.txt" \
   "$candidate/GO-BUILD-INFO.txt"
 install -m 0644 "$build_output/GO-VERIFY.txt" \
   "$candidate/GO-VERIFY.txt"
+install -m 0644 "$build_output/VERSION.json" "$candidate/VERSION.json"
 sh "$backend_source/scripts/copy-runtime-resources.sh" \
   "$release/resources" "$backend_source/resources" require-admin require-client
 printf '%s\n' "$local_artifact_label" > "$release/resources/version"
@@ -309,9 +326,9 @@ cmp "$candidate_root/candidate-a.tar.gz" \
   "$candidate_root/candidate-b.tar.gz"
 
 sh "$backend_source/scripts/build-deb.sh" "$release" \
-  '2.8.3~local.1-1' amd64 "$candidate_root/packages-a"
+  "$local_deb_version" amd64 "$candidate_root/packages-a"
 sh "$backend_source/scripts/build-deb.sh" "$release" \
-  '2.8.3~local.1-1' amd64 "$candidate_root/packages-b"
+  "$local_deb_version" amd64 "$candidate_root/packages-b"
 cmp "$candidate_root/packages-a/"*.deb "$candidate_root/packages-b/"*.deb
 dpkg-deb --contents "$candidate_root/packages-a/"*.deb \
   | grep -F '/resources/admin/index.html'
@@ -328,13 +345,14 @@ if dpkg-deb --contents "$candidate_root/packages-a/"*.deb \
 fi
 
 docker run --rm --platform linux/amd64 \
+  -e EXPECTED_DEB_VERSION="$local_deb_version" \
   -v "$candidate_root/packages-a:/packages:ro" \
   "$debian_test_image" sh -euxc '
     printf "#!/bin/sh\nexit 101\n" > /usr/sbin/policy-rc.d
     chmod 0755 /usr/sbin/policy-rc.d
     apt-get update
     DEBIAN_FRONTEND=noninteractive apt-get install -y /packages/*.deb
-    test "$(dpkg-query -W -f=\${Version} kessoku-api)" = "2.8.3~local.1-1"
+    test "$(dpkg-query -W -f=\${Version} kessoku-api)" = "$EXPECTED_DEB_VERSION"
     test "$(id -un kessoku-api)" = kessoku-api
     test "$(stat -c %a /var/lib/kessoku-api/data)" = 700
     test "$(stat -c %a /var/lib/kessoku-api/runtime)" = 700
@@ -363,10 +381,29 @@ docker run --rm "$image_tag" sh -c \
 docker image inspect --format '{{json .Config.ExposedPorts}}' "$image_tag" \
   | grep -F '21122/tcp'
 
-docker run --rm -d --name "$container_name" \
+docker run -d --name "$container_name" \
+  -e RUSTDESK_API_RUSTDESK_KEY="$smoke_rustdesk_public_key" \
   -p 127.0.0.1::21114 "$image_tag" >/dev/null
-http_port=$(docker port "$container_name" 21114/tcp | sed -n 's/.*://p')
-printf '%s' "$http_port" | grep -Eq '^[1-9][0-9]*$'
+http_port=
+for _ in $(seq 1 40); do
+  if [[ $(docker container inspect --format '{{.State.Running}}' \
+    "$container_name") != true ]]; then
+    docker logs "$container_name"
+    echo "local candidate HTTP container exited before becoming ready" >&2
+    exit 1
+  fi
+  http_port=$(docker port "$container_name" 21114/tcp 2>/dev/null \
+    | sed -n 's/.*://p' | head -n 1)
+  if [[ "$http_port" =~ ^[1-9][0-9]*$ ]]; then
+    break
+  fi
+  sleep 0.1
+done
+if [[ ! "$http_port" =~ ^[1-9][0-9]*$ ]]; then
+  docker inspect "$container_name"
+  echo "local candidate HTTP port was not published" >&2
+  exit 1
+fi
 http_ready=0
 for _ in $(seq 1 40); do
   if curl -fsS "http://127.0.0.1:${http_port}/dash/" \
@@ -424,6 +461,7 @@ install -m 0644 "$backend_source/RELEASE_STATUS" \
   "$backend_source/docker-compose.yaml" \
   "$backend_source/examples/compose.env.example" \
   "$backend_source/internal/starrycontrol/CONTRACT_VERSION" \
+  "$backend_source/$release_notes_relative/STARRY-RELEASE-SUMMARY.json" \
   "$release_assets/"
 install -m 0644 "$backend_source/examples/config.docker-builtin.yaml" \
   "$release_assets/config.docker-builtin.yaml"

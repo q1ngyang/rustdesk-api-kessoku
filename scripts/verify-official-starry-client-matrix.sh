@@ -11,11 +11,21 @@ fi
 repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 starry_repo=${STARRY_REPO:-}
 kessoku_image=${KESSOKU_MATRIX_IMAGE:-kessoku-local-matrix:current}
-starry_image=ghcr.io/q1ngyang/rustdesk-server-starry:1.1.16-patch-v1.2.2
-starry_digest=sha256:e839b849137ab3a15b6c7dbe5f7be28c494137bc56cae939aa68ffa66215ae1b
+starry_image=${STARRY_MATRIX_IMAGE:-ghcr.io/q1ngyang/rustdesk-server-starry:1.1.16-patch-v1.2.2}
+starry_digest=${STARRY_MATRIX_INDEX_DIGEST:-sha256:e839b849137ab3a15b6c7dbe5f7be28c494137bc56cae939aa68ffa66215ae1b}
+starry_revision=${STARRY_MATRIX_REVISION:-bc17da50fead2519c4859e7f483d8a1773821d44}
+starry_hbbs_sha256=${STARRY_MATRIX_HBBS_SHA256:-0dfd7664ec288faf013e2b9a3064975efd3834626100e6de8bfa9e10fd7f9bef}
+starry_hbbr_sha256=${STARRY_MATRIX_HBBR_SHA256:-b01fd38d4dac7d54a81268b793de2551f0e8b055578bd77766a9487e6683599d}
+starry_agent_sha256=${STARRY_MATRIX_AGENT_SHA256:-9788b4d226cecd0ac39ee01b1dec9c6a535e4dc12815f5adadced31ca608a7fe}
 client_image=starry-release-client:rustdesk-1.4.9-qa3
 tls_proxy_image=starry-release-tls-proxy:socat
 go_image=golang:1.26.6-bookworm@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36
+
+printf '%s' "$starry_digest" | grep -Eq '^sha256:[0-9a-f]{64}$'
+printf '%s' "$starry_revision" | grep -Eq '^[0-9a-f]{40}$'
+for digest in "$starry_hbbs_sha256" "$starry_hbbr_sha256" "$starry_agent_sha256"; do
+  printf '%s' "$digest" | grep -Eq '^[0-9a-f]{64}$'
+done
 
 if [[ -z "$starry_repo" ]] || \
   ! git -C "$starry_repo" rev-parse --is-inside-work-tree 2>/dev/null \
@@ -39,17 +49,22 @@ printf '%s\n' "$repo_digests" \
 official_hashes=$(docker run --rm "$starry_image" \
   sha256sum /usr/bin/hbbs /usr/bin/hbbr /usr/bin/starry-control-agent)
 printf '%s\n' "$official_hashes" \
-  | grep -Fx '0dfd7664ec288faf013e2b9a3064975efd3834626100e6de8bfa9e10fd7f9bef  /usr/bin/hbbs' >/dev/null
+  | grep -Fx "${starry_hbbs_sha256}  /usr/bin/hbbs" >/dev/null
 printf '%s\n' "$official_hashes" \
-  | grep -Fx 'b01fd38d4dac7d54a81268b793de2551f0e8b055578bd77766a9487e6683599d  /usr/bin/hbbr' >/dev/null
+  | grep -Fx "${starry_hbbr_sha256}  /usr/bin/hbbr" >/dev/null
 printf '%s\n' "$official_hashes" \
-  | grep -Fx '9788b4d226cecd0ac39ee01b1dec9c6a535e4dc12815f5adadced31ca608a7fe  /usr/bin/starry-control-agent' >/dev/null
+  | grep -Fx "${starry_agent_sha256}  /usr/bin/starry-control-agent" >/dev/null
 
-matrix_root=$(mktemp -d /tmp/kessoku-starry-official-matrix.XXXXXX)
-case "$matrix_root" in
-  /tmp/kessoku-starry-official-matrix.*) ;;
-  *) echo "unsafe temporary path" >&2; exit 70 ;;
-esac
+host_tmp_root=${TMPDIR:-/var/tmp/codex-q1ngyang}
+if [[ "$host_tmp_root" != /* || "$host_tmp_root" == / || ! -d "$host_tmp_root" || ! -w "$host_tmp_root" ]]; then
+  echo "TMPDIR must be an existing writable non-root absolute directory" >&2
+  exit 70
+fi
+matrix_root=$(mktemp -d "${host_tmp_root%/}/kessoku-starry-official-matrix.XXXXXX")
+if [[ "$matrix_root" != "${host_tmp_root%/}/kessoku-starry-official-matrix."* ]]; then
+  echo "unsafe temporary path" >&2
+  exit 70
+fi
 matrix_id=${matrix_root##*.}
 current_uid=$(id -u)
 current_gid=$(id -g)
@@ -60,6 +75,7 @@ hbbs_name="matrix-hbbs-${matrix_id}"
 hbbs_tls_name="matrix-hbbs-tls-${matrix_id}"
 hbbr_name="matrix-hbbr-${matrix_id}"
 hbbr_tls_name="matrix-hbbr-tls-${matrix_id}"
+bootstrap_hbbs_name="matrix-key-bootstrap-${matrix_id}"
 native_target_name="matrix-native-target-${matrix_id}"
 wss_target_name="matrix-wss-target-${matrix_id}"
 created_containers=()
@@ -133,6 +149,29 @@ find "$matrix_root/secrets" -type f -exec chmod 0600 {} +
 
 docker network create "$matrix_network" >/dev/null
 
+# Generate the release server's real key before Kessoku starts. Kessoku's
+# runtime validator deliberately rejects the old empty /data key reference,
+# and the matrix must not substitute a synthetic key that differs from the
+# HBBS/HBBR pair exercised below.
+docker run -d --name "$bootstrap_hbbs_name" \
+  --network "$matrix_network" \
+  -v "$matrix_root/starry-data:/root" \
+  "$starry_image" hbbs -r hbbr.local:21117 >/dev/null
+for _ in $(seq 1 60); do
+  test -s "$matrix_root/starry-data/id_ed25519.pub" && break
+  if [[ $(docker inspect --format '{{.State.Running}}' \
+    "$bootstrap_hbbs_name") != true ]]; then
+    docker logs "$bootstrap_hbbs_name" >&2
+    exit 1
+  fi
+  sleep 0.1
+done
+test -s "$matrix_root/starry-data/id_ed25519.pub"
+matrix_server_key=$(tr -d '\r\n' \
+  < "$matrix_root/starry-data/id_ed25519.pub")
+test "$(printf '%s' "$matrix_server_key" | base64 --decode | wc -c)" = 32
+docker rm -f "$bootstrap_hbbs_name" >/dev/null
+
 kessoku_env_args=(
   -e RUSTDESK_API_AUTH_ENABLED=true
   -e RUSTDESK_API_AUTH_ISSUER=https://kessoku.local
@@ -148,6 +187,7 @@ kessoku_env_args=(
   -e RUSTDESK_API_AUTH_INTERNAL_CLIENT_CA_FILE=/test-secrets/ca.pem
   -e RUSTDESK_API_AUTH_INTERNAL_ALLOWED_URI_SANS=spiffe://example.com/starry/production
   -e RUSTDESK_API_RUSTDESK_API_SERVER=https://kessoku.local
+  -e RUSTDESK_API_RUSTDESK_KEY="$matrix_server_key"
 )
 kessoku_args=(
   --name "$kessoku_name"
@@ -356,14 +396,25 @@ login_token() {
   local controller_id=$1
   local password
   local payload
+  local response
+  local response_body
+  local response_status
   password=$(<"$matrix_root/secrets/admin-password")
   payload=$(jq -nc --arg password "$password" --arg id "$controller_id" \
     --arg uuid "matrix-${controller_id}" \
     '{username:"admin", password:$password, id:$id, uuid:$uuid, deviceInfo:{name:"official-matrix", os:"Linux", type:"Linux"}}')
-  docker run --rm --network "$matrix_network" "$client_image" \
-    curl -fsS -H 'Content-Type: application/json' --data "$payload" \
-    http://kessoku.local:21114/api/login \
-    | jq -er .access_token
+  response=$(docker run --rm --network "$matrix_network" "$client_image" \
+    curl -sS -H 'Content-Type: application/json' --data "$payload" \
+    -w $'\n%{http_code}' http://kessoku.local:21114/api/login)
+  response_status=${response##*$'\n'}
+  response_body=${response%$'\n'*}
+  if [[ "$response_status" != 200 ]]; then
+    printf 'matrix login failed: HTTP %s error=%s\n' "$response_status" \
+      "$(printf '%s' "$response_body" | jq -er '.error // "unparseable"')" >&2
+    docker logs "$kessoku_name" >&2
+    return 1
+  fi
+  printf '%s' "$response_body" | jq -er .access_token
 }
 
 run_case() {
@@ -445,12 +496,14 @@ run_case enforce-wss-native wss 900000101 900000204
 run_case enforce-native-wss native 900000102 900000205
 
 test "$(docker image inspect "$starry_image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" \
-  = 5e73b3af1423acf5ee20ca32a2d747eef6df3494
+  = "$starry_revision"
 docker run --rm -v "$repo_root:/src:ro" -w /src \
   -v kessoku-go-mod:/go/pkg/mod -v kessoku-go-build:/root/.cache/go-build \
   "$go_image" go test ./internal/starrycontrol/starry >/dev/null
 
 printf 'official_starry_digest=%s\n' "$starry_digest"
-printf 'official_hbbs_sha256=%s\n' a415d24ef42a3bf1b78ddacf07bd65931c7f18d6096181ce368adf994ff69c66
-printf 'official_hbbr_sha256=%s\n' 0e44526134b4e836b9b4c83f470af40829d90efa85b4c91537f996078df21f87
+printf 'official_starry_revision=%s\n' "$starry_revision"
+printf 'official_hbbs_sha256=%s\n' "$starry_hbbs_sha256"
+printf 'official_hbbr_sha256=%s\n' "$starry_hbbr_sha256"
+printf 'official_starry_control_agent_sha256=%s\n' "$starry_agent_sha256"
 printf 'audit_to_enforce_and_four_client_paths=PASS\n'

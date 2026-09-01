@@ -86,6 +86,50 @@
       </el-tab-pane>
 
       <el-tab-pane :label="T('RelaysAndSimulation')" name="relays">
+        <el-card class="relay-quality-card" shadow="never" v-loading="loading.relays || loading.capabilities">
+          <template #header>
+            <div class="card-header">
+              <span>{{ T('RelayQualityControl') }}</span>
+              <el-tag :type="relayQualitySupported ? 'success' : 'info'">{{ relayQualitySupported ? T('Supported') : T('Unsupported') }}</el-tag>
+            </div>
+          </template>
+          <el-alert
+            v-if="!relayQualitySupported"
+            :title="T('RelayQualityUnsupported')"
+            :description="T('RelayQualityUnsupportedHelp')"
+            type="info"
+            :closable="false"
+            show-icon
+          />
+          <el-alert
+            v-for="alert in relayQualityAlerts"
+            :key="alert.key"
+            class="relay-quality-alert"
+            :title="alert.title"
+            :description="alert.description"
+            :type="alert.type"
+            :closable="false"
+            show-icon
+          />
+          <template v-if="relayQualitySupported">
+            <el-descriptions :column="metricColumns" border>
+              <el-descriptions-item><template #label><InfoLabel :label="T('CurrentPolicy')" :help="T('CurrentPolicyHelp')"/></template>{{ relays.quality.strategy }}</el-descriptions-item>
+              <el-descriptions-item><template #label><InfoLabel :label="T('QualityProtocolVersion')" :help="T('QualityProtocolVersionHelp')"/></template>v{{ relays.quality.protocol_version }}</el-descriptions-item>
+              <el-descriptions-item><template #label><InfoLabel :label="T('PrimaryAcceptedRatio')" :help="T('PrimaryAcceptedRatioHelp')"/></template>{{ primaryAcceptedRatio }}</el-descriptions-item>
+              <el-descriptions-item><template #label><InfoLabel :label="T('ExpansionTriggeredRatio')" :help="T('ExpansionTriggeredRatioHelp')"/></template>{{ expansionTriggeredRatio }}</el-descriptions-item>
+              <el-descriptions-item><template #label><InfoLabel :label="T('P2PCancelled')" :help="T('P2PCancelledHelp')"/></template>{{ relays.quality.p2p_cancellations }}</el-descriptions-item>
+              <el-descriptions-item><template #label><InfoLabel :label="T('EstimatedProbeAttemptsSaved')" :help="T('EstimatedProbeAttemptsSavedHelp')"/></template>{{ relays.quality.estimated_probe_attempts_saved }}</el-descriptions-item>
+              <el-descriptions-item><template #label><InfoLabel :label="T('StageTimeouts')" :help="T('StageTimeoutsHelp')"/></template>{{ relays.quality.stage_timeouts }}</el-descriptions-item>
+              <el-descriptions-item><template #label><InfoLabel :label="T('InvalidReports')" :help="T('InvalidReportsHelp')"/></template>{{ relays.quality.reports_invalid }}</el-descriptions-item>
+              <el-descriptions-item><template #label><InfoLabel :label="T('LateReports')" :help="T('LateReportsHelp')"/></template>{{ relays.quality.reports_late }}</el-descriptions-item>
+            </el-descriptions>
+            <div class="fallback-reasons section">
+              <h4>{{ T('FallbackReasons') }}</h4>
+              <el-tag v-for="reason in fallbackReasonRows" :key="reason.name" type="info" effect="plain">{{ reason.label }} · {{ reason.value }}</el-tag>
+            </div>
+          </template>
+        </el-card>
+
         <el-card shadow="never" v-loading="loading.relays">
           <template #header>
             <div class="card-header">
@@ -100,6 +144,15 @@
             <el-table-column :label="T('Native')" width="120"><template #default="{ row }"><StatusValue :value="row.native?.state || '-'"/></template></el-table-column>
             <el-table-column label="WSS" width="120"><template #default="{ row }"><StatusValue :value="row.websocket?.state || '-'"/></template></el-table-column>
             <el-table-column prop="websocket.latency_ms" :label="T('WSSLatency')" width="150" />
+            <el-table-column :label="T('RelayCapability')" min-width="210">
+              <template #default="{ row }">{{ relayCapabilityLabel(row) }}</template>
+            </el-table-column>
+            <el-table-column :label="T('TelemetryFreshness')" min-width="180">
+              <template #default="{ row }">{{ telemetryFreshnessLabel(row) }}</template>
+            </el-table-column>
+            <el-table-column :label="T('QualityCandidate')" width="160">
+              <template #default="{ row }"><StatusValue v-if="row.quality_candidate != null" :value="row.quality_candidate"/><span v-else>{{ T('Unsupported') }}</span></template>
+            </el-table-column>
             <el-table-column :label="T('EligibleFor')" min-width="180">
               <template #default="{ row }">{{ (row.eligible_for || []).join(', ') || '-' }}</template>
             </el-table-column>
@@ -111,6 +164,13 @@
 
         <el-card class="section" shadow="never" v-loading="loading.simulation">
           <template #header>{{ T('AllocationSimulation') }}</template>
+          <el-alert
+            :title="T('NonBindingSimulation')"
+            :description="T('NonBindingSimulationHelp')"
+            type="warning"
+            :closable="false"
+            show-icon
+          />
           <el-form inline :model="simulationInput">
             <el-form-item :label="T('ClientAIP')"><el-input v-model="simulationInput.clientA" placeholder="203.0.113.10" /></el-form-item>
             <el-form-item :label="T('ClientBIP')"><el-input v-model="simulationInput.clientB" placeholder="2001:db8::20" /></el-form-item>
@@ -125,14 +185,16 @@
           </el-form>
           <template v-if="simulationResult">
             <el-descriptions :column="wideColumns" border>
-              <el-descriptions-item :label="T('Rule')">{{ simulationResult.matched_rule?.name || T('OfficialFallback') }}</el-descriptions-item>
+              <el-descriptions-item :label="T('GEORule')">{{ simulationResult.matched_rule?.name || T('OfficialFallback') }}</el-descriptions-item>
               <el-descriptions-item :label="T('Selection')">{{ simulationResult.selection?.kind }}</el-descriptions-item>
-              <el-descriptions-item :label="T('Relay')">{{ simulationResult.selection?.relay_id || '-' }}</el-descriptions-item>
+              <el-descriptions-item :label="T('GEOPrimary')">{{ simulationResult.selection?.relay_id || '-' }}</el-descriptions-item>
             </el-descriptions>
+            <el-alert class="section" :title="T('PossibleAdaptiveFlow')" :description="adaptiveFlowDescription" type="info" :closable="false" show-icon />
             <el-table :data="simulationResult.candidates || []" border class="section">
               <el-table-column prop="relay_id" :label="T('Candidate')" min-width="220" />
-              <el-table-column :label="T('Eligible')" width="110"><template #default="{ row }"><StatusValue :value="row.eligible"/></template></el-table-column>
-              <el-table-column prop="priority" :label="T('Priority')" width="100" />
+              <el-table-column :label="T('CandidateOrder')" width="140"><template #default="{ row, $index }">{{ candidateOrder(row, $index) }}</template></el-table-column>
+              <el-table-column :label="T('TransportEligibility')" width="180"><template #default="{ row }"><StatusValue :value="row.eligible"/></template></el-table-column>
+              <el-table-column :label="T('AdaptiveRole')" min-width="190"><template #default="{ row }">{{ adaptiveCandidateRole(row) }}</template></el-table-column>
               <el-table-column prop="exclusion_reason" :label="T('ExclusionReason')" min-width="220" />
             </el-table>
           </template>
@@ -180,6 +242,8 @@
                   :schema="schemaBundle.schema"
                   :root-schema="schemaBundle.schema"
                   :model-value="formModel"
+                  :ui-schema="schemaBundle.ui_schema"
+                  :help-overrides="relayQualityHelp"
                   @update:model-value="updateFormModel"
                 />
               </el-form>
@@ -304,7 +368,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { parseDocument, stringify as stringifyYAML } from 'yaml'
 import SchemaField from '@/components/schema/SchemaField.vue'
 import InfoLabel from '@/components/common/InfoLabel.vue'
 import StatusValue from '@/components/common/StatusValue.vue'
@@ -314,6 +377,7 @@ import { useAppStore } from '@/store/app'
 import { T } from '@/utils/i18n'
 import { downBlob } from '@/utils/file'
 import { withDateRange } from '@/utils/dateRange'
+import { parseSchemaFormDocument, serializeSchemaFormDocument } from '@/utils/schema_form'
 import {
   applyConfig,
   getCapabilities,
@@ -387,10 +451,62 @@ const canWrite = computed(() => Boolean(
   capabilities.value.capabilities?.config_transaction,
 ))
 const canPlan = computed(() => Boolean(selectedInstance.value?.available && capabilities.value.capabilities?.config_transaction))
-const riskTagType = computed(() => ({ high: 'danger', medium: 'warning', low: 'success' }[plan.value?.impact?.risk] || 'info'))
+const riskTagType = computed(() => ({ critical: 'danger', high: 'danger', medium: 'warning', low: 'success' }[plan.value?.impact?.risk] || 'info'))
 const detailColumns = computed(() => appStore.setting.viewportWidth < 720 ? 1 : 2)
 const metricColumns = computed(() => appStore.setting.viewportWidth < 720 ? 1 : appStore.setting.viewportWidth < 1100 ? 2 : 4)
 const wideColumns = computed(() => appStore.setting.viewportWidth < 720 ? 1 : 3)
+const relayQualitySupported = computed(() => Number(capabilities.value.capabilities?.relay_quality || 0) >= 1 && Boolean(relays.value.quality))
+const relayByID = computed(() => new Map((relays.value.relays || []).map(relay => [relay.id, relay])))
+const relayQualityAlerts = computed(() => {
+  if (!relayQualitySupported.value || !relays.value.quality?.enabled) return []
+  const inventory = relays.value.relays || []
+  const staleCount = inventory.filter(relay => relay.websocket?.stale === true).length
+  const candidateCount = inventory.filter(relay => relay.quality_candidate === true).length
+  const alerts = []
+  if (staleCount > 0) {
+    alerts.push({
+      key: 'stale-telemetry', type: 'warning', title: T('RelayTelemetryStaleAlert', { count: staleCount }),
+      description: T('RelayTelemetryStaleAlertHelp'),
+    })
+  }
+  if (candidateCount === 0) {
+    alerts.push({
+      key: 'no-quality-candidate', type: 'error', title: T('NoQualityCandidateAlert'),
+      description: T('NoQualityCandidateAlertHelp'),
+    })
+  }
+  return alerts
+})
+const adaptiveOutcomeTotal = computed(() => Number(relays.value.quality?.primary_accepted || 0) + Number(relays.value.quality?.expansions_triggered || 0))
+const primaryAcceptedRatio = computed(() => formatAdaptiveRatio(relays.value.quality?.primary_accepted))
+const expansionTriggeredRatio = computed(() => formatAdaptiveRatio(relays.value.quality?.expansions_triggered))
+const fallbackReasonRows = computed(() => {
+  const reasons = relays.value.quality?.fallback_reasons || {}
+  const labels = {
+    legacy_fallback: 'LegacyFallback', probe_failure: 'ProbeFailure', manual_override: 'ManualOverride',
+    invalid_report: 'InvalidReport', report_late: 'ReportLate',
+  }
+  return Object.entries(labels).map(([name, key]) => ({ name, label: T(key), value: reasons[name] ?? 0 }))
+})
+const relayQualityHelp = computed(() => ({
+  '/relay_quality/strategy': T('RelayQualityStrategyHelp'),
+  '/relay_quality/primary_probe_samples': T('RelayQualityPrimarySamplesHelp'),
+  '/relay_quality/primary_accept_score': T('RelayQualityAcceptScoreHelp'),
+  '/relay_quality/primary_max_loss_basis_points': T('RelayQualityLossGateHelp'),
+  '/relay_quality/p2p_probe_grace_ms': T('RelayQualityP2PGraceHelp'),
+}))
+const adaptiveFlowDescription = computed(() => {
+  if (!simulationResult.value) return T('RunSimulationForAdaptiveFlow')
+  if (!relayQualitySupported.value) return T('RelayQualityUnsupportedHelp')
+  if (!relays.value.quality?.enabled) return T('RelayQualityDisabledFlow')
+  const eligible = (simulationResult.value.candidates || []).filter(candidate => candidate.eligible && relayByID.value.get(candidate.relay_id)?.quality_candidate === true)
+  const primary = simulationResult.value.selection?.relay_id || T('None')
+  const expansion = eligible.filter(candidate => candidate.relay_id !== primary).map(candidate => candidate.relay_id).join(', ') || T('None')
+  if (relays.value.quality.strategy === 'eager') {
+    return T('EagerSimulationFlow', { candidates: eligible.map(candidate => candidate.relay_id).join(', ') || T('None') })
+  }
+  return T('AdaptiveSimulationFlow', { primary, expansion })
+})
 const activeLogSource = computed(() => logSources.value.find(item => item.id === selectedLogSource.value))
 const unavailableLogSources = computed(() => logSources.value.filter(item => !item.available))
 const filteredLogEntries = computed(() => {
@@ -422,6 +538,12 @@ async function loadSelected () {
   plan.value = null
   validationResult.value = null
   operation.value = null
+  capabilities.value = {}
+  status.value = {}
+  relays.value = {}
+  simulationResult.value = null
+  simulationInput.clientA = ''
+  simulationInput.clientB = ''
   await Promise.allSettled([loadCapabilities(), loadStatus(), loadRelays(), loadConfig(), loadSchema(), loadHistory(), loadAudit(), loadLogSources()])
 }
 
@@ -484,15 +606,12 @@ function exportLogs () {
 
 function parseCandidateForForm () {
   try {
-    const parsed = parseDocument(candidateDocument.value, { prettyErrors: true, uniqueKeys: true })
-    if (parsed.errors.length) throw parsed.errors[0]
-    const value = parsed.toJS()
-    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(T('ConfigurationRootMapping'))
-    formModel.value = value
+    formModel.value = parseSchemaFormDocument(candidateDocument.value)
     formParseError.value = ''
     return true
   } catch (error) {
-    formParseError.value = T('CannotOpenSchemaForm', { message: error.message })
+    const message = error.code === 'CONFIGURATION_ROOT_NOT_MAPPING' ? T('ConfigurationRootMapping') : error.message
+    formParseError.value = T('CannotOpenSchemaForm', { message })
     return false
   }
 }
@@ -507,7 +626,7 @@ function updateFormModel (value) {
 
 watch(formModel, value => {
   if (editorMode.value === 'form' && !formParseError.value) {
-    candidateDocument.value = stringifyYAML(value, { lineWidth: 0 })
+    candidateDocument.value = serializeSchemaFormDocument(value)
     plan.value = null
     validationResult.value = null
   }
@@ -548,7 +667,7 @@ async function applyReviewedPlan () {
     ElMessage.error(T('PlanMissingOrExpired'))
     return
   }
-  const highRisk = plan.value.impact?.risk === 'high'
+  const highRisk = ['high', 'critical'].includes(plan.value.impact?.risk)
   const confirmed = await ElMessageBox.confirm(
     T('ConfirmApplyPlan', { risk: highRisk ? T('HighRiskPrefix') : '', id: plan.value.plan_id, count: (plan.value.changes || []).length }),
     T('ConfirmExactPlanApply'),
@@ -625,10 +744,14 @@ async function simulate () {
     ElMessage.warning(T('BothClientIPsRequired'))
     return
   }
+  const clientA = simulationInput.clientA
+  const clientB = simulationInput.clientB
+  simulationInput.clientA = ''
+  simulationInput.clientB = ''
   await withLoading('simulation', async () => {
     simulationResult.value = (await simulateAllocation(selectedID.value, {
-      client_a: { ip: simulationInput.clientA },
-      client_b: { ip: simulationInput.clientB },
+      client_a: { ip: clientA },
+      client_b: { ip: clientB },
       transport: simulationInput.transport,
       explain: true,
       expected_config_generation: relays.value.config_generation,
@@ -639,6 +762,34 @@ async function simulate () {
 const compactJSON = value => JSON.stringify(value)
 const formatTime = value => value ? new Date(value).toLocaleString() : '-'
 const formatMetricName = name => String(name).replaceAll('_', ' ').replace(/\b\w/g, value => value.toUpperCase())
+const formatAdaptiveRatio = value => {
+  const numerator = Number(value || 0)
+  const denominator = adaptiveOutcomeTotal.value
+  return denominator > 0 ? `${((numerator / denominator) * 100).toFixed(1)}% (${numerator} / ${denominator})` : '-'
+}
+const relayCapabilityLabel = relay => {
+  if (!relay?.capabilities) return T('Unsupported')
+  const probe = relay.capabilities.relay_probe_protocol == null ? T('Unsupported') : `v${relay.capabilities.relay_probe_protocol}`
+  const load = relay.capabilities.relay_load_protocol == null ? T('Unsupported') : `v${relay.capabilities.relay_load_protocol}`
+  return `${T('ProbeProtocol')} ${probe} · ${T('LoadProtocol')} ${load}`
+}
+const telemetryFreshnessLabel = relay => {
+  if (relay?.websocket?.stale == null) return T('Unsupported')
+  const state = relay.websocket.stale ? T('Stale') : T('Fresh')
+  return relay.websocket.age_seconds == null ? state : `${state} · ${relay.websocket.age_seconds}s`
+}
+const candidateOrder = (candidate, index) => {
+  if (candidate.priority != null) return candidate.priority
+  return Number.isInteger(candidate.configured_order) ? candidate.configured_order + 1 : index + 1
+}
+const adaptiveCandidateRole = candidate => {
+  if (!candidate.eligible) return T('Excluded')
+  if (candidate.relay_id === simulationResult.value?.selection?.relay_id) return T('GEOPrimary')
+  const relay = relayByID.value.get(candidate.relay_id)
+  if (relay?.quality_candidate == null) return T('Unsupported')
+  if (!relay.quality_candidate) return T('NotQualityCandidate')
+  return relays.value.quality?.strategy === 'eager' ? T('EagerCandidate') : T('PossibleExpansionCandidate')
+}
 const metricHelp = name => {
   const normalized = String(name).toLowerCase().replaceAll('-', '_')
   const keys = {
@@ -672,6 +823,11 @@ onMounted(loadInstances)
 .audit-filter { display: flex; min-width: 0; align-items: center; gap: 8px; }
 .status-card { height: 100%; }
 .section { margin-top: 14px; }
+.relay-quality-card { margin-bottom: 14px; }
+.fallback-reasons h4 { margin: 0 0 9px; color: var(--text-secondary); font-size: 11px; }
+.fallback-reasons .el-tag { margin: 0 7px 7px 0; }
+.relay-quality-card + .el-card + .section :deep(.el-alert) { margin-bottom: 14px; }
+.relay-quality-alert { margin-bottom: 12px; }
 .card-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .card-header > span { color: var(--text-primary); font-size: 13px; font-weight: 740; }
 .editor-tabs { margin-top: 16px; }

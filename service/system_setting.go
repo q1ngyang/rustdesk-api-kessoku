@@ -43,8 +43,16 @@ func defaultSystemSetting() *model.SystemSetting {
 }
 
 func configuredDefaultLoginHours() uint {
+	hours := uint(configuredDefaultLoginTTL() / time.Hour)
+	if hours == 0 {
+		return 1
+	}
+	return hours
+}
+
+func configuredDefaultLoginTTL() time.Duration {
 	if Config == nil {
-		return 7 * 24
+		return 7 * 24 * time.Hour
 	}
 	duration := Config.App.TokenExpire
 	if Config.Auth.Enabled {
@@ -53,7 +61,7 @@ func configuredDefaultLoginHours() uint {
 	if duration <= 0 {
 		duration = 7 * 24 * time.Hour
 	}
-	return uint(duration / time.Hour)
+	return duration
 }
 
 func configuredMaximumLoginHours() uint {
@@ -109,7 +117,7 @@ func (s *SystemSettingService) Get() (*model.SystemSetting, error) {
 func (s *SystemSettingService) EffectiveLoginTTL(client string) time.Duration {
 	setting, err := s.Get()
 	if err != nil {
-		return time.Duration(configuredDefaultLoginHours()) * time.Hour
+		return configuredDefaultLoginTTL()
 	}
 	hours := setting.WebLoginHours
 	if model.IsNativeLoginClient(client) {
@@ -118,11 +126,20 @@ func (s *SystemSettingService) EffectiveLoginTTL(client string) time.Duration {
 	maximum := configuredMaximumLoginHours()
 	if hours < 1 || hours > maximum {
 		hours = configuredDefaultLoginHours()
+		if hours < 1 {
+			return configuredDefaultLoginTTL()
+		}
 		if hours > maximum {
 			hours = maximum
 		}
 	}
-	return time.Duration(hours) * time.Hour
+	ttl := time.Duration(hours) * time.Hour
+	if Config != nil && Config.Auth.Enabled {
+		if maximumTTL := Config.Auth.EffectiveMaximumTokenTTL(); ttl > maximumTTL {
+			ttl = maximumTTL
+		}
+	}
+	return ttl
 }
 
 func (s *SystemSettingService) UpdateContext(ctx context.Context, actor uint, requestID string, next *model.SystemSetting) (operationErr error) {

@@ -2,9 +2,9 @@
 
 **English** | [简体中文](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Upgrade-and-Rollback)
 
-Back up data and keys before changing an image or schema. Kessoku v3.0.6 uses
-database version `312`; an older image must not write a database already
-migrated by this release.
+Back up data and keys before changing an image or schema. Kessoku v3.0.7
+advances database version `312` to `313` for Presence Lease v2. Returning to
+v3.0.6 is restore-only and requires the matching pre-upgrade recovery set.
 
 ## Before an upgrade
 
@@ -53,13 +53,31 @@ verify that its files can be listed and read before proceeding.
 
 ## Upgrade Starry for network discovery
 
-Before Kessoku v3.0.6, upgrade the center HBBS and its Control Agent to Starry
-`1.1.16-patch-v1.2.2` when clients that are not signed in must be discovered.
+Before Kessoku v3.0.7, upgrade the center HBBS and its Control Agent to Starry
+`1.1.16-patch-v1.2.2` when clients that are not signed in must be discovered,
+or `1.1.16-patch-v1.3.0` when Presence Lease v2 activation verification is
+required.
 Relay-only nodes need no change for this capability. Preserve the Starry data,
 identity key, instance ID, certificates, and service-JWT trust, then verify ID
 registration, native peer-to-peer, forced Relay, and WSS.
 
 ## Upgrade Kessoku
+
+For v3.0.6 to v3.0.7, validate the mounted configuration, inspect schema 312,
+and migrate it to schema 313 before changing the running service:
+
+```sh
+docker compose --env-file .env -f compose.yaml run --rm kessoku-api \
+  ./kessoku-api config validate --config /app/conf/config.yaml --json
+docker compose --env-file .env -f compose.yaml run --rm kessoku-api \
+  ./kessoku-api database status --config /app/conf/config.yaml --json
+docker compose --env-file .env -f compose.yaml run --rm kessoku-api \
+  ./kessoku-api database migrate --config /app/conf/config.yaml --json
+```
+
+The pre-migration state must be `upgrade_required` with
+`migration_required: true`; after migration it must be `current` at schema
+313. See the [v3.0.7 migration guide](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/releases/v3.0.7/MIGRATION-v3.0.7.md).
 
 Edit `KESSOKU_IMAGE` in `.env` to the new explicit tag, then run:
 
@@ -113,6 +131,10 @@ Do not try to fix these conditions by deleting persistent data, regenerating
 An image-only rollback is safe only when the new version did not modify the
 database or persistent configuration in an incompatible way:
 
+v3.0.7 to v3.0.6 does not meet this condition because v3.0.7 uses schema 313.
+Stop every writer and use the database-rollback procedure with the complete
+pre-upgrade recovery set.
+
 1. restore the previous image tag or digest in `.env`;
 2. run `docker compose config --quiet`;
 3. recreate only the affected service;
@@ -133,7 +155,7 @@ Restoring only `rustdeskapi.db` can break TOTP secrets and uploaded-image
 references. Restoring only signing keys without the matching database can also
 produce confusing token behavior. Treat them as one versioned recovery set.
 
-For a rollback from v3 database `312` to v3.0.5 or any older image,
+For a rollback from v3 database `313` to v3.0.6 or any older image,
 restore the complete matching recovery set. Never delete new tables or lower
 the database version to force an older process to start.
 

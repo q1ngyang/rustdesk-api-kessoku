@@ -233,6 +233,62 @@ func (s *StarryControlService) VerifyPeerIdentity(ctx context.Context, deviceID,
 	return false, nil
 }
 
+func (s *StarryControlService) VerifyPeerActivation(
+	ctx context.Context,
+	deviceID string,
+	deviceUUID string,
+	activationEpoch uint64,
+	activationID string,
+	routeLeases []string,
+) (bool, error) {
+	if s == nil || deviceID == "" || deviceUUID == "" || activationEpoch == 0 || activationID == "" || len(routeLeases) == 0 {
+		return false, starrycontrol.ErrRequestInvalid
+	}
+	generated, err := uuid.NewV7()
+	if err != nil {
+		generated = uuid.New()
+	}
+	ctx = starrycontrol.WithRequestMetadata(ctx, starrycontrol.RequestMetadata{RequestID: generated.String(), Service: true})
+	instanceIDs := make([]string, 0, len(s.instances))
+	for instanceID, instance := range s.instances {
+		if instance.Enabled {
+			instanceIDs = append(instanceIDs, instanceID)
+		}
+	}
+	sort.Strings(instanceIDs)
+	if len(instanceIDs) == 0 {
+		return false, starrycontrol.ErrUnavailable
+	}
+	checked := 0
+	var combined error
+	for _, instanceID := range instanceIDs {
+		provider, providerErr := s.provider(instanceID, false)
+		if providerErr != nil {
+			combined = errors.Join(combined, providerErr)
+			continue
+		}
+		result, verifyErr := provider.VerifyPeer(ctx, starrycontrol.PeerIdentityInput{
+			ID: deviceID, UUID: deviceUUID, ActivationEpoch: activationEpoch,
+			ActivationID: activationID, RouteLeases: routeLeases,
+		})
+		if verifyErr != nil {
+			combined = errors.Join(combined, verifyErr)
+			continue
+		}
+		checked++
+		if result.Registered {
+			return true, nil
+		}
+	}
+	if combined != nil {
+		return false, combined
+	}
+	if checked == 0 {
+		return false, starrycontrol.ErrUnavailable
+	}
+	return false, nil
+}
+
 func (s *StarryControlService) SimulateAllocation(ctx context.Context, instanceID string, input starrycontrol.SimulationInput) (starrycontrol.SimulationResult, error) {
 	return auditedControlCall(s, ctx, "server_control.simulate", instanceID, map[string]interface{}{
 		"transport": input.Transport,

@@ -85,6 +85,58 @@ func TestSecurityToolDownloadsHaveFixedVersionsAndChecksums(t *testing.T) {
 	}
 }
 
+func TestLocalReleaseDrillsPinArtifactsAndRespectTMPDIR(t *testing.T) {
+	files := map[string][]string{
+		"scripts/verify-official-starry-client-matrix.sh": {
+			"STARRY_MATRIX_INDEX_DIGEST",
+			"STARRY_MATRIX_REVISION",
+			"STARRY_MATRIX_HBBS_SHA256",
+			"STARRY_MATRIX_HBBR_SHA256",
+			"STARRY_MATRIX_AGENT_SHA256",
+			"starry_revision=${STARRY_MATRIX_REVISION:-bc17da50fead2519c4859e7f483d8a1773821d44}",
+			"host_tmp_root=${TMPDIR:-/var/tmp/codex-q1ngyang}",
+			"bootstrap_hbbs_name=\"matrix-key-bootstrap-${matrix_id}\"",
+			"-e RUSTDESK_API_RUSTDESK_KEY=\"$matrix_server_key\"",
+			"matrix login failed: HTTP %s error=%s",
+		},
+		"scripts/verify-local-admin-candidate.sh": {
+			"local_deb_version=\"${release_version}~local.1-1\"",
+			"host_tmp_root=${TMPDIR:-/var/tmp/codex-q1ngyang}",
+			"-e EXPECTED_DEB_VERSION=\"$local_deb_version\"",
+			"smoke_rustdesk_public_key='AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8='",
+			"-e RUSTDESK_API_RUSTDESK_KEY=\"$smoke_rustdesk_public_key\"",
+			"docker container inspect --format '{{.State.Running}}'",
+			"local candidate HTTP port was not published",
+		},
+	}
+	for path, required := range files {
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		script := string(contents)
+		for _, value := range required {
+			if !strings.Contains(script, value) {
+				t.Fatalf("%s is missing release-drill invariant %q", path, value)
+			}
+		}
+		if strings.Contains(script, "mktemp -d /tmp/") {
+			t.Fatalf("%s creates host build state under /tmp", path)
+		}
+	}
+	if contents, err := os.ReadFile("scripts/verify-local-admin-candidate.sh"); err != nil {
+		t.Fatal(err)
+	} else {
+		script := string(contents)
+		if strings.Contains(script, "2.8.3~local.1-1") {
+			t.Fatal("local candidate drill still hard-codes a legacy DEB version")
+		}
+		if strings.Contains(script, `docker run --rm -d --name "$container_name"`) {
+			t.Fatal("local candidate removes a failed HTTP container before diagnostics can inspect it")
+		}
+	}
+}
+
 func TestWorkflowsRunPinnedActionlint(t *testing.T) {
 	for _, path := range []string{".github/workflows/ci.yml", ".github/workflows/build.yml"} {
 		contents, err := os.ReadFile(path)
@@ -147,6 +199,7 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 		`provenance: mode=max`,
 		`sbom: true`,
 		`candidate/release-assets/GO-BUILD-INFO.txt`,
+		`candidate/release-assets/VERSION.json`,
 		`github.com/q1ngyang/rustdesk-api-kessoku/v3/cmd`,
 		`chmod 0755 candidate/docker/release/kessoku-api`,
 		`cmp "$archive_binary" candidate/docker/release/kessoku-api`,
@@ -379,13 +432,20 @@ func TestWebClientThirdPartyLicenceTextIsRequiredInEveryArtifact(t *testing.T) {
 func TestReleaseBuildsCompileTheModulePackageWithVCSEvidence(t *testing.T) {
 	files := map[string][]string{
 		"build.sh": {
-			"-buildvcs=true -o release/kessoku-api ./cmd",
+			"-buildvcs=true -ldflags \"${KESSOKU_BUILD_LDFLAGS}\" -o release/kessoku-api ./cmd",
+			"internal/buildinfo.Version=${KESSOKU_RELEASE_VERSION}",
+			"internal/buildinfo.GitCommit=${KESSOKU_SOURCE_COMMIT}",
+			"internal/buildinfo.BuildTime=${KESSOKU_BUILD_TIME}",
+			"VERSION.json",
 			"GO-BUILD-INFO.txt",
 			"vcs.revision=${KESSOKU_SOURCE_COMMIT}",
 			"vcs.modified=false",
 		},
 		"build.bat": {
-			"-buildvcs=true -o release/kessoku-api.exe ./cmd",
+			"-buildvcs=true -ldflags \"-X github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/buildinfo.Version=",
+			"internal/buildinfo.GitCommit=%KESSOKU_SOURCE_COMMIT%",
+			"internal/buildinfo.BuildTime=%KESSOKU_BUILD_TIME%",
+			"VERSION.json",
 			"GO-BUILD-INFO.txt",
 			"vcs.revision=%KESSOKU_SOURCE_COMMIT%",
 			"vcs.modified=false",
@@ -396,7 +456,12 @@ func TestReleaseBuildsCompileTheModulePackageWithVCSEvidence(t *testing.T) {
 			`-o "$binary_stage/kessoku-api.rebuild" ./cmd`,
 			`cmp "$binary_stage/kessoku-api"`,
 			"GO-BUILD-INFO.txt",
+			"VERSION.json",
 			"runtime/GO-BUILD-INFO.txt",
+			"runtime/VERSION.json",
+			"internal/buildinfo.Version=${build_version}",
+			"internal/buildinfo.GitCommit=${GITHUB_SHA}",
+			"internal/buildinfo.BuildTime=${build_time}",
 			`vcs.revision='"${GITHUB_SHA}"`,
 			"vcs.modified=false",
 		},

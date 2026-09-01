@@ -82,8 +82,14 @@ fi
 
 # Compile the Go code and output it to the release directory
 mkdir -p release
-CGO_ENABLED=1 GOOS=linux GOARCH="${KESSOKU_BUILD_ARCH}" go build -trimpath -buildvcs=true -o release/kessoku-api ./cmd
 KESSOKU_SOURCE_COMMIT=$(git rev-parse HEAD)
+KESSOKU_BUILD_TIME=$(git show -s --format=%cI HEAD)
+KESSOKU_RELEASE_VERSION=$(sed -n 's/^v//p' resources/version)
+KESSOKU_BUILD_LDFLAGS="-X github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/buildinfo.Version=${KESSOKU_RELEASE_VERSION} -X github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/buildinfo.GitCommit=${KESSOKU_SOURCE_COMMIT} -X github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/buildinfo.BuildTime=${KESSOKU_BUILD_TIME}"
+CGO_ENABLED=1 GOOS=linux GOARCH="${KESSOKU_BUILD_ARCH}" go build -trimpath -buildvcs=true -ldflags "${KESSOKU_BUILD_LDFLAGS}" -o release/kessoku-api ./cmd
+release/kessoku-api version --json > release/VERSION.json
+grep -F "\"version\":\"${KESSOKU_RELEASE_VERSION}\"" release/VERSION.json >/dev/null
+grep -F "\"git_commit\":\"${KESSOKU_SOURCE_COMMIT}\"" release/VERSION.json >/dev/null
 go version -m release/kessoku-api > release/GO-BUILD-INFO.txt
 grep -F "github.com/q1ngyang/rustdesk-api-kessoku/v3/cmd" release/GO-BUILD-INFO.txt >/dev/null
 grep -F "vcs.revision=${KESSOKU_SOURCE_COMMIT}" release/GO-BUILD-INFO.txt >/dev/null

@@ -5,6 +5,9 @@
 Kessoku 启动时会自动升级数据库结构。跨数据库版本升级后，直接把镜像改回旧版并继续写入
 可能造成权限错误或旧程序无法识别新会话，因此升级前必须准备匹配的数据库备份。
 
+v3.0.7 把 schema `312` 升级到 `313` 以支持 Presence Lease v2；回到 v3.0.6 只能恢复
+匹配的升级前恢复集合，不支持原地只换镜像。不得并行运行不同版本。
+
 ## 升级前清单
 
 记录当前状态：
@@ -34,13 +37,28 @@ docker inspect rustdesk-starry-hbbr --format '{{.Config.Image}}' 2>/dev/null
 
 1. 阅读目标版本说明；
 2. 保持 Starry 连接认证为 `off` 或 `audit`，管理代理保持只读；
-3. 如需发现未登录 API 的客户端，先把中心 HBBS 及其 Control Agent
-   升级到 Starry `1.1.16-patch-v1.2.2`，并保留数据、身份密钥、实例 ID、
-   证书及服务 JWT 信任；
+3. 如需发现未登录 API 的客户端，先把中心 HBBS 及其 Control Agent 升级到 Starry
+   `1.1.16-patch-v1.2.2`；如需 Presence Lease v2 activation 校验则升级到
+   `1.1.16-patch-v1.3.0`。两者都要保留数据、身份密钥、实例 ID、证书及服务 JWT 信任；
 4. 修改 `.env` 中 Kessoku 的固定版本；
 5. 检查并拉取镜像；
 6. 只重建 Kessoku；
 7. 验证后再更新其余 Starry 节点。
+
+从 v3.0.6 升级到 v3.0.7 前，先只读校验配置和 schema，再运行幂等迁移：
+
+```sh
+docker compose --env-file .env -f compose.yaml run --rm kessoku-api \
+  ./kessoku-api config validate --config /app/conf/config.yaml --json
+docker compose --env-file .env -f compose.yaml run --rm kessoku-api \
+  ./kessoku-api database status --config /app/conf/config.yaml --json
+docker compose --env-file .env -f compose.yaml run --rm kessoku-api \
+  ./kessoku-api database migrate --config /app/conf/config.yaml --json
+```
+
+迁移前 state 必须为 `upgrade_required` 且 `migration_required: true`；迁移后必须在
+schema 313 返回 `current`。详细约定见
+[v3.0.7 迁移指南](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/releases/v3.0.7/MIGRATION-v3.0.7.zh-CN.md)。
 
 ```sh
 docker compose --env-file .env -f compose.yaml config
@@ -61,9 +79,10 @@ docker compose --env-file .env -f compose.yaml logs --tail 200 kessoku-api
 更新 Starry 时 HBBS/HBBR 必须同时使用相同 `STARRY_VERSION`，但可以先重建 HBBS、完成
 健康检查后再重建 HBBR。不要把 HBBR 换成独立移动版本的官方镜像。
 
-## 从 v2 升级到 v3.0.6
+## 从 v2 升级到 v3.0.7
 
-v3.0.6 把数据库升级到版本 `312`，包含企业角色和管理员资源范围，并新增品牌、TOTP、
+v3.0.7 最终把数据库升级到版本 `313`；此前 schema 312 包含可信设备发现字段，313 新增
+Presence Lease v2 存储与设备 ID 唯一约束。整套 v3 还包含企业角色、管理员资源范围、品牌、TOTP、
 公告、GeoIP、用户界面偏好、WebClient 审计及可信设备发现字段：
 
 - 旧 `is_admin=true` 账户迁移为 `super_admin`，避免原管理员意外失去权限；
@@ -81,7 +100,7 @@ v3.0.6 把数据库升级到版本 `312`，包含企业角色和管理员资源�
 
 1. 停止旧 Kessoku 写入并创建完整数据库备份；
 2. 对恢复副本先执行升级，处理 OAuth/OIDC 身份重复或空字段；
-3. 生产环境启动 v3.0.6，检查日志中的数据库迁移；
+3. 生产环境启动 v3.0.7，检查日志中的数据库迁移；
 4. 确认至少一个启用的 `super_admin`；
 5. 分别测试普通用户、范围管理员和超级管理员；
 6. 测试范围管理员只能看到获授的用户组、用户、公共地址簿和设备；
@@ -89,7 +108,7 @@ v3.0.6 把数据库升级到版本 `312`，包含企业角色和管理员资源�
 8. 再启用新的 Ed25519 认证、浏览器客户端或 Starry 高级集成。
 
 详细预检和数据库查询见
-[`MIGRATION-v3.0.6.zh-CN.md`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/releases/v3.0.6/MIGRATION-v3.0.6.zh-CN.md)及
+[`MIGRATION-v3.0.7.zh-CN.md`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/releases/v3.0.7/MIGRATION-v3.0.7.zh-CN.md)及
 [`MIGRATION.md`](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/releases/MIGRATION.md)。身份冲突必须由管理员明确决定合并或解绑，不能只为
 通过唯一索引而随意删除记录。
 
@@ -114,6 +133,9 @@ v3.0.6 把数据库升级到版本 `312`，包含企业角色和管理员资源�
 如果目标版本没有改变数据库结构或凭据格式，并且版本说明明确支持原地回退，可以恢复
 上一固定镜像后重建容器。即便如此，也要先备份当前数据库并验证登录与远控。
 
+v3.0.7 到 v3.0.6 不符合此条件：v3.0.7 使用 schema 313。必须停止全部写入者并按数据库
+回退流程恢复完整的升级前恢复集合。
+
 ## v3 回退到 v2 的重要警告
 
 不要让 v2 与 v3 同时写同一数据库。版本 312 仍为兼容保留 `is_admin=true`，v2 可能把 v3
@@ -129,7 +151,7 @@ v3.0.6 把数据库升级到版本 `312`，包含企业角色和管理员资源�
 5. 启动旧版并要求升级后创建/登录的用户重新登录；
 6. 验证管理员权限、普通用户、地址簿和真实远控会话。
 
-版本 312 不能通过删表或降低版本号原地回退。必须恢复升级前匹配的数据库、TOTP 密钥、
+版本 313 不能通过删表或降低版本号原地回退。必须恢复升级前匹配的数据库、TOTP 密钥、
 媒体目录、配置、签名密钥与旧镜像；保留失败数据库副本用于排查。
 
 ## 联合部署的有序回退

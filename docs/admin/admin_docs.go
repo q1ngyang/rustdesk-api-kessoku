@@ -4246,6 +4246,60 @@ const docTemplateadmin = `{
                 }
             }
         },
+        "/admin/presence/v2/metrics": {
+            "get": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Presence"
+                ],
+                "summary": "Read Presence Lease v2 metrics",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.PresenceMetricsSnapshot"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/server-control/v1/audit-events": {
             "get": {
                 "security": [
@@ -7791,8 +7845,14 @@ const docTemplateadmin = `{
                 "memory": {
                     "type": "string"
                 },
+                "online": {
+                    "type": "boolean"
+                },
                 "os": {
                     "type": "string"
+                },
+                "presence_online_until": {
+                    "type": "integer"
                 },
                 "row_id": {
                     "type": "integer"
@@ -8089,6 +8149,68 @@ const docTemplateadmin = `{
                 }
             }
         },
+        "service.PresenceMetricsSnapshot": {
+            "type": "object",
+            "properties": {
+                "active_leases": {
+                    "type": "integer"
+                },
+                "collected_at": {
+                    "type": "integer"
+                },
+                "counter_scope": {
+                    "type": "string"
+                },
+                "deactivate_accepted_total": {
+                    "type": "integer"
+                },
+                "deactivate_errors_total": {
+                    "type": "integer"
+                },
+                "deactivate_rejected_total": {
+                    "type": "integer"
+                },
+                "end_accepted_total": {
+                    "type": "integer"
+                },
+                "end_errors_total": {
+                    "type": "integer"
+                },
+                "end_rejected_total": {
+                    "type": "integer"
+                },
+                "expired_unended_leases": {
+                    "type": "integer"
+                },
+                "gauge_scope": {
+                    "type": "string"
+                },
+                "online_peers": {
+                    "type": "integer"
+                },
+                "renew_accepted_total": {
+                    "type": "integer"
+                },
+                "renew_errors_total": {
+                    "type": "integer"
+                },
+                "renew_rejected_total": {
+                    "type": "integer"
+                },
+                "schema_version": {
+                    "type": "integer"
+                },
+                "start_accepted_total": {
+                    "type": "integer"
+                },
+                "start_errors_total": {
+                    "type": "integer"
+                },
+                "start_rejected_total": {
+                    "type": "integer"
+                }
+            }
+        },
         "service.ServerControlInstance": {
             "type": "object",
             "properties": {
@@ -8293,7 +8415,22 @@ const docTemplateadmin = `{
                 "peer_registry": {
                     "type": "integer"
                 },
+                "relay_active_probe": {
+                    "type": "integer"
+                },
                 "relay_inventory": {
+                    "type": "integer"
+                },
+                "relay_load_protocol": {
+                    "type": "integer"
+                },
+                "relay_probe_protocol": {
+                    "type": "integer"
+                },
+                "relay_quality": {
+                    "type": "integer"
+                },
+                "relay_telemetry_schema": {
                     "type": "integer"
                 }
             }
@@ -8588,6 +8725,9 @@ const docTemplateadmin = `{
         "starrycontrol.Relay": {
             "type": "object",
             "properties": {
+                "capabilities": {
+                    "$ref": "#/definitions/starrycontrol.RelayCapabilities"
+                },
                 "configured_order": {
                     "type": "integer"
                 },
@@ -8602,6 +8742,9 @@ const docTemplateadmin = `{
                 },
                 "native": {
                     "$ref": "#/definitions/starrycontrol.NativeRelayStatus"
+                },
+                "quality_candidate": {
+                    "type": "boolean"
                 },
                 "referenced_by_rules": {
                     "type": "array",
@@ -8618,6 +8761,17 @@ const docTemplateadmin = `{
                 }
             }
         },
+        "starrycontrol.RelayCapabilities": {
+            "type": "object",
+            "properties": {
+                "relay_load_protocol": {
+                    "type": "integer"
+                },
+                "relay_probe_protocol": {
+                    "type": "integer"
+                }
+            }
+        },
         "starrycontrol.RelayInventory": {
             "type": "object",
             "properties": {
@@ -8627,6 +8781,9 @@ const docTemplateadmin = `{
                 "health_snapshot_id": {
                     "type": "string"
                 },
+                "quality": {
+                    "$ref": "#/definitions/starrycontrol.RelayQualityRuntime"
+                },
                 "relays": {
                     "type": "array",
                     "items": {
@@ -8634,6 +8791,151 @@ const docTemplateadmin = `{
                     }
                 },
                 "warning": {
+                    "type": "string"
+                }
+            }
+        },
+        "starrycontrol.RelayQualityFallbackReason": {
+            "type": "object",
+            "properties": {
+                "invalid_report": {
+                    "type": "integer"
+                },
+                "legacy_fallback": {
+                    "type": "integer"
+                },
+                "manual_override": {
+                    "type": "integer"
+                },
+                "probe_failure": {
+                    "type": "integer"
+                },
+                "report_late": {
+                    "type": "integer"
+                }
+            }
+        },
+        "starrycontrol.RelayQualityOfferSkipReason": {
+            "type": "object",
+            "properties": {
+                "disabled": {
+                    "type": "integer"
+                },
+                "inconsistent_snapshot": {
+                    "type": "integer"
+                },
+                "insufficient_candidates": {
+                    "type": "integer"
+                },
+                "invalid_fallback": {
+                    "type": "integer"
+                },
+                "primary_not_probeable": {
+                    "type": "integer"
+                },
+                "unsupported_client": {
+                    "type": "integer"
+                }
+            }
+        },
+        "starrycontrol.RelayQualityRuntime": {
+            "type": "object",
+            "properties": {
+                "active_allocations": {
+                    "type": "integer"
+                },
+                "cache_hits": {
+                    "type": "integer"
+                },
+                "cached_network_pairs": {
+                    "type": "integer"
+                },
+                "controller_reports_accepted": {
+                    "type": "integer"
+                },
+                "decisions_created": {
+                    "type": "integer"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "estimated_probe_attempts_saved": {
+                    "type": "integer"
+                },
+                "expanded_decisions": {
+                    "type": "integer"
+                },
+                "expansions_triggered": {
+                    "type": "integer"
+                },
+                "fallback_decisions": {
+                    "type": "integer"
+                },
+                "fallback_reasons": {
+                    "$ref": "#/definitions/starrycontrol.RelayQualityFallbackReason"
+                },
+                "hysteresis_decisions": {
+                    "type": "integer"
+                },
+                "offer_skip_reasons": {
+                    "$ref": "#/definitions/starrycontrol.RelayQualityOfferSkipReason"
+                },
+                "offers_created": {
+                    "type": "integer"
+                },
+                "offers_skipped": {
+                    "type": "integer"
+                },
+                "p2p_cancellations": {
+                    "type": "integer"
+                },
+                "peer_reports_accepted": {
+                    "type": "integer"
+                },
+                "pending_decisions": {
+                    "type": "integer"
+                },
+                "primary_accepted": {
+                    "type": "integer"
+                },
+                "primary_probes": {
+                    "type": "integer"
+                },
+                "protocol_version": {
+                    "type": "integer"
+                },
+                "relay_selection_overflow": {
+                    "type": "integer"
+                },
+                "relay_selections": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                },
+                "reports_accepted": {
+                    "type": "integer"
+                },
+                "reports_binding_mismatch": {
+                    "type": "integer"
+                },
+                "reports_duplicate": {
+                    "type": "integer"
+                },
+                "reports_invalid": {
+                    "type": "integer"
+                },
+                "reports_late": {
+                    "type": "integer"
+                },
+                "reports_stage_mismatch": {
+                    "type": "integer"
+                },
+                "stage_timeouts": {
+                    "type": "integer"
+                },
+                "strategy": {
                     "type": "string"
                 }
             }
@@ -8827,20 +9129,98 @@ const docTemplateadmin = `{
         "starrycontrol.WebSocketRelayStatus": {
             "type": "object",
             "properties": {
+                "active_sessions": {
+                    "type": "integer"
+                },
+                "admission_open": {
+                    "type": "boolean"
+                },
+                "admission_rejections": {
+                    "type": "integer"
+                },
+                "age_seconds": {
+                    "type": "integer"
+                },
+                "bandwidth_bps": {
+                    "type": "integer"
+                },
+                "bandwidth_ema_alpha_basis_points": {
+                    "type": "integer"
+                },
+                "capacity_bandwidth_bps": {
+                    "type": "integer"
+                },
+                "capacity_sessions": {
+                    "type": "integer"
+                },
                 "configured": {
+                    "type": "boolean"
+                },
+                "draining": {
                     "type": "boolean"
                 },
                 "error_code": {
                     "type": "string"
                 },
+                "error_message": {
+                    "type": "string"
+                },
                 "last_probe_at": {
+                    "type": "string"
+                },
+                "last_restart_at": {
                     "type": "string"
                 },
                 "latency_ms": {
                     "type": "integer"
                 },
+                "load_basis_points": {
+                    "type": "integer"
+                },
+                "observed_at": {
+                    "type": "string"
+                },
+                "observed_at_unix_ms": {
+                    "type": "integer"
+                },
+                "pending_pairs": {
+                    "type": "integer"
+                },
+                "probe_malformed": {
+                    "type": "integer"
+                },
+                "probe_rate_limited": {
+                    "type": "integer"
+                },
+                "probe_successful": {
+                    "type": "integer"
+                },
+                "probe_unsupported": {
+                    "type": "integer"
+                },
+                "process_instance_id": {
+                    "type": "string"
+                },
+                "stale": {
+                    "type": "boolean"
+                },
                 "state": {
                     "type": "string"
+                },
+                "telemetry_auth_failures": {
+                    "type": "integer"
+                },
+                "telemetry_restarts": {
+                    "type": "integer"
+                },
+                "telemetry_schema": {
+                    "type": "integer"
+                },
+                "telemetry_sequence": {
+                    "type": "integer"
+                },
+                "uptime_seconds": {
+                    "type": "integer"
                 },
                 "url": {
                     "type": "string"

@@ -90,6 +90,7 @@ def paired_documents() -> list[tuple[Path, Path]]:
     release_dir = ROOT / "docs" / "releases" / release_tag
     pairs = [
         (ROOT / "README.md", ROOT / "README.zh-CN.md"),
+        (ROOT / "CHANGELOG.md", ROOT / "CHANGELOG.zh-CN.md"),
         (ROOT / "docs/README.md", ROOT / "docs/README.zh-CN.md"),
         (ROOT / "docs/deployment/CONTAINER.md", ROOT / "docs/deployment/CONTAINER.zh-CN.md"),
         (
@@ -109,6 +110,14 @@ def paired_documents() -> list[tuple[Path, Path]]:
             ROOT / ".github" / "PROJECT-METADATA.zh-CN.md",
         ),
         (ROOT / "docs/deployment/WEB-CLIENT.md", ROOT / "docs/deployment/WEB-CLIENT.zh-CN.md"),
+        (
+            ROOT / "docs/operations/LOCAL-MAINTENANCE-CLI.md",
+            ROOT / "docs/operations/LOCAL-MAINTENANCE-CLI.zh-CN.md",
+        ),
+        (
+            ROOT / "docs/operations/PRESENCE-LEASE-V2.md",
+            ROOT / "docs/operations/PRESENCE-LEASE-V2.zh-CN.md",
+        ),
     ]
     for english in sorted(WIKI.glob("*.md")):
         if english.name == "_Sidebar.md" or english.name.startswith("ZH-CN-"):

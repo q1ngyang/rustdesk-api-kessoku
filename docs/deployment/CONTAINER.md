@@ -5,7 +5,7 @@
 This page is the versioned entry point for users arriving from the GHCR
 package page. Docker Compose on Linux amd64 is the recommended deployment.
 
-> The `v3.0.6` image referenced here is a release target until the protected
+> The `v3.0.7` image referenced here is a release target until the protected
 > publication workflow completes. The published `latest` tag will identify the
 > newest successful stable release; do not substitute a local worktree image.
 
@@ -19,11 +19,12 @@ Deployment links:
 - [Caddy HTTPS example](../../examples/Caddyfile.example)
 - [Getting started](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Getting-Started)
 - [Starry integration](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Starry-Control)
+- [Local maintenance CLI](../operations/LOCAL-MAINTENANCE-CLI.md)
 - [Upgrade and rollback](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Upgrade-and-Rollback)
 
 ## Image scope
 
-The v3.0.6 image contains one unprivileged `kessoku-api` process, the reviewed
+The v3.0.7 image contains one unprivileged `kessoku-api` process, the reviewed
 management and Web Client frontends built from the same source commit, API
 documentation, and runtime configuration templates. The image:
 
@@ -45,20 +46,20 @@ separately.
 After publication:
 
 ```sh
-docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.6
+docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.7
 docker image inspect \
-  ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.6 \
+  ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.7 \
   --format '{{json .RepoDigests}}'
 ```
 
-The workflow publishes both immutable `v3.0.6` and moving `latest` tags for the
+The workflow publishes both immutable `v3.0.7` and moving `latest` tags for the
 same image. Use `latest` only when tracking the newest stable release is
 intentional; resolve and pin the versioned tag's digest for production change
 control and rollback.
 
 ## Compose quick start
 
-From a v3.0.6 source checkout or downloaded deployment files:
+From a v3.0.7 source checkout or downloaded deployment files:
 
 ```sh
 cp examples/compose.env.example .env
@@ -78,6 +79,10 @@ sudo chmod 0600 secrets/bootstrap-admin-password secrets/kessoku-access-ed25519.
 # YAML map in config.yaml rather than trying to encode it in .env.
 vi .env config.yaml
 
+docker compose --env-file .env -f docker-compose.yaml run --rm kessoku-api \
+  ./kessoku-api config validate --config /app/conf/config.yaml --json
+docker compose --env-file .env -f docker-compose.yaml run --rm kessoku-api \
+  ./kessoku-api database migrate --config /app/conf/config.yaml --json
 docker compose --env-file .env -f docker-compose.yaml config
 docker compose --env-file .env -f docker-compose.yaml config --quiet
 docker compose --env-file .env -f docker-compose.yaml up -d
@@ -91,6 +96,11 @@ The example drops Linux capabilities, enables `no-new-privileges`, uses a
 read-only root filesystem, keeps runtime logs in a tmpfs, and persists only the
 application data directory. The public RustDesk server key in `.env` is not a
 private key.
+
+The validation command never connects or writes; the migration command exits
+without starting the API and serializes against another migrator. Existing
+schema-312 deployments can use `database status --json` as an S6 readiness
+preflight. Keep recovery execution restricted to the trusted local supervisor.
 
 ## First login
 

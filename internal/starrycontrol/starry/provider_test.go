@@ -2,6 +2,7 @@ package starry
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -36,7 +37,7 @@ func TestTypedProviderSimulationAndConfigTransactions(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/control/v1/capabilities":
-			_, _ = w.Write([]byte(`{"protocol":{"name":"starry-control","version":"1.0.0","major":1},"instance":{"id":"` + instanceID + `","role":"hbbs","starry_version":"1.1.16-patch-v1.2.2","upstream_version":"1.1.16"},"capabilities":{"relay_inventory":1,"allocation_simulation":1,"config_transaction":1,"config_rollback":1,"connection_auth":1},"config":{"supported_schema_versions":[1,2,3],"active_schema_version":3,"schema_digest":"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},"limits":{"max_config_bytes":1048576,"max_plan_lifetime_seconds":600,"operation_retention_seconds":86400},"future_extension":{"ignored":true}}`))
+			_, _ = w.Write([]byte(`{"protocol":{"name":"starry-control","version":"1.0.0","major":1},"instance":{"id":"` + instanceID + `","role":"hbbs","starry_version":"1.1.16-patch-v1.3.0","upstream_version":"1.1.16"},"capabilities":{"relay_inventory":1,"allocation_simulation":1,"config_transaction":1,"config_rollback":1,"connection_auth":1,"peer_registry":2},"config":{"supported_schema_versions":[1,2,3],"active_schema_version":3,"schema_digest":"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},"limits":{"max_config_bytes":1048576,"max_plan_lifetime_seconds":600,"operation_retention_seconds":86400},"future_extension":{"ignored":true}}`))
 		case "/control/v1/allocations:simulate":
 			var input starrycontrol.SimulationInput
 			if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
@@ -53,6 +54,9 @@ func TestTypedProviderSimulationAndConfigTransactions(t *testing.T) {
 			}
 			if input.ID != "301132036" || input.UUID != "MDEyMzQ1Njc4OWFiY2RlZg==" {
 				t.Errorf("unexpected peer identity: %+v", input)
+			}
+			if input.ActivationEpoch != 0 && (input.ActivationEpoch != 12 || len(input.RouteLeases) != 1) {
+				t.Errorf("unexpected peer activation proof: %+v", input)
 			}
 			_, _ = w.Write([]byte(`{"instance_id":"` + instanceID + `","registered":true}`))
 		case "/control/v1/config":
@@ -102,6 +106,15 @@ func TestTypedProviderSimulationAndConfigTransactions(t *testing.T) {
 	verification, err := provider.VerifyPeer(ctx, starrycontrol.PeerIdentityInput{ID: "301132036", UUID: "MDEyMzQ1Njc4OWFiY2RlZg=="})
 	if err != nil || !verification.Registered || verification.InstanceID != instanceID {
 		t.Fatalf("peer verification = %+v, err=%v", verification, err)
+	}
+	activationID := base64.StdEncoding.EncodeToString(make([]byte, 16))
+	routeLease := base64.StdEncoding.EncodeToString(make([]byte, 32))
+	verification, err = provider.VerifyPeer(ctx, starrycontrol.PeerIdentityInput{
+		ID: "301132036", UUID: "MDEyMzQ1Njc4OWFiY2RlZg==", ActivationEpoch: 12,
+		ActivationID: activationID, RouteLeases: []string{routeLease},
+	})
+	if err != nil || !verification.Registered || verification.InstanceID != instanceID {
+		t.Fatalf("peer activation verification = %+v, err=%v", verification, err)
 	}
 	expectedGeneration := uint64(42)
 	simulation, err := provider.SimulateAllocation(ctx, starrycontrol.SimulationInput{

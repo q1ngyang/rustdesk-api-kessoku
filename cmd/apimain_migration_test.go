@@ -58,6 +58,15 @@ type legacyMigrationServerCmd struct {
 
 func (legacyMigrationServerCmd) TableName() string { return "server_cmds" }
 
+type schema312Peer struct {
+	RowID  uint   `gorm:"column:row_id;primaryKey"`
+	ID     string `gorm:"column:id;index"`
+	UUID   string `gorm:"column:uuid;index"`
+	UserID uint   `gorm:"column:user_id;index"`
+}
+
+func (schema312Peer) TableName() string { return "peers" }
+
 func TestMigrateBackfillsAuthMetadataAndPreservesLegacyCommands(t *testing.T) {
 	directory := t.TempDir()
 	databasePath := filepath.Join(directory, "legacy.db")
@@ -93,7 +102,10 @@ func TestMigrateRejectsDuplicateOauthIdentityBindingsBeforeAddingIndexes(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := database.AutoMigrate(&legacyOauthBinding{}); err != nil {
+	if err := database.AutoMigrate(&model.Version{}, &legacyOauthBinding{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Create(&model.Version{Version: DatabaseVersion - 1}).Error; err != nil {
 		t.Fatal(err)
 	}
 	bindings := []legacyOauthBinding{
@@ -114,6 +126,74 @@ func TestMigrateRejectsDuplicateOauthIdentityBindingsBeforeAddingIndexes(t *test
 	}
 	if database.Migrator().HasIndex(&model.UserThird{}, "idx_user_thirds_user_op") {
 		t.Fatal("unique OAuth index was created before duplicate preflight completed")
+	}
+}
+
+func TestMigrateV313RejectsDuplicateDeviceIDsBeforeAddingUniqueIndex(t *testing.T) {
+	database, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "duplicate-peer.db")), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(&model.Version{}, &schema312Peer{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Create(&model.Version{Version: 312}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Create(&[]schema312Peer{{ID: "duplicate-device", UUID: "profile-a"}, {ID: "duplicate-device", UUID: "profile-b"}}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	oldDB, oldLogger := global.DB, global.Logger
+	t.Cleanup(func() { global.DB, global.Logger = oldDB, oldLogger })
+	global.DB, global.Logger = database, logrus.New()
+	err = Migrate(DatabaseVersion)
+	if err == nil || !strings.Contains(err.Error(), "duplicate device ID") {
+		t.Fatalf("migration error = %v, want duplicate device ID preflight failure", err)
+	}
+	if database.Migrator().HasTable(&model.PeerPresenceLease{}) || database.Migrator().HasIndex(&model.Peer{}, "uidx_peers_id_v313") {
+		t.Fatal("schema 313 objects were created before peer identity preflight completed")
+	}
+	latest := &model.Version{}
+	if err := database.Order("id DESC").First(latest).Error; err != nil || latest.Version != 312 {
+		t.Fatalf("failed migration recorded target version: version=%+v err=%v", latest, err)
+	}
+}
+
+func TestMigrateV313AddsPresenceLeaseSchemaAndPreservesIdentity(t *testing.T) {
+	database, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "presence-v313.db")), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(&model.Version{}, &schema312Peer{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Create(&model.Version{Version: 312}).Error; err != nil {
+		t.Fatal(err)
+	}
+	legacy := &schema312Peer{ID: "301132036", UUID: "profile-network-uuid", UserID: 77}
+	if err := database.Create(legacy).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	oldDB, oldLogger := global.DB, global.Logger
+	t.Cleanup(func() { global.DB, global.Logger = oldDB, oldLogger })
+	global.DB, global.Logger = database, logrus.New()
+	if err := Migrate(DatabaseVersion); err != nil {
+		t.Fatal(err)
+	}
+	if !database.Migrator().HasTable(&model.PeerPresenceLease{}) ||
+		!database.Migrator().HasColumn(&model.PeerPresenceLease{}, "lease_id") ||
+		!database.Migrator().HasColumn(&model.PeerPresenceLease{}, "network_identity_uuid") ||
+		!database.Migrator().HasIndex(&model.Peer{}, "uidx_peers_id_v313") {
+		t.Fatal("schema 313 presence table, identity binding, or unique device index is missing")
+	}
+	stored := &model.Peer{}
+	if err := database.First(stored, legacy.RowID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if stored.Id != legacy.ID || stored.Uuid != legacy.UUID || stored.UserId != legacy.UserID || stored.PresenceOnlineUntil != 0 {
+		t.Fatalf("schema 312 peer identity changed during migration: %+v", stored)
 	}
 }
 
@@ -211,6 +291,9 @@ func assertRestoredMigrationFixture(t *testing.T, database *gorm.DB) {
 	}
 	if version.Version != DatabaseVersion || token.Token != "" || token.TokenHash == nil || len(*token.TokenHash) != 64 || commandCount != 1 {
 		t.Fatalf("restored migration fixture is incomplete: version=%d token=%+v commands=%d", version.Version, token, commandCount)
+	}
+	if !database.Migrator().HasTable(&model.PeerPresenceLease{}) || !database.Migrator().HasIndex(&model.Peer{}, "uidx_peers_id_v313") {
+		t.Fatal("restored migration fixture is missing schema 313 presence objects")
 	}
 }
 
@@ -392,5 +475,10 @@ func testMigrationFixture(t *testing.T, database *gorm.DB) {
 	}
 	if latest.Version != DatabaseVersion {
 		t.Fatalf("database version = %d, want %d", latest.Version, DatabaseVersion)
+	}
+	if !database.Migrator().HasTable(&model.PeerPresenceLease{}) ||
+		!database.Migrator().HasColumn(&model.PeerPresenceLease{}, "lease_id") ||
+		!database.Migrator().HasIndex(&model.Peer{}, "uidx_peers_id_v313") {
+		t.Fatal("migration fixture is missing schema 313 presence objects")
 	}
 }

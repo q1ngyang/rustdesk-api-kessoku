@@ -9,7 +9,7 @@ Kessoku 不包含 HBBS/HBBR。它可以搭配官方 RustDesk Server；推荐搭�
 [`q1ngyang/rustdesk-server-starry`](https://github.com/q1ngyang/rustdesk-server-starry)，
 获得安全 TCP、WSS、按地理位置选择中继服务器、连接令牌认证和可选管理代理。
 
-当前稳定版：`v3.0.6`；v3.0.3 是首个正式支持的 v3 版本，正式支持 Docker/Linux `amd64`。
+当前稳定版：`v3.0.7`；v3.0.3 是首个正式支持的 v3 版本，正式支持 Docker/Linux `amd64`。
 此前 `v3.0.1` 因重大集成缺陷已撤回；`v3.0.2` 仅保留未公开发布尝试的标签，没有受支持
 的 Release 制品或容器镜像；`v3.0.4` 同样仅保留失败候选记录。请勿将这些版本用于新部署。
 
@@ -18,12 +18,16 @@ Kessoku 不包含 HBBS/HBBR。它可以搭配官方 RustDesk Server；推荐搭�
 - RustDesk 客户端账户登录、注销和会话撤销；
 - 已登录客户端自动归属，以及通过 Starry 私有注册表安全发现未登录账户 API 的网络设备；
 - 客户端启动、资料变化及 24 小时心跳兜底时刷新完整设备资料与全部相关地址簿；
+- 多 Profile 快速切换 Presence Lease v2：每个 Profile 使用独立网络身份 UUID，任一有效
+  lease 即在线，旧 activation 的乱序 renew/end 不会让新 activation 离线；
 - 用户、用户组、设备、设备组和分级管理员范围；
 - 个人地址簿、公共地址簿、标签、地址簿集合和共享规则；
 - 登录记录、连接审计、文件审计和管理操作审计；
 - 密码登录、TOTP 双重认证、LDAP、GitHub/Google OAuth 和通用 OIDC；
 - Ed25519/EdDSA 访问令牌、JWKS 和可撤销令牌状态查询；
 - 与 Starry 的连接认证和类型化管理接口；
+- 供 S6/运维脚本使用的版本、配置校验、数据库状态与显式带锁迁移 CLI；
+- 仅限本地、带审计和会话撤销的管理员恢复与单用户 2FA 重置；
 - 内置响应式管理后台、集中品牌设置、头像、公告、GeoIP 与多语言；
 - 独立浏览器远控：登录保持、强制 WSS 中继、VP9 画面、鼠标、基本键盘和协助聊天。
 
@@ -99,17 +103,18 @@ Kessoku 容器使用 UID/GID `65534:65534`。数据和密钥目录必须属于�
 | Starry 连接令牌 | [连接认证](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Connection-Authentication) |
 | Starry 管理代理 | [Starry 管理](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Starry-Control) |
 | 安全、运维和故障 | [安全配置](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Security-Finding-Closure) · [日常运维](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Operations-and-Verification) · [排障](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Troubleshooting) |
+| 本地 S6/维护 CLI | [本地维护 CLI](docs/operations/LOCAL-MAINTENANCE-CLI.zh-CN.md) |
+| 多 Profile 在线租约 | [Presence Lease v2 运维说明](docs/operations/PRESENCE-LEASE-V2.zh-CN.md) |
 | 升级 | [升级与回退](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Upgrade-and-Rollback) |
 | English | [English documentation](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Home) |
 
 ## 升级提示
 
-v3.0.6 使用数据库版本 312，在既有企业权限、TOTP、品牌、GeoIP 与 WebClient 审计结构上，
-增加可信设备身份来源、资料更新时间和 Token 客户端类型。v2 程序可能把范围管理员误认为
-无限制管理员，不能
-让 v2/v3 同时写一个数据库，也不能在没有匹配数据库、TOTP 密钥、媒体和配置备份时直接
-降级。升级前阅读
-[`MIGRATION-v3.0.6.zh-CN.md`](docs/releases/v3.0.6/MIGRATION-v3.0.6.zh-CN.md)。
+v3.0.7 把数据库从 schema 312 增量升级到 313，新增 Presence Lease v2 存储及设备 ID
+唯一约束；迁移前会拒绝重复设备 ID。旧 heartbeat API 保持兼容，但 schema 313 不能由
+v3.0.6 原地读取，回退必须恢复完整升级前备份。升级前阅读
+[`MIGRATION-v3.0.7.zh-CN.md`](docs/releases/v3.0.7/MIGRATION-v3.0.7.zh-CN.md)。
+逐版本摘要见[中文更新日志](CHANGELOG.zh-CN.md)。
 
 ## 许可证
 

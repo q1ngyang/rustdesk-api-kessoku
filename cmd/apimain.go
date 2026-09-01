@@ -1,39 +1,31 @@
 package main
 
 import (
-	"crypto/tls"
-	"crypto/x509"
+	"context"
 	"errors"
 	"fmt"
-	"io"
-	"net"
-	"net/url"
 	"os"
-	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	mysqlDriver "github.com/go-sql-driver/mysql"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/config"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/global"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http"
 	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/auth"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/buildinfo"
+	databaseSchema "github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/database"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/lib/cache"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/lib/lock"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/lib/logger"
-	"github.com/q1ngyang/rustdesk-api-kessoku/v3/lib/orm"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/lib/upload"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/service"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/utils"
-	"github.com/spf13/cobra"
 	"gorm.io/gorm"
 )
 
-const DatabaseVersion = 312
-
-const mysqlTLSProfile = "kessoku-verified-ca"
+const DatabaseVersion = buildinfo.DatabaseSchema
 
 // @title 管理系统API
 // @version 1.0
@@ -46,201 +38,44 @@ const mysqlTLSProfile = "kessoku-verified-ca"
 // @in header
 // @name Authorization
 
-var rootCmd = &cobra.Command{
-	Use:   "kessoku-api",
-	Short: "Kessoku control plane for RustDesk deployments",
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		InitGlobal()
-	},
-	Run: func(cmd *cobra.Command, args []string) {
-		global.Logger.Info("API SERVER START")
-		http.ApiInit()
-	},
-}
+var rootCmd = newRootCommand()
 
-var resetAdminPasswordFile string
-var resetUserPasswordFile string
-var resetUserID uint
-
-var resetPwdCmd = &cobra.Command{
-	Use:     "reset-admin-pwd --password-file PATH",
-	Example: "kessoku-api reset-admin-pwd --password-file /run/secrets/bootstrap-admin-password",
-	Short:   "Reset Admin Password",
-	Args:    cobra.NoArgs,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		pwd, err := passwordFromFile(resetAdminPasswordFile)
-		if err != nil {
-			return fmt.Errorf("read password file: %w", err)
-		}
-		admin := service.AllService.UserService.InfoById(1)
-		if admin.Id == 0 {
-			return errors.New("administrator user not found")
-		}
-		err = service.AllService.UserService.UpdatePassword(admin, pwd)
-		if err != nil {
-			return fmt.Errorf("reset administrator password: %w", err)
-		}
-		global.Logger.Info("reset password success! ")
-		return nil
-	},
-}
-var resetUserPwdCmd = &cobra.Command{
-	Use:     "reset-pwd --user-id ID --password-file PATH",
-	Example: "kessoku-api reset-pwd --user-id 2 --password-file /run/secrets/user-password",
-	Short:   "Reset User Password",
-	Args:    cobra.NoArgs,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if resetUserID == 0 {
-			return errors.New("user-id must be greater than 0")
-		}
-		pwd, err := passwordFromFile(resetUserPasswordFile)
-		if err != nil {
-			return fmt.Errorf("read password file: %w", err)
-		}
-		u := service.AllService.UserService.InfoById(resetUserID)
-		if u.Id == 0 {
-			return errors.New("user not found")
-		}
-		err = service.AllService.UserService.UpdatePassword(u, pwd)
-		if err != nil {
-			return fmt.Errorf("reset user password: %w", err)
-		}
-		global.Logger.Info("reset password success!")
-		return nil
-	},
-}
-
-func init() {
-	rootCmd.PersistentFlags().StringVarP(&global.ConfigPath, "config", "c", "./conf/config.yaml", "choose config file")
-	resetPwdCmd.Flags().StringVar(&resetAdminPasswordFile, "password-file", "", "owner-readable file containing the new password")
-	_ = resetPwdCmd.MarkFlagRequired("password-file")
-	resetUserPwdCmd.Flags().UintVar(&resetUserID, "user-id", 0, "user ID")
-	resetUserPwdCmd.Flags().StringVar(&resetUserPasswordFile, "password-file", "", "owner-readable file containing the new password")
-	_ = resetUserPwdCmd.MarkFlagRequired("user-id")
-	_ = resetUserPwdCmd.MarkFlagRequired("password-file")
-	rootCmd.AddCommand(resetPwdCmd, resetUserPwdCmd)
-}
-
-func passwordFromFile(path string) (string, error) {
-	if strings.TrimSpace(path) == "" {
-		return "", errors.New("password-file is required")
-	}
-	pathInfo, err := os.Lstat(path)
-	if err != nil {
-		return "", err
-	}
-	if !pathInfo.Mode().IsRegular() {
-		return "", errors.New("password-file must be a regular file")
-	}
-	if pathInfo.Mode().Perm()&0o077 != 0 {
-		return "", errors.New("password-file must not be accessible by group or other users")
-	}
-	file, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-	fileInfo, err := file.Stat()
-	if err != nil {
-		return "", err
-	}
-	if !fileInfo.Mode().IsRegular() || !os.SameFile(pathInfo, fileInfo) {
-		return "", errors.New("password-file changed while opening")
-	}
-	if fileInfo.Mode().Perm()&0o077 != 0 {
-		return "", errors.New("password-file must not be accessible by group or other users")
-	}
-	contents, err := io.ReadAll(io.LimitReader(file, 131))
-	if err != nil {
-		return "", err
-	}
-	if len(contents) > 130 {
-		return "", errors.New("password must contain 12 to 128 bytes")
-	}
-	password := strings.TrimSuffix(strings.TrimSuffix(string(contents), "\n"), "\r")
-	if len(password) < 12 || len(password) > 128 {
-		return "", errors.New("password must contain 12 to 128 bytes")
-	}
-	return password, nil
-}
 func main() {
 	if err := rootCmd.Execute(); err != nil {
-		global.Logger.Error(err)
-		os.Exit(1)
+		if !commandErrorReported(err) {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+		}
+		os.Exit(commandExitCode(err))
 	}
 }
 
 func mysqlDSN(databaseName string) string {
-	settings := mysqlDriver.NewConfig()
-	settings.User = global.Config.Mysql.Username
-	settings.Passwd = global.Config.Mysql.Password
-	settings.Net = "tcp"
-	settings.Addr = global.Config.Mysql.Addr
-	settings.DBName = databaseName
-	settings.ParseTime = true
-	settings.Loc = time.Local
-	settings.TLSConfig = "true"
-	if global.Config.Mysql.CaFile != "" {
-		settings.TLSConfig = mysqlTLSProfile
-	}
-	settings.Params = map[string]string{"charset": "utf8mb4"}
-	return settings.FormatDSN()
+	return mysqlDSNForConfig(&global.Config, databaseName)
 }
 
 func configureMySQLTLS() error {
-	if global.Config.Mysql.CaFile == "" {
-		return nil
-	}
-	caPEM, err := os.ReadFile(global.Config.Mysql.CaFile)
-	if err != nil {
-		return fmt.Errorf("read MySQL CA file: %w", err)
-	}
-	roots, err := x509.SystemCertPool()
-	if err != nil || roots == nil {
-		roots = x509.NewCertPool()
-	}
-	if !roots.AppendCertsFromPEM(caPEM) {
-		return errors.New("MySQL CA file contains no valid certificate")
-	}
-	mysqlDriver.DeregisterTLSConfig(mysqlTLSProfile)
-	if err := mysqlDriver.RegisterTLSConfig(mysqlTLSProfile, &tls.Config{
-		MinVersion: tls.VersionTLS12,
-		RootCAs:    roots,
-	}); err != nil {
-		return fmt.Errorf("register MySQL TLS profile: %w", err)
-	}
-	return nil
+	return configureMySQLTLSForConfig(&global.Config)
 }
 
 func postgresqlDSN() string {
-	settings := global.Config.Postgresql
-	host := settings.Host
-	if settings.Port != "" {
-		host = net.JoinHostPort(settings.Host, settings.Port)
-	}
-	dsn := &url.URL{Scheme: "postgresql", Host: host, Path: "/" + settings.Dbname}
-	if settings.User != "" {
-		if settings.Password == "" {
-			dsn.User = url.User(settings.User)
-		} else {
-			dsn.User = url.UserPassword(settings.User, settings.Password)
-		}
-	}
-	query := dsn.Query()
-	query.Set("sslmode", "verify-full")
-	if settings.Sslrootcert != "" {
-		query.Set("sslrootcert", settings.Sslrootcert)
-	}
-	if settings.TimeZone != "" {
-		query.Set("TimeZone", settings.TimeZone)
-	}
-	dsn.RawQuery = query.Encode()
-	return dsn.String()
+	return postgresqlDSNForConfig(&global.Config)
 }
 
 func InitGlobal() {
-	//配置解析
-	global.Viper = config.Init(&global.Config, global.ConfigPath)
+	// Parse and validate configuration before any key generation, database
+	// connection, migration, or background service is initialized.
+	parsed := config.Config{}
+	viperConfig, err := config.Load(&parsed, global.ConfigPath)
+	if err != nil {
+		panic(fmt.Errorf("initialize configuration: %w", err))
+	}
+	validationErrors, validationWarnings := validateConfigurationReferences(&parsed)
+	if len(validationErrors) > 0 {
+		panic(fmt.Errorf("initialize configuration: %s: %s", validationErrors[0].Field, validationErrors[0].Message))
+	}
+	global.Config = parsed
+	global.Viper = viperConfig
+	global.Config.Rustdesk.LoadKeyFile()
 
 	//日志
 	global.Logger = logger.New(&logger.Config{
@@ -255,6 +90,17 @@ func InitGlobal() {
 	})
 
 	global.InitI18n()
+	for _, warning := range validationWarnings {
+		global.Logger.Warnf("configuration warning %s: %s", warning.Field, warning.Message)
+	}
+
+	// The schema guard and locked migration run before any service is allowed to
+	// read application tables or create the TOTP key.
+	global.DB, _, err = openConfiguredDatabase(context.Background(), &global.Config, databaseCreate, global.Logger)
+	if err != nil {
+		global.Logger.Fatalf("connect database: %v", err)
+	}
+	DatabaseAutoUpdate()
 
 	//redis
 	global.Redis = redis.NewClient(&redis.Options{
@@ -275,34 +121,6 @@ func InitGlobal() {
 			DB:       global.Config.Cache.RedisDb,
 		})
 	}
-	//gorm
-	if global.Config.Gorm.Type == config.TypeMysql {
-		if err := configureMySQLTLS(); err != nil {
-			global.Logger.Fatalf("configure MySQL TLS: %v", err)
-		}
-
-		dsn := mysqlDSN(global.Config.Mysql.Dbname)
-
-		global.DB = orm.NewMysql(&orm.MysqlConfig{
-			Dsn:          dsn,
-			MaxIdleConns: global.Config.Gorm.MaxIdleConns,
-			MaxOpenConns: global.Config.Gorm.MaxOpenConns,
-		}, global.Logger)
-	} else if global.Config.Gorm.Type == config.TypePostgresql {
-		dsn := postgresqlDSN()
-		global.DB = orm.NewPostgresql(&orm.PostgresqlConfig{
-			Dsn:          dsn,
-			MaxIdleConns: global.Config.Gorm.MaxIdleConns,
-			MaxOpenConns: global.Config.Gorm.MaxOpenConns,
-		}, global.Logger)
-	} else {
-		//sqlite
-		global.DB = orm.NewSqlite(&orm.SqliteConfig{
-			MaxIdleConns: global.Config.Gorm.MaxIdleConns,
-			MaxOpenConns: global.Config.Gorm.MaxOpenConns,
-		}, global.Logger)
-	}
-
 	//validator
 	global.ApiInitValidator()
 
@@ -339,7 +157,6 @@ func InitGlobal() {
 		BanDuration:      30 * time.Minute,
 	})
 	global.LoginLimiter.RegisterProvider(utils.B64StringCaptchaProvider{})
-	DatabaseAutoUpdate()
 	service.AllService.DataRetentionService.Start()
 	if err := service.AllService.GeoIPService.Init(); err != nil {
 		global.Logger.Warnf("initialize GeoIP lookup: %v", err)
@@ -350,94 +167,75 @@ func InitGlobal() {
 }
 
 func DatabaseAutoUpdate() {
-	version := DatabaseVersion
-
-	db := global.DB
-
-	if global.Config.Gorm.Type == config.TypeMysql {
-		//检查存不存在数据库，不存在则创建
-		dbName := db.Migrator().CurrentDatabase()
-		if dbName == "" {
-			dbName = global.Config.Mysql.Dbname
-			// 移除 DSN 中的数据库名称，以便初始连接时不指定数据库
-			dsnWithoutDB := mysqlDSN("")
-
-			//新链接
-			dbWithoutDB := orm.NewMysql(&orm.MysqlConfig{
-				Dsn: dsnWithoutDB,
-			}, global.Logger)
-			// 获取底层的 *sql.DB 对象，并确保在程序退出时关闭连接
-			sqlDBWithoutDB, err := dbWithoutDB.DB()
-			if err != nil {
-				global.Logger.Errorf("获取底层 *sql.DB 对象失败: %v", err)
-				return
-			}
-			defer func() {
-				if err := sqlDBWithoutDB.Close(); err != nil {
-					global.Logger.Errorf("关闭连接失败: %v", err)
-				}
-			}()
-
-			err = dbWithoutDB.Exec("CREATE DATABASE IF NOT EXISTS `" + strings.ReplaceAll(dbName, "`", "``") + "` DEFAULT CHARSET utf8mb4").Error
-			if err != nil {
-				global.Logger.Error(err)
-				return
-			}
+	before, after, migrated, _, err := migrateConfiguredDatabase(context.Background(), &global.Config, global.DB)
+	if err != nil {
+		if before.State == databaseSchema.StateNewerThanBinary || after.State == databaseSchema.StateNewerThanBinary {
+			global.Logger.Fatalf("refuse database newer than binary: installed=%s target=%d", schemaPointerLabel(before.InstalledSchema), DatabaseVersion)
 		}
+		global.Logger.Fatalf("database migration failed: %v", err)
 	}
-
-	if !db.Migrator().HasTable(&model.Version{}) {
-		if err := Migrate(uint(version)); err != nil {
-			global.Logger.Fatalf("database migration failed: %v", err)
-		}
-	} else {
-		//查找最后一个version
-		var v model.Version
-		db.Last(&v)
-		if v.Version < 245 {
-			if err := prepareLegacyOauthIdentityMigration(); err != nil {
-				global.Logger.Fatalf("prepare legacy OAuth identity migration: %v", err)
-			}
-		}
-		if v.Version < uint(version) {
-			if err := Migrate(uint(version)); err != nil {
-				global.Logger.Fatalf("database migration failed: %v", err)
-			}
-		}
-
-		// 245迁移
-		if v.Version < 245 {
-			//通过email迁移旧的google授权
-			uts := make([]model.UserThird, 0)
-			db.Where("oauth_type = ?", "google").Find(&uts)
-			for _, ut := range uts {
-				if ut.UserId > 0 {
-					db.Model(&model.User{}).Where("id = ?", ut.UserId).Update("email", ut.OpenId)
-				}
-			}
-		}
-		if v.Version < 246 {
-			db.Exec("update oauths set issuer = 'https://accounts.google.com' where op = 'google' and issuer is null")
-		}
-	}
-
+	global.Logger.Infof("database schema ready: installed=%d migrated=%t", DatabaseVersion, migrated)
 }
+
+var migrationGlobals sync.Mutex
+
 func Migrate(version uint) error {
-	global.Logger.Info("Migrating....", version)
+	return MigrateDatabase(global.DB, version)
+}
+
+func MigrateDatabase(db *gorm.DB, version uint) error {
+	if db == nil {
+		return errors.New("database is unavailable")
+	}
+	migrationGlobals.Lock()
+	defer migrationGlobals.Unlock()
+	previous := global.DB
+	global.DB = db
+	defer func() { global.DB = previous }()
+	return migrateUsingGlobals(version)
+}
+
+func migrateUsingGlobals(version uint) error {
+	if global.Logger != nil {
+		global.Logger.Infof("database migration step=inspect target=%d", version)
+	}
+	status, err := databaseSchema.InspectSchema(global.DB)
+	if err != nil {
+		return err
+	}
+	if status.State == databaseSchema.StateNewerThanBinary || status.State == databaseSchema.StateInvalid {
+		return databaseSchema.ErrSchemaMismatch
+	}
+	initialDatabase := status.InstalledSchema == nil
+	legacyVersion := uint(0)
+	if status.InstalledSchema != nil {
+		legacyVersion = *status.InstalledSchema
+	}
+	if legacyVersion > 0 && legacyVersion < 245 {
+		if err := prepareLegacyOauthIdentityMigration(); err != nil {
+			return fmt.Errorf("prepare legacy OAuth identity migration: %w", err)
+		}
+	}
 	if err := validateOauthIdentityUniqueness(); err != nil {
 		return err
+	}
+	if version >= 313 {
+		if err := validatePeerIDUniqueness(); err != nil {
+			return err
+		}
 	}
 	// Reconcile the compatibility mirror on every v302+ migration. This also
 	// recovers databases where an earlier process added the role column but
 	// stopped before legacy is_admin rows were promoted.
 	migrateLegacyRoles := version >= 302
-	err := global.DB.AutoMigrate(
+	err = global.DB.AutoMigrate(
 		&model.Version{},
 		&model.User{},
 		&model.UserToken{},
 		&model.Tag{},
 		&model.AddressBook{},
 		&model.Peer{},
+		&model.PeerPresenceLease{},
 		&model.Group{},
 		&model.UserThird{},
 		&model.Oauth{},
@@ -461,6 +259,27 @@ func Migrate(version uint) error {
 	)
 	if err != nil {
 		return fmt.Errorf("schema migration: %w", err)
+	}
+	if global.Logger != nil {
+		global.Logger.Infof("database migration step=schema target=%d complete", version)
+	}
+	if legacyVersion > 0 && legacyVersion < 245 {
+		var identities []model.UserThird
+		if err := global.DB.Where("oauth_type = ?", "google").Find(&identities).Error; err != nil {
+			return fmt.Errorf("read legacy Google OAuth identities: %w", err)
+		}
+		for _, identity := range identities {
+			if identity.UserId > 0 {
+				if err := global.DB.Model(&model.User{}).Where("id = ?", identity.UserId).Update("email", identity.OpenId).Error; err != nil {
+					return fmt.Errorf("migrate legacy Google OAuth email: %w", err)
+				}
+			}
+		}
+	}
+	if legacyVersion > 0 && legacyVersion < 246 {
+		if err := global.DB.Exec("UPDATE oauths SET issuer = 'https://accounts.google.com' WHERE op = 'google' AND issuer IS NULL").Error; err != nil {
+			return fmt.Errorf("migrate legacy Google OAuth issuer: %w", err)
+		}
 	}
 	if version >= 305 {
 		// Move legacy announcements out of tenant branding without losing an
@@ -650,58 +469,95 @@ func Migrate(version uint) error {
 			return fmt.Errorf("backfill token hash for row %d: %w", legacyTokens[i].Id, err)
 		}
 	}
-	if err := global.DB.Create(&model.Version{Version: version}).Error; err != nil {
+	if initialDatabase {
+		if err := global.DB.Transaction(func(tx *gorm.DB) error {
+			return bootstrapInitialDatabase(tx, version)
+		}); err != nil {
+			return err
+		}
+	} else if err := global.DB.Create(&model.Version{Version: version}).Error; err != nil {
 		return fmt.Errorf("record database version: %w", err)
 	}
-	//如果是初次则创建一个默认用户
-	var vc int64
-	global.DB.Model(&model.Version{}).Count(&vc)
-	if vc == 1 {
+	if global.Logger != nil {
+		global.Logger.Infof("database migration step=record-version target=%d complete", version)
+	}
+	return nil
+}
+
+func validatePeerIDUniqueness() error {
+	if global.DB == nil || !global.DB.Migrator().HasTable(&model.Peer{}) {
+		return nil
+	}
+	var duplicateGroups int64
+	query := global.DB.Table("peers").
+		Select("id").
+		Group("id").
+		Having("COUNT(*) > 1")
+	if err := global.DB.Table("(?) AS duplicate_peer_ids", query).Count(&duplicateGroups).Error; err != nil {
+		return fmt.Errorf("validate peer identity uniqueness: %w", err)
+	}
+	if duplicateGroups > 0 {
+		return fmt.Errorf("peer identity migration preflight: %d duplicate device ID group(s) require operator resolution", duplicateGroups)
+	}
+	return nil
+}
+
+func bootstrapInitialDatabase(tx *gorm.DB, version uint) error {
+	defaultGroupName, shareGroupName := "Default Group", "Share Group"
+	if global.Localizer != nil {
 		localizer := global.Localizer("")
-		defaultGroup, _ := localizer.LocalizeMessage(&i18n.Message{
-			ID: "DefaultGroup",
-		})
-		group := &model.Group{
-			Name: defaultGroup,
-			Type: model.GroupTypeDefault,
+		if localized, err := localizer.LocalizeMessage(&i18n.Message{ID: "DefaultGroup"}); err == nil && localized != "" {
+			defaultGroupName = localized
 		}
-		service.AllService.GroupService.Create(group)
-
-		shareGroup, _ := localizer.LocalizeMessage(&i18n.Message{
-			ID: "ShareGroup",
-		})
-		groupShare := &model.Group{
-			Name: shareGroup,
-			Type: model.GroupTypeShare,
+		if localized, err := localizer.LocalizeMessage(&i18n.Message{ID: "ShareGroup"}); err == nil && localized != "" {
+			shareGroupName = localized
 		}
-		service.AllService.GroupService.Create(groupShare)
-		//是true
-		is_admin := true
-		admin := &model.User{
-			Username: "admin",
-			Nickname: "Admin",
-			Status:   model.COMMON_STATUS_ENABLE,
-			Role:     model.UserRoleSuperAdmin,
-			IsAdmin:  &is_admin,
-			GroupId:  1,
+	}
+	defaultGroup := &model.Group{}
+	if err := tx.Where("type = ?", model.GroupTypeDefault).First(defaultGroup).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		defaultGroup = &model.Group{Name: defaultGroupName, Type: model.GroupTypeDefault}
+		if err := tx.Create(defaultGroup).Error; err != nil {
+			return fmt.Errorf("create default group: %w", err)
 		}
-
-		// Create an unreachable bootstrap credential. Operators must set the
-		// initial password explicitly through reset-admin-pwd --password-file;
-		// reusable credentials are never emitted to application logs.
-		pwd := utils.RandomString(32)
-		if pwd == "" {
+	} else if err != nil {
+		return fmt.Errorf("read default group: %w", err)
+	}
+	shareGroup := &model.Group{}
+	if err := tx.Where("type = ?", model.GroupTypeShare).First(shareGroup).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		shareGroup = &model.Group{Name: shareGroupName, Type: model.GroupTypeShare}
+		if err := tx.Create(shareGroup).Error; err != nil {
+			return fmt.Errorf("create share group: %w", err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("read share group: %w", err)
+	}
+	admin := &model.User{}
+	if err := tx.Where("username = ?", "admin").First(admin).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		password := utils.RandomString(32)
+		if password == "" {
 			return errors.New("generate bootstrap administrator credential")
 		}
-		var err error
-		admin.Password, err = utils.EncryptPassword(pwd)
+		hash, err := utils.EncryptPassword(password)
 		if err != nil {
 			return fmt.Errorf("hash bootstrap administrator credential: %w", err)
 		}
-		if err := global.DB.Create(admin).Error; err != nil {
+		isAdmin := true
+		admin = &model.User{
+			Username: "admin", Nickname: "Admin", Password: hash,
+			Status: model.COMMON_STATUS_ENABLE, Role: model.UserRoleSuperAdmin,
+			IsAdmin: &isAdmin, GroupId: defaultGroup.Id, AuthVersion: 1,
+		}
+		if err := tx.Create(admin).Error; err != nil {
 			return fmt.Errorf("create bootstrap administrator: %w", err)
 		}
-		global.Logger.Info("bootstrap administrator created; set its password with reset-admin-pwd --password-file")
+		if global.Logger != nil {
+			global.Logger.Info("bootstrap administrator created; set its password with reset-admin-pwd --password-file")
+		}
+	} else if err != nil {
+		return fmt.Errorf("read bootstrap administrator: %w", err)
+	}
+	if err := tx.Create(&model.Version{Version: version}).Error; err != nil {
+		return fmt.Errorf("record database version: %w", err)
 	}
 	return nil
 }

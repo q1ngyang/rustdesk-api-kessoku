@@ -66,7 +66,7 @@ services:
         max-file: "5"
 
   kessoku-api:
-    image: ${KESSOKU_IMAGE:-ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.6}
+    image: ${KESSOKU_IMAGE:-ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.7}
     container_name: rustdesk-api-kessoku
     restart: unless-stopped
     read_only: true

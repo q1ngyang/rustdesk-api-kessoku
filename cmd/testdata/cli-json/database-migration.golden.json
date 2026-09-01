@@ -1,0 +1,1 @@
+{"schema_version":1,"database_type":"mysql","from_schema":313,"installed_schema":313,"target_schema":313,"state":"current","migrated":false,"steps":[{"name":"acquire_lock","status":"complete"},{"name":"inspect_schema","status":"complete"},{"name":"apply_migration","status":"not_required"},{"name":"verify_schema","status":"complete"}]}

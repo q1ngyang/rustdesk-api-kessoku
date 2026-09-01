@@ -30,6 +30,10 @@ func ApiInit(g *gin.Engine) {
 		frg.GET("/version", i.Version)
 
 		frg.POST("/heartbeat", i.Heartbeat)
+		frg.POST("/presence/v2/start", i.PresenceStart)
+		frg.POST("/presence/v2/renew", i.PresenceRenew)
+		frg.POST("/presence/v2/end", i.PresenceEnd)
+		frg.POST("/presence/v2/deactivate", i.PresenceDeactivate)
 	}
 
 	{

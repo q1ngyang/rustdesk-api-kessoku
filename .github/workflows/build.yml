@@ -120,8 +120,21 @@ jobs:
 
       - name: Verify pinned Starry contract provenance
         run: |
+          set -euo pipefail
           grep -qx 'status: PINNED' internal/starrycontrol/CONTRACT_VERSION
-          ! grep -Eq 'UNPUBLISHED|UNAVAILABLE' internal/starrycontrol/CONTRACT_VERSION
+          if grep -Eq 'UNPUBLISHED|UNAVAILABLE' \
+            internal/starrycontrol/CONTRACT_VERSION; then
+            echo "Starry release provenance is incomplete" >&2
+            exit 1
+          fi
+          summary_path="$(sed -n 's/^release_summary_path: //p' \
+            internal/starrycontrol/CONTRACT_VERSION)"
+          test "$summary_path" = \
+            "docs/releases/${{ inputs.release_tag }}/STARRY-RELEASE-SUMMARY.json"
+          test -s "$summary_path"
+          test "$(sha256sum "$summary_path" | cut -d' ' -f1)" = \
+            "$(sed -n 's/^release_summary_sha256: //p' \
+              internal/starrycontrol/CONTRACT_VERSION)"
 
       - name: Set up Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -212,13 +225,24 @@ jobs:
           binary_stage="${RUNNER_TEMP}/kessoku-build"
           test ! -e "$binary_stage"
           mkdir -p "$binary_stage"
-          go build -trimpath -buildvcs=true -ldflags '-s -w' \
+          build_time="$(git show -s --format=%cI "$GITHUB_SHA")"
+          build_version="${RELEASE_TAG#v}"
+          build_ldflags="-s -w -X github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/buildinfo.Version=${build_version} -X github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/buildinfo.GitCommit=${GITHUB_SHA} -X github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/buildinfo.BuildTime=${build_time}"
+          go build -trimpath -buildvcs=true -ldflags "$build_ldflags" \
             -o "$binary_stage/kessoku-api" ./cmd
-          go build -trimpath -buildvcs=true -ldflags '-s -w' \
+          go build -trimpath -buildvcs=true -ldflags "$build_ldflags" \
             -o "$binary_stage/kessoku-api.rebuild" ./cmd
           cmp "$binary_stage/kessoku-api" \
             "$binary_stage/kessoku-api.rebuild"
           rm "$binary_stage/kessoku-api.rebuild"
+          "$binary_stage/kessoku-api" version --json \
+            | tee "$binary_stage/VERSION.json"
+          grep -F '"version":"'"${build_version}"'"' \
+            "$binary_stage/VERSION.json"
+          grep -F '"git_commit":"'"${GITHUB_SHA}"'"' \
+            "$binary_stage/VERSION.json"
+          grep -F '"build_time":"'"${build_time}"'"' \
+            "$binary_stage/VERSION.json"
           go version -m "$binary_stage/kessoku-api" \
             | tee "$binary_stage/GO-BUILD-INFO.txt"
           grep -F $'\tpath\tgithub.com/q1ngyang/rustdesk-api-kessoku/v3/cmd' \
@@ -245,6 +269,7 @@ jobs:
             candidate/release/kessoku-api
           install -m 0644 "$binary_stage/GO-BUILD-INFO.txt" \
             candidate/GO-BUILD-INFO.txt
+          install -m 0644 "$binary_stage/VERSION.json" candidate/VERSION.json
           sh scripts/copy-runtime-resources.sh \
             candidate/release/resources resources require-admin require-client
           printf '%s\n' "$ARTIFACT_LABEL" > candidate/release/resources/version
@@ -466,8 +491,14 @@ jobs:
           release_dir="docs/releases/${RELEASE_TAG}"
           notes_file="${release_dir}/RELEASE-NOTES-${RELEASE_TAG}.md"
           chinese_notes="${release_dir}/RELEASE-NOTES-${RELEASE_TAG}.zh-CN.md"
+          migration_file="${release_dir}/MIGRATION-${RELEASE_TAG}.md"
+          chinese_migration="${release_dir}/MIGRATION-${RELEASE_TAG}.zh-CN.md"
+          migration_metadata="${release_dir}/migration.yaml"
           test -s "$notes_file"
           test -s "$chinese_notes"
+          test -s "$migration_file"
+          test -s "$chinese_migration"
+          test -s "$migration_metadata"
           mkdir -p candidate/docker candidate/release-assets
           cp Dockerfile candidate/docker/Dockerfile
           cp -a runtime/release candidate/docker/release
@@ -477,6 +508,7 @@ jobs:
               "candidate/release-assets/kessoku-${ARTIFACT_LABEL}-linux-amd64.tar.gz"
           cp packages/*.deb candidate/release-assets/
           cp runtime/BUILD-INPUTS.txt runtime/GO-BUILD-INFO.txt \
+            runtime/VERSION.json \
             runtime/ADMIN-WEB-DIST-SHA256SUMS \
             runtime/WEB-CLIENT-DIST-SHA256SUMS \
             runtime/ADMIN-WEB-LICENSE runtime/WEB-CLIENT-LICENSE \
@@ -488,8 +520,15 @@ jobs:
           cp RELEASE_STATUS docs/releases/RELEASE-CHECKLIST.md \
             docs/releases/RELEASE-PROCESS.md \
             internal/starrycontrol/CONTRACT_VERSION candidate/release-assets/
+          cp "$release_dir/STARRY-RELEASE-SUMMARY.json" \
+            candidate/release-assets/
           cp docs/deployment/CONTAINER.md docs/deployment/CONTAINER.zh-CN.md \
-            "$notes_file" "$chinese_notes" docker-compose.yaml \
+            docs/operations/LOCAL-MAINTENANCE-CLI.md \
+            docs/operations/LOCAL-MAINTENANCE-CLI.zh-CN.md \
+            CHANGELOG.md CHANGELOG.zh-CN.md \
+            "$notes_file" "$chinese_notes" \
+            "$migration_file" "$chinese_migration" "$migration_metadata" \
+            docker-compose.yaml \
             candidate/release-assets/
           cp examples/compose.env.example \
             candidate/release-assets/compose.env.example
@@ -519,6 +558,7 @@ jobs:
           set -euo pipefail
           test -s candidate/release-assets/SHA256SUMS
           test -s candidate/release-assets/GO-BUILD-INFO.txt
+          test -s candidate/release-assets/VERSION.json
           test -s candidate/release-assets/ADMIN-WEB-DIST-SHA256SUMS
           test -s candidate/release-assets/kessoku-admin-web.cdx.json
           test -s candidate/release-assets/WEB-CLIENT-DIST-SHA256SUMS
@@ -527,6 +567,7 @@ jobs:
           test -s candidate/release-assets/WEB-CLIENT-LICENSE
           test -s candidate/release-assets/WEB-CLIENT-NOTICE.md
           test -s candidate/release-assets/config.docker-builtin.yaml
+          test -s candidate/release-assets/STARRY-RELEASE-SUMMARY.json
           test -s candidate/release-assets/kessoku-source.spdx.json
           test -s candidate/release-assets/kessoku-runtime.spdx.json
           test -s candidate/release-assets/kessoku-candidate.spdx.json

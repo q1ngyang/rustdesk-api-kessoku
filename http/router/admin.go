@@ -35,6 +35,7 @@ func Init(g *gin.Engine) {
 	TagBind(adg)
 	AddressBookBind(adg)
 	PeerBind(adg)
+	PresenceBind(adg)
 	OauthBind(adg)
 	LoginLogBind(adg)
 	AuditBind(adg)
@@ -55,6 +56,11 @@ func Init(g *gin.Engine) {
 	DeviceGroupBind(adg)
 	//访问静态文件
 	//g.StaticFS("/upload", http.Dir(global.Config.Gin.ResourcesPath+"/upload"))
+}
+
+func PresenceBind(rg *gin.RouterGroup) {
+	group := rg.Group("/presence/v2").Use(middleware.SuperAdminPrivilege())
+	group.GET("/metrics", (&admin.Presence{}).Metrics)
 }
 
 func ServerControlBind(adg *gin.RouterGroup) {

@@ -9,6 +9,7 @@ import (
 )
 
 const retentionBatchSize = 1000
+const presenceLeaseRecordRetention = 24 * time.Hour
 
 // DataRetentionService bounds database growth without ever deleting an active
 // login token. Operators configure the durations in Platform Settings.
@@ -40,6 +41,16 @@ func (s *DataRetentionService) Cleanup(ctx context.Context, now time.Time) (map[
 		return nil, err
 	}
 	result := map[string]int64{}
+	result["presence_leases"] = 0
+	if DB.Migrator().HasTable(&model.PeerPresenceLease{}) {
+		leaseCutoff := now.Add(-presenceLeaseRecordRetention).Unix()
+		result["presence_leases"], err = deleteRetentionBatchesByColumn(ctx, &model.PeerPresenceLease{}, "row_id", func(tx *gorm.DB) *gorm.DB {
+			return tx.Where("expires_at < ?", leaseCutoff)
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
 	result["user_tokens"] = 0
 	if setting.UserTokenRetentionDays > 0 {
 		tokenCutoff := now.Add(-time.Duration(setting.UserTokenRetentionDays) * 24 * time.Hour).Unix()
@@ -84,18 +95,22 @@ func (s *DataRetentionService) Cleanup(ctx context.Context, now time.Time) (map[
 }
 
 func deleteRetentionBatches(ctx context.Context, value interface{}, where func(*gorm.DB) *gorm.DB) (int64, error) {
+	return deleteRetentionBatchesByColumn(ctx, value, "id", where)
+}
+
+func deleteRetentionBatchesByColumn(ctx context.Context, value interface{}, column string, where func(*gorm.DB) *gorm.DB) (int64, error) {
 	var deleted int64
 	for batch := 0; batch < 100; batch++ {
 		var ids []uint
-		query := DB.WithContext(ctx).Model(value).Select("id").Order("id ASC").Limit(retentionBatchSize)
+		query := DB.WithContext(ctx).Model(value).Select(column).Order(column + " ASC").Limit(retentionBatchSize)
 		query = where(query)
-		if err := query.Pluck("id", &ids).Error; err != nil {
+		if err := query.Pluck(column, &ids).Error; err != nil {
 			return deleted, err
 		}
 		if len(ids) == 0 {
 			return deleted, nil
 		}
-		result := DB.WithContext(ctx).Where("id IN ?", ids).Delete(value)
+		result := DB.WithContext(ctx).Where(column+" IN ?", ids).Delete(value)
 		if result.Error != nil {
 			return deleted, result.Error
 		}

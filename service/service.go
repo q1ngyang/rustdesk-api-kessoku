@@ -36,7 +36,8 @@ type Service struct {
 	*SystemSettingService
 	*GeoIPService
 	*DataRetentionService
-	NetworkPeerVerifier NetworkPeerVerifier
+	NetworkPeerVerifier       NetworkPeerVerifier
+	NetworkActivationVerifier NetworkActivationVerifier
 }
 
 type Dependencies struct {
@@ -62,7 +63,26 @@ func New(c *config.Config, g *gorm.DB, l *log.Logger, authManager *internalAuth.
 	Auth = authManager
 	Lock = lo
 	starryControl := NewStarryControlService(c, l, authManager)
-	AllService = &Service{StarryControlService: starryControl, NetworkPeerVerifier: starryControl, BrandingService: &BrandingService{}, TwoFactorService: NewTwoFactorService(c.TwoFactor), SystemSettingService: &SystemSettingService{}, GeoIPService: NewGeoIPService(c), DataRetentionService: &DataRetentionService{}}
+	AllService = &Service{StarryControlService: starryControl, NetworkPeerVerifier: starryControl, NetworkActivationVerifier: starryControl, BrandingService: &BrandingService{}, TwoFactorService: NewTwoFactorService(c.TwoFactor), SystemSettingService: &SystemSettingService{}, GeoIPService: NewGeoIPService(c), DataRetentionService: &DataRetentionService{}}
+	return AllService
+}
+
+// NewMaintenance wires only the database-backed services required by local
+// recovery commands and schema migration. It deliberately does not initialize
+// token keys, TOTP encryption, Starry clients, retention jobs, GeoIP, caches,
+// or network listeners.
+func NewMaintenance(c *config.Config, g *gorm.DB, l *log.Logger) *Service {
+	Config = c
+	DB = g
+	Logger = l
+	Auth = nil
+	Lock = nil
+	AllService = &Service{
+		UserService:       &UserService{},
+		GroupService:      &GroupService{},
+		AdminScopeService: &AdminScopeService{},
+		TwoFactorService:  NewTwoFactorService(c.TwoFactor),
+	}
 	return AllService
 }
 

@@ -1,17 +1,20 @@
 # Starry Control API provenance
 
 status: PINNED
-starry_tag: 1.1.16-patch-v1.2.2
+starry_tag: 1.1.16-patch-v1.3.0
 control_contract: control/v1
-config_schema: config/v3
-candidate_sha256: 6f7dd1bbf8c7616f5c693b5cd68aaf7893f0d477c63d9277a642b8d02426d5a2
-release_sha256: 6f7dd1bbf8c7616f5c693b5cd68aaf7893f0d477c63d9277a642b8d02426d5a2
-starry_source_commit: bc17da50fead2519c4859e7f483d8a1773821d44
-config_schema_sha256: 425c1bafe956a256caff5ad761731583d31b9eee067bad9341cc53211ea19df3
-config_ui_schema_sha256: a42e43ac58f840ddbe449c6938d825cf8890d52c0ce0ba0060630bff7fc83ff4
-image_index_sha256: e839b849137ab3a15b6c7dbe5f7be28c494137bc56cae939aa68ffa66215ae1b
-image_linux_amd64_sha256: 00bc1e321955a7bfb1452a3c3320b8791f836f77b6bab34180a1b143f0c3ee66
+config_schema: config/v4
+candidate_sha256: f148edbbb29997e1ac919ee7b2affd89ddeeecd47220384ac25406cf692f11bf
+release_sha256: f148edbbb29997e1ac919ee7b2affd89ddeeecd47220384ac25406cf692f11bf
+starry_source_commit: abf1dbcfdf7c4384f8c7ac34724089932a1bc58c
+config_schema_sha256: ef14cfde96ac514af9076fdd6e251acde63c7ea75f7275ea50720b55a83d1ec9
+config_ui_schema_sha256: b6e1cbd5f9db51bd0cfaf46b477c40958acb89702b4965efd89f57fb9aa7762e
+relay_quality_protocol_sha256: 19380d18aebf91a6856e43009291c79cf002d7c843b9fd7fa92c570916b2734c
+relay_telemetry_schema_sha256: 51ef258b5c95a6f3d57787a97d54cb4215bd2ee3b43aad94ca24d4917f2aa6b2
+image_index_sha256: b47f0080ca29892e4d8071d8e886445ed984b29c2397f05e43a17a20beca11c0
+image_linux_amd64_sha256: 8ddca7ee3289f3a59370bf78e4b27f353d426d1e109a9b84a314e505e5575c10
+release_summary_path: docs/releases/v3.0.7/STARRY-RELEASE-SUMMARY.json
+release_summary_sha256: 30c47d728dd996a7d401520997e8b97827d32179fa66a225bb359efbd56c1b36
 
-# Pinned from the published Starry release tag. The immutable tagged
-# contracts/control/v1/openapi.yaml matches the locally validated candidate.
-# Production builds must never download a moving branch.
+# Pinned byte-for-byte to the immutable Starry patch-v1.3.0 release summary.
+# The bundled summary is a release input and must match every digest above.

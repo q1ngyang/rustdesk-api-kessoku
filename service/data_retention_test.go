@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,7 +24,7 @@ func TestDataRetentionRemovesOnlyExpiredRecordsAndStarryAudit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := database.AutoMigrate(&model.SystemSetting{}, &model.UserToken{}, &model.LoginLog{}, &model.AuditConn{}, &model.AuditFile{}, &model.AdminAuditEvent{}); err != nil {
+	if err := database.AutoMigrate(&model.SystemSetting{}, &model.UserToken{}, &model.LoginLog{}, &model.AuditConn{}, &model.AuditFile{}, &model.AdminAuditEvent{}, &model.PeerPresenceLease{}); err != nil {
 		t.Fatal(err)
 	}
 	New(&config.Config{App: config.App{TokenExpire: 168 * time.Hour}}, database, logrus.New(), nil, lock.NewLocal())
@@ -44,6 +45,14 @@ func TestDataRetentionRemovesOnlyExpiredRecordsAndStarryAudit(t *testing.T) {
 		{UserId: 1, ExpiredAt: now.Add(24 * time.Hour).Unix(), RevokedAt: &revokedOld},
 	}
 	if err := database.Create(&rows).Error; err != nil {
+		t.Fatal(err)
+	}
+	leases := []model.PeerPresenceLease{
+		{LeaseID: "expired-history", PeerRowID: 1, NetworkIdentityUUID: "profile-a", ActivationEpoch: 1, ActivationID: "activation-a", TokenHash: strings.Repeat("a", 64), ExpiresAt: now.Add(-48 * time.Hour).Unix()},
+		{LeaseID: "recent-history", PeerRowID: 1, NetworkIdentityUUID: "profile-a", ActivationEpoch: 1, ActivationID: "activation-a", TokenHash: strings.Repeat("b", 64), ExpiresAt: now.Add(-time.Hour).Unix()},
+		{LeaseID: "active", PeerRowID: 1, NetworkIdentityUUID: "profile-a", ActivationEpoch: 1, ActivationID: "activation-a", TokenHash: strings.Repeat("c", 64), ExpiresAt: now.Add(time.Hour).Unix()},
+	}
+	if err := database.Create(&leases).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := database.Create(&model.LoginLog{TimeModel: model.TimeModel{CreatedAt: old}}).Error; err != nil {
@@ -67,18 +76,21 @@ func TestDataRetentionRemovesOnlyExpiredRecordsAndStarryAudit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if counts["user_tokens"] != 2 || counts["login_logs"] != 1 || counts["connection_logs"] != 1 || counts["file_logs"] != 0 || counts["control_audit"] != 1 {
+	if counts["presence_leases"] != 1 || counts["user_tokens"] != 2 || counts["login_logs"] != 1 || counts["connection_logs"] != 1 || counts["file_logs"] != 0 || counts["control_audit"] != 1 {
 		t.Fatalf("unexpected cleanup counts: %#v", counts)
 	}
-	var activeTokens, authAudit int64
+	var activeTokens, authAudit, retainedLeases int64
 	if err := database.Model(&model.UserToken{}).Count(&activeTokens).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := database.Model(&model.AdminAuditEvent{}).Where("target_type = ?", "auth_keyring").Count(&authAudit).Error; err != nil {
 		t.Fatal(err)
 	}
-	if activeTokens != 1 || authAudit != 1 {
-		t.Fatalf("active data was removed: tokens=%d auth_audit=%d", activeTokens, authAudit)
+	if err := database.Model(&model.PeerPresenceLease{}).Count(&retainedLeases).Error; err != nil {
+		t.Fatal(err)
+	}
+	if activeTokens != 1 || authAudit != 1 || retainedLeases != 2 {
+		t.Fatalf("active/recent data was removed: tokens=%d auth_audit=%d presence_leases=%d", activeTokens, authAudit, retainedLeases)
 	}
 }
 
