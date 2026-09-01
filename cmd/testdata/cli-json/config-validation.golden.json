@@ -1,0 +1,1 @@
+{"schema_version":1,"valid":true,"config_path":"/etc/kessoku/config.yaml","database_type":"sqlite","errors":[],"warnings":[{"field":"two-factor.key-file","code":"TWO_FACTOR_KEY_PENDING","message":"key will be created by full service startup"}]}

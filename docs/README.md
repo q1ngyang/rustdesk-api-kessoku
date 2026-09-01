@@ -15,6 +15,10 @@ purpose.
 - [Nginx and firewall](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Reverse-Proxy-and-Firewall)
 - [Container guide](deployment/CONTAINER.md)
 - [Browser-client configuration and limitations](deployment/WEB-CLIENT.md)
+- [Local S6 and recovery CLI](operations/LOCAL-MAINTENANCE-CLI.md)
+- [Presence Lease v2 operations and alerts](operations/PRESENCE-LEASE-V2.md)
+- [Adaptive Relay Quality control and compatibility](wiki/Starry-Control.md#adaptive-relay-quality)
+- [Project changelog](../CHANGELOG.md)
 
 ## Directory map
 
@@ -25,8 +29,9 @@ purpose.
 | [operations/](operations/) | Operator and rollback runbooks |
 | [security/](security/) | Security model and trust boundaries |
 | [releases/](releases/) | Release procedure, checklist, and migration history |
-| [releases/v3.0.6/](releases/v3.0.6/) | Current v3.0.6 release notes and migration guide |
-| [releases/v3.0.5/](releases/v3.0.5/) | Previous supported v3.0.5 release documents |
+| [releases/v3.0.7/](releases/v3.0.7/) | Current v3.0.7 release notes and migration guide |
+| [releases/v3.0.6/](releases/v3.0.6/) | Previous supported v3.0.6 release documents |
+| [releases/v3.0.5/](releases/v3.0.5/) | Earlier supported v3.0.5 release documents |
 | [releases/v3.0.4/](releases/v3.0.4/) | Failed, unpublished v3.0.4 candidate documents |
 | [releases/v3.0.3/](releases/v3.0.3/) | First supported v3 release documents |
 | [releases/v3.0.2/](releases/v3.0.2/) | Failed, unpublished v3.0.2 release-attempt documents |

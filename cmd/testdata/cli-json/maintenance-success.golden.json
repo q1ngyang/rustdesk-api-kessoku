@@ -1,0 +1,1 @@
+{"schema_version":1,"operation":"recover_admin","success":true,"request_id":"0191f6a0-0000-7000-8000-000000000401","user_id":7,"username":"recovered-user","auth_version":9,"password_reset":true,"two_factor_reset":true,"two_factor_was_configured":true,"login_challenges_cleared":1,"scopes_cleared":2,"sessions_revoked":3}

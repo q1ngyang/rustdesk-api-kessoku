@@ -42,7 +42,7 @@
         <el-table-column prop="last_online_time" :label="T('LastOnlineTime')" align="center" width="140">
           <template #default="{row}">
             <div class="last_oline_time">
-              <span> {{ row.last_online_time ? timeAgo(row.last_online_time * 1000) : '-' }}</span> <span class="dot" :class="{red: timeDis(row.last_online_time) >= 60, green: timeDis(row.last_online_time)< 60}"></span>
+              <span> {{ row.last_online_time ? timeAgo(row.last_online_time * 1000) : '-' }}</span> <span class="dot" :class="{red: !row.online, green: row.online}"></span>
             </div>
           </template>
         </el-table-column>
@@ -264,12 +264,6 @@
     Object.keys(formData).forEach(key => {
       formData[key] = row[key]
     })
-  }
-
-  const timeDis = (time) => {
-    let now = new Date().getTime()
-    let after = new Date(time * 1000).getTime()
-    return (now - after) / 1000
   }
 
   const timeFilters = computed(() => [

@@ -141,3 +141,37 @@ type PeerInfoInHeartbeat struct {
 	Uuid string `json:"uuid"`
 	Ver  int    `json:"ver"`
 }
+
+type PresenceLeaseRequest struct {
+	Id string `json:"id"`
+	// Uuid is the profile-scoped network_identity_uuid encoded as standard
+	// base64. A client-local profile_id is intentionally not part of this API.
+	Uuid            string   `json:"uuid"`
+	ActivationEpoch uint64   `json:"activation_epoch"`
+	ActivationID    string   `json:"activation_id"`
+	RouteLeases     []string `json:"route_leases"`
+	LeaseID         string   `json:"lease_id"`
+	LeaseToken      string   `json:"lease_token"`
+}
+
+// PresenceStartRequest documents the authenticated activation proof accepted
+// by start and deactivate. It deliberately has no client-local profile_id.
+type PresenceStartRequest struct {
+	Id              string   `json:"id" binding:"required"`
+	Uuid            string   `json:"uuid" binding:"required" description:"Profile-scoped network_identity_uuid encoded as canonical standard base64"`
+	ActivationEpoch uint64   `json:"activation_epoch" binding:"required"`
+	ActivationID    string   `json:"activation_id" binding:"required" description:"Canonical standard-base64 client random activation ID"`
+	RouteLeases     []string `json:"route_leases" binding:"required" description:"Current Starry route proofs"`
+}
+
+// PresenceLeaseMutationRequest documents renew and end. lease_token is always
+// required. New clients also return lease_id; token-only exact selection is
+// accepted only for the first Presence v2 client build.
+type PresenceLeaseMutationRequest struct {
+	Id              string `json:"id" binding:"required"`
+	Uuid            string `json:"uuid" binding:"required" description:"Profile-scoped network_identity_uuid encoded as canonical standard base64"`
+	ActivationEpoch uint64 `json:"activation_epoch" binding:"required"`
+	ActivationID    string `json:"activation_id" binding:"required"`
+	LeaseID         string `json:"lease_id" description:"Opaque lease ID returned by start; required for new clients"`
+	LeaseToken      string `json:"lease_token" binding:"required" description:"Opaque bearer token returned by start"`
+}

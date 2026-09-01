@@ -8,7 +8,7 @@ open-source browser remote-desktop MVP, and integrates with
 [`rustdesk-server-starry`](https://github.com/q1ngyang/rustdesk-server-starry)
 through a typed, versioned Control API.
 
-> **v3.0.6 stable release.** v3.0.3 was the first supported v3 release. The
+> **v3.0.7 stable release.** v3.0.3 was the first supported v3 release. The
 > earlier v3.0.1 Release was withdrawn after significant integration defects.
 > The v3.0.2 tag records an unpublished release attempt and has no supported
 > Release assets or container image; v3.0.4 likewise remains an unpublished
@@ -36,11 +36,25 @@ Docker socket, or browser-supplied file path. Its browser client is repository-
 owned source; historical WebClient2/V2 and `resources/web*` assets remain
 excluded.
 
-## v3.0.6 highlights
+## v3.0.7 highlights
 
+- Stable local S6/operator CLI for side-effect-free `version --json` and
+  `config validate`, read-only `database status`, and explicit locked
+  `database migrate`.
+- Transactional, local-only `recover-admin` and `reset-2fa` operations with
+  exact username confirmation, security audit, one authentication-generation
+  rotation, and complete active-session revocation.
+- Database schema advances from 312 to 313. SQLite, MySQL, and PostgreSQL
+  serialize migrations, preflight duplicate device IDs, and reject databases
+  newer than the binary before application services or key generation start.
+- Presence Lease v2 keeps fast multi-profile switching race-safe: each
+  profile uses its own network identity UUID, online state is the aggregate of
+  valid 45-second leases, and delayed old activation requests cannot end a new
+  activation. The legacy heartbeat API remains available unchanged.
 - Secure automatic device discovery: active native sessions claim signed-in
-  clients, while Starry patch-v1.2.2 privately verifies the exact ID/UUID of
-  network clients that are not signed in. Complete inventory refreshes on
+  clients, Starry patch-v1.2.2 privately verifies the exact ID/UUID of network
+  clients that are not signed in, and patch-v1.3.0 capability 2 additionally
+  verifies Presence activation routes. Complete inventory refreshes on
   client startup/change and through a 24-hour heartbeat fallback, including
   every matching address-book reference.
 
@@ -67,11 +81,11 @@ excluded.
 - SQLite, MySQL, and PostgreSQL migration support; external MySQL/PostgreSQL
   connections require certificate- and hostname-verified TLS.
 - Docker `linux/amd64`, Linux x86_64 archive/binary, and amd64 DEB as the
-  v3.0.6 release scope. ARM remains best-effort and non-blocking.
+  v3.0.7 release scope. ARM remains best-effort and non-blocking.
 
 > **Upgrade notice:** v3 changes the Go module path to `/v3` and database role
-> semantics and upgrades the database to schema version 312. Read the
-> [breaking changes](docs/releases/v3.0.6/RELEASE-NOTES-v3.0.6.md#compatibility-and-upgrade-notes)
+> semantics and upgrades the database to schema version 313. Read the
+> [compatibility and upgrade notes](docs/releases/v3.0.7/RELEASE-NOTES-v3.0.7.md#safety-and-compatibility)
 > before upgrading.
 
 ## Recommended deployment
@@ -80,7 +94,7 @@ Docker Compose on Linux amd64 is the recommended deployment. Use the immutable
 version tag and then record the resolved digest in your deployment:
 
 ```sh
-docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.6
+docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.7
 cp examples/compose.env.example .env
 cp examples/config.docker-builtin.yaml config.yaml
 # Edit .env/config.yaml and provision the referenced signing key first.
@@ -92,7 +106,7 @@ The Compose default binds API port 21114 and Web Client port 21122 to
 `127.0.0.1`. Publish them through two distinct reviewed HTTPS origins; see
 [`examples/Caddyfile.example`](examples/Caddyfile.example). The release also
 publishes `latest` for users who intentionally track the newest stable build,
-while production rollback should pin the `v3.0.6` digest.
+while production rollback should pin the `v3.0.7` digest.
 The exact `relay-wss-urls` map lives in mounted YAML, not an environment
 variable; follow the detailed Docker guide before startup.
 
@@ -119,6 +133,8 @@ operations, security, release history, and developer references.
 | Browser client deployment and exclusions | [Web Client](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Web-Client) |
 | Deployment hardening | [Security configuration](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Security-Finding-Closure) |
 | Backups and routine checks | [Operations and verification](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Operations-and-Verification) |
+| Local S6/maintenance CLI | [Local maintenance CLI](docs/operations/LOCAL-MAINTENANCE-CLI.md) |
+| Multi-profile presence leases | [Presence Lease v2 operations](docs/operations/PRESENCE-LEASE-V2.md) |
 | Upgrade and rollback | [Upgrade and rollback](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Upgrade-and-Rollback) |
 | Failure diagnosis | [Troubleshooting](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Troubleshooting) |
 | 中文文档 | [中文文档主页](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Home) |
@@ -129,9 +145,10 @@ those pages to GitHub Wiki is a separate release-owner action.
 ## Release status
 
 The authoritative gate is [`RELEASE_STATUS`](RELEASE_STATUS), with evidence
-requirements in [`RELEASE-CHECKLIST.md`](docs/releases/RELEASE-CHECKLIST.md). The v3.0.6
+requirements in [`RELEASE-CHECKLIST.md`](docs/releases/RELEASE-CHECKLIST.md). The v3.0.7
 feature and compatibility notes are in
-[`RELEASE-NOTES-v3.0.6.md`](docs/releases/v3.0.6/RELEASE-NOTES-v3.0.6.md).
+[`RELEASE-NOTES-v3.0.7.md`](docs/releases/v3.0.7/RELEASE-NOTES-v3.0.7.md).
+Version-by-version summaries are in the [English changelog](CHANGELOG.md).
 
 Local development checks are not permission to publish. Tagging, pushing,
 GHCR publication, GitHub Release creation, and Wiki publication require

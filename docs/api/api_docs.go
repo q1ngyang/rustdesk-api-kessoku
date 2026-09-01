@@ -1106,6 +1106,258 @@ const docTemplateapi = `{
                 }
             }
         },
+        "/presence/v2/deactivate": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "System"
+                ],
+                "summary": "Retire a presence activation",
+                "parameters": [
+                    {
+                        "description": "Active route proof",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceStartRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/presence/v2/end": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "System"
+                ],
+                "summary": "End a presence lease",
+                "parameters": [
+                    {
+                        "description": "Exact lease proof including lease_token",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseMutationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/presence/v2/renew": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "System"
+                ],
+                "summary": "Renew a presence lease",
+                "parameters": [
+                    {
+                        "description": "Exact lease proof",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseMutationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    },
+                    "410": {
+                        "description": "Gone",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/presence/v2/start": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "System"
+                ],
+                "summary": "Start a presence lease",
+                "parameters": [
+                    {
+                        "description": "Network identity and active route proof",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceStartRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/api.PresenceLeaseResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/sysinfo": {
             "post": {
                 "description": "提交系统信息",
@@ -1458,6 +1710,104 @@ const docTemplateapi = `{
                     "type": "string"
                 },
                 "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.PresenceLeaseMutationRequest": {
+            "type": "object",
+            "required": [
+                "activation_epoch",
+                "activation_id",
+                "id",
+                "lease_token",
+                "uuid"
+            ],
+            "properties": {
+                "activation_epoch": {
+                    "type": "integer"
+                },
+                "activation_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "lease_id": {
+                    "type": "string"
+                },
+                "lease_token": {
+                    "type": "string"
+                },
+                "uuid": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.PresenceLeaseResponse": {
+            "type": "object",
+            "properties": {
+                "accepted": {
+                    "type": "boolean"
+                },
+                "activation_epoch": {
+                    "type": "integer"
+                },
+                "activation_id": {
+                    "type": "string"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "integer"
+                },
+                "expires_in": {
+                    "type": "integer"
+                },
+                "lease_id": {
+                    "type": "string"
+                },
+                "lease_token": {
+                    "type": "string"
+                },
+                "online_until": {
+                    "type": "integer"
+                },
+                "presence_v2": {
+                    "type": "boolean"
+                },
+                "sysinfo": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "api.PresenceStartRequest": {
+            "type": "object",
+            "required": [
+                "activation_epoch",
+                "activation_id",
+                "id",
+                "route_leases",
+                "uuid"
+            ],
+            "properties": {
+                "activation_epoch": {
+                    "type": "integer"
+                },
+                "activation_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "route_leases": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "uuid": {
                     "type": "string"
                 }
             }

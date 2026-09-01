@@ -54,6 +54,33 @@ func TestEveryServerControlRouteRequiresAdmin(t *testing.T) {
 	}
 }
 
+func TestPresenceMetricsRouteRequiresSuperAdmin(t *testing.T) {
+	oldServices := service.AllService
+	oldLocalizer := global.Localizer
+	t.Cleanup(func() {
+		service.AllService = oldServices
+		global.Localizer = oldLocalizer
+	})
+	service.AllService = &service.Service{UserService: &service.UserService{}}
+	bundle := i18n.NewBundle(language.English)
+	_ = bundle.AddMessages(language.English, &i18n.Message{ID: "NoAccess", Other: "no access"})
+	global.Localizer = func(string) *i18n.Localizer { return i18n.NewLocalizer(bundle, "en") }
+
+	engine := gin.New()
+	group := engine.Group("/api/admin")
+	group.Use(func(c *gin.Context) {
+		c.Set("curUser", &model.User{Role: model.UserRoleAdmin})
+		c.Next()
+	})
+	PresenceBind(group)
+
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/admin/presence/v2/metrics", nil))
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("scoped administrator metrics status = %d, want %d", recorder.Code, http.StatusForbidden)
+	}
+}
+
 func TestLegacyServerCommandsAreNotRegisteredByDefault(t *testing.T) {
 	oldConfig := global.Config
 	t.Cleanup(func() { global.Config = oldConfig })

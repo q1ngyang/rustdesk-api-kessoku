@@ -22,6 +22,47 @@ Kessoku 可以通过可选的 Starry 管理代理，在管理后台查看单台 
 它不提供 shell、任意命令、任意 URL、Docker Socket、systemd 控制、通用文件读写或跳过
 版本检查的强制覆盖。
 
+## Adaptive Relay Quality
+
+Kessoku 只根据 Starry Control v1 capability 协商 Relay Quality。当前 adaptive 契约由
+`relay_quality: 1` 标识，Relay 清单会在 `quality.protocol_version: 1` 再次报告已冻结的
+wire 版本；Kessoku 不根据 Starry 或 HBBR 的版本字符串猜测支持情况。
+
+| Starry 响应 | Kessoku 行为 |
+| --- | --- |
+| patch-v1.2 capability 中没有 `relay_quality` | 旧 Relay 清单继续可用，质量字段明确显示为“**不支持**”。 |
+| `relay_quality: 1` 且包含协议、候选与新鲜度字段 | 校验并展示 adaptive/eager 的脱敏聚合状态。 |
+| 已声明质量 capability，但缺少必填状态或数值越界 | 将其作为无效上游契约拒绝，不展示不完整数据。 |
+| 新增的未知 JSON 字段 | 忽略且不从 Kessoku 强类型响应中反射出去。 |
+| 已知 capability 出现尚不支持的版本 | 关闭失败，直到 Kessoku 明确支持该版本。 |
+
+管理页面展示当前策略和协议、primary accepted 与 expansion triggered 比例、P2P 取消数、
+预计节省探测次数、timeout/invalid/late 计数、固定的回退原因聚合，以及每个 Relay 明确上报
+的探测/负载协议、遥测新鲜度和质量候选状态。页面不会渲染单次客户端报告、nonce、
+allocation/session UUID、完整客户端 IP 或连接令牌。
+
+配置继续完全由 schema 驱动。Kessoku 渲染 `/control/v1/config/schema` 返回的原始 JSON
+Schema 与 UI Schema，不另外保存一套 Relay Quality 字段规范；本地化帮助只解释
+adaptive/eager、primary samples、accept score、loss gate 和 P2P grace，最终校验仍以 Starry
+为准。所有变更必须经过 `validate -> plan -> apply -> generation ACK`。冻结的 patch-v1.3
+分类器保证所有 `/relay_quality` 变更至少为 `medium`；如果旧版或不符合契约的 Agent 返回
+`low`，Kessoku 仍会保留防御性的 `medium` 下限，且不改变服务端签发的 plan ID 与
+candidate digest。
+
+当 Starry 明确把 Relay 遥测标为过期，或 Relay Quality 已启用但当前没有质量候选时，页面
+会显示状态告警。timeout、invalid/late 报告和回退原因是累计快照；应按部署基线监控其增量
+或速率，不应自行设定一个伪造的绝对门槛。告警不包含单次客户端报告或高基数 allocation
+数据。
+
+Allocation Simulation 必须明确标为 non-binding。它可以展示匹配的 GEO 规则、GEO primary、
+候选顺序、传输资格和可能的 adaptive/eager 流程，但没有真实客户端探测数据，不能解释为
+最终质量分、最终 Relay 选择或预测客户端 RTT。
+
+发布包含 adaptive 支持的 Kessoku 前，必须先把完全相同的 Starry 契约发布到不可变标签，
+把 `internal/starrycontrol/CONTRACT_VERSION` 从 `LOCAL_CANDIDATE_VALIDATED` 改为 `PINNED`，
+记录匹配的 release digest，并重跑跨仓库与真实实例测试。移动分支或 dirty Starry 工作区不能
+作为发布依据。
+
 ## 安全结构
 
 ```text

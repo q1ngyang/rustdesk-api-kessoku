@@ -1,0 +1,32 @@
+schema: 1
+component: kessoku
+version: 3.0.7
+database_schema:
+  from: [312]
+  to: 313
+upgrade_from:
+  - 3.0.6
+schema_migration: additive
+data_migration: none
+downgrade:
+  to: 3.0.6
+  mode: restore-only
+requires:
+  starry: ">=1.1.16-patch-v1.2.2"
+  starry_peer_registry_capability: 1
+maintenance_capabilities:
+  - version-json
+  - config-validate
+  - database-status
+  - database-migrate
+  - recover-admin
+  - reset-two-factor
+runtime_capabilities:
+  - presence-lease-v2
+  - legacy-heartbeat
+presence_lease_v2:
+  ttl_seconds: 45
+  token_storage: sha256-only
+  metrics_path: /api/admin/presence/v2/metrics
+  starry: ">=1.1.16-patch-v1.3.0"
+  starry_peer_registry_capability: 2

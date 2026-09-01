@@ -22,6 +22,10 @@ type NetworkPeerVerifier interface {
 	VerifyPeerIdentity(context.Context, string, string) (bool, error)
 }
 
+type NetworkActivationVerifier interface {
+	VerifyPeerActivation(context.Context, string, string, uint64, string, []string) (bool, error)
+}
+
 type PeerService struct {
 }
 
@@ -29,6 +33,12 @@ type PeerService struct {
 func (ps *PeerService) FindById(id string) *model.Peer {
 	p := &model.Peer{}
 	DB.Where("id = ?", utils.NormalizeRustDeskID(id)).First(p)
+	return p
+}
+
+func (ps *PeerService) FindByIdentity(id, uuid string) *model.Peer {
+	p := &model.Peer{}
+	DB.Where("id = ? AND uuid = ?", utils.NormalizeRustDeskID(id), uuid).First(p)
 	return p
 }
 
@@ -45,6 +55,7 @@ func (ps *PeerService) FindByUuid(uuid string) *model.Peer {
 func (ps *PeerService) InfoByRowId(id uint) *model.Peer {
 	p := &model.Peer{}
 	DB.Where("row_id = ?", id).First(p)
+	p.Online = ps.IsOnlineAt(p, time.Now().Unix())
 	return p
 }
 
@@ -63,10 +74,11 @@ func (ps *PeerService) ResolveReportIdentity(ctx context.Context, deviceID, uuid
 	if deviceID == "" || uuid == "" {
 		return nil, ErrPeerIdentityUnverified
 	}
-	peer := ps.FindById(deviceID)
-	if peer.RowId > 0 && peer.Uuid == uuid {
-		return peer, nil
+	exact := ps.FindByIdentity(deviceID, uuid)
+	if exact.RowId > 0 {
+		return exact, nil
 	}
+	peer := ps.FindById(deviceID)
 
 	now := time.Now().Unix()
 	userID := uint(0)
@@ -77,7 +89,7 @@ func (ps *PeerService) ResolveReportIdentity(ctx context.Context, deviceID, uuid
 	// administrator placeholder. It cannot overwrite a conflicting UUID.
 	if userID > 0 && (peer.RowId == 0 || peer.Uuid == "") {
 		if err := ps.BindLoginIdentity(deviceID, uuid, userID); err == nil {
-			resolved := ps.FindById(deviceID)
+			resolved := ps.FindByIdentity(deviceID, uuid)
 			if resolved.RowId > 0 && resolved.Uuid == uuid && resolved.UserId == userID {
 				return resolved, nil
 			}
@@ -94,7 +106,7 @@ func (ps *PeerService) ResolveReportIdentity(ctx context.Context, deviceID, uuid
 	if err := ps.BindRegistryIdentity(deviceID, uuid, userID); err != nil {
 		return nil, err
 	}
-	resolved := ps.FindById(deviceID)
+	resolved := ps.FindByIdentity(deviceID, uuid)
 	if resolved.RowId == 0 || resolved.Uuid != uuid {
 		return nil, ErrPeerIdentityUnverified
 	}
@@ -161,9 +173,9 @@ func (ps *PeerService) BindLoginIdentity(deviceID, uuid string, userID uint) err
 }
 
 // BindRegistryIdentity reconciles Kessoku with the authoritative Starry
-// rendezvous identity. If an ID now belongs to a different UUID, stale dynamic
-// inventory and ownership are cleared unless a valid native login claims the
-// newly verified identity.
+// rendezvous identity. An established non-empty UUID is immutable for a device
+// ID: a different profile identity must never inherit that row's inventory,
+// account ownership, or presence.
 func (ps *PeerService) BindRegistryIdentity(deviceID, uuid string, userID uint) error {
 	deviceID = utils.NormalizeRustDeskID(deviceID)
 	if deviceID == "" || uuid == "" {
@@ -193,25 +205,25 @@ func (ps *PeerService) BindRegistryIdentity(deviceID, uuid string, userID uint) 
 			if byUUID != nil && byUUID.RowId != byID.RowId {
 				return ErrPeerIdentityConflict
 			}
+			if byID.Uuid != "" && byID.Uuid != uuid {
+				return ErrPeerIdentityConflict
+			}
+			if byID.UserId != 0 && userID != 0 && byID.UserId != userID {
+				return ErrPeerIdentityConflict
+			}
 			updates := map[string]interface{}{
 				"uuid": uuid, "identity_source": model.PeerIdentitySourceStarry,
 				"identity_verified_at": verifiedAt,
 			}
-			if byID.Uuid != "" && byID.Uuid != uuid {
-				updates["cpu"] = ""
-				updates["hostname"] = ""
-				updates["memory"] = ""
-				updates["os"] = ""
-				updates["username"] = ""
-				updates["version"] = ""
-				updates["last_sysinfo_time"] = int64(0)
-				updates["user_id"] = userID
-			} else if userID > 0 {
+			if userID > 0 {
 				updates["user_id"] = userID
 			}
 			return tx.Model(byID).Updates(updates).Error
 		}
 		if byUUID != nil {
+			if byUUID.UserId != 0 && userID != 0 && byUUID.UserId != userID {
+				return ErrPeerIdentityConflict
+			}
 			updates := map[string]interface{}{
 				"id": deviceID, "identity_source": model.PeerIdentitySourceStarry,
 				"identity_verified_at": verifiedAt,
@@ -303,6 +315,7 @@ func (ps *PeerService) ListByUserIds(userIds []uint, page, pageSize uint) (res *
 	tx.Count(&res.Total)
 	tx.Scopes(Paginate(page, pageSize))
 	tx.Find(&res.Peers)
+	ps.populateOnline(res.Peers, time.Now().Unix())
 	return
 }
 
@@ -317,6 +330,7 @@ func (ps *PeerService) List(page, pageSize uint, where func(tx *gorm.DB)) (res *
 	tx.Count(&res.Total)
 	tx.Scopes(Paginate(page, pageSize))
 	tx.Find(&res.Peers)
+	ps.populateOnline(res.Peers, time.Now().Unix())
 	return
 }
 
@@ -351,6 +365,9 @@ func (ps *PeerService) Delete(u *model.Peer) error {
 	}
 	defer tx.Rollback()
 	if err := AllService.AdminScopeService.RemoveResourceScopes(tx, model.AdminScopeTypePeer, []uint{u.RowId}); err != nil {
+		return err
+	}
+	if err := tx.Where("peer_row_id = ?", u.RowId).Delete(&model.PeerPresenceLease{}).Error; err != nil {
 		return err
 	}
 	if err := tx.Delete(u).Error; err != nil {
@@ -393,6 +410,9 @@ func (ps *PeerService) BatchDelete(ids []uint) error {
 	if err := AllService.AdminScopeService.RemoveResourceScopes(tx, model.AdminScopeTypePeer, ids); err != nil {
 		return err
 	}
+	if err := tx.Where("peer_row_id in (?)", ids).Delete(&model.PeerPresenceLease{}).Error; err != nil {
+		return err
+	}
 	if err := tx.Where("row_id in (?)", ids).Delete(&model.Peer{}).Error; err != nil {
 		return err
 	}
@@ -409,4 +429,10 @@ func (ps *PeerService) Update(u *model.Peer) error {
 		u.Id = utils.NormalizeRustDeskID(u.Id)
 	}
 	return DB.Model(u).Updates(u).Error
+}
+
+func (ps *PeerService) populateOnline(peers []*model.Peer, now int64) {
+	for _, peer := range peers {
+		peer.Online = ps.IsOnlineAt(peer, now)
+	}
 }

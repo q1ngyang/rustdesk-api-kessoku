@@ -65,6 +65,58 @@ def main() -> int:
         if not (release_dir / name).is_file():
             errors.append(f"missing release document: docs/releases/{tag}/{name}")
 
+    migration = release_dir / "migration.yaml"
+    if not migration.is_file():
+        errors.append(f"missing release metadata: docs/releases/{tag}/migration.yaml")
+    else:
+        body = migration.read_text(encoding="utf-8")
+        required_metadata = (
+            "schema: 1\n",
+            "component: kessoku\n",
+            f"version: {version}\n",
+            "  from: [312]\n",
+            "  to: 313\n",
+            "  - 3.0.6\n",
+            "  to: 3.0.6\n",
+            "  mode: restore-only\n",
+            '  starry: ">=1.1.16-patch-v1.2.2"\n',
+            "  starry_peer_registry_capability: 1\n",
+            '  starry: ">=1.1.16-patch-v1.3.0"\n',
+            "  starry_peer_registry_capability: 2\n",
+        )
+        for required in required_metadata:
+            if required not in body:
+                errors.append(
+                    f"docs/releases/{tag}/migration.yaml is missing {required.strip()!r}"
+                )
+        capabilities = {
+            line.removeprefix("  - ")
+            for line in body.splitlines()
+            if line.startswith("  - ")
+        }
+        expected_capabilities = {
+            "version-json",
+            "config-validate",
+            "database-status",
+            "database-migrate",
+            "recover-admin",
+            "reset-two-factor",
+            "presence-lease-v2",
+        }
+        if not expected_capabilities.issubset(capabilities):
+            errors.append(
+                f"docs/releases/{tag}/migration.yaml capabilities are incomplete"
+            )
+
+    for path in (
+        ROOT / "CHANGELOG.md",
+        ROOT / "CHANGELOG.zh-CN.md",
+        ROOT / "docs/operations/LOCAL-MAINTENANCE-CLI.md",
+        ROOT / "docs/operations/LOCAL-MAINTENANCE-CLI.zh-CN.md",
+    ):
+        if not path.is_file():
+            errors.append(f"missing release support document: {path.relative_to(ROOT)}")
+
     first_changelog_line = (ROOT / "debian/changelog").read_text(
         encoding="utf-8"
     ).splitlines()[0]

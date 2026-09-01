@@ -10,7 +10,11 @@ import (
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/starrycontrol"
 )
 
-const realAgentCandidate = "version: 3\nrelay_servers:\n  - relay-kessoku-e2e.example.test:21117\n"
+const (
+	realAgentLegacyCandidate   = "version: 3\nrelay_servers:\n  - relay-kessoku-e2e.example.test:21117\n"
+	realAgentAdaptiveCandidate = "version: 4\nrelay_servers:\n  - relay-kessoku-e2e.example.test:21117\nrelay_quality:\n  enabled: false\n  strategy: adaptive\n"
+	realAgentEagerCandidate    = "version: 4\nrelay_servers:\n  - relay-kessoku-e2e.example.test:21117\nrelay_quality:\n  enabled: false\n  strategy: eager\n"
+)
 
 // TestRealStarryAgentProviderE2E is intentionally environment-gated. Starry's
 // integration harness starts real HBBS and Control Agent processes, provisions
@@ -54,8 +58,23 @@ func TestRealStarryAgentProviderE2E(t *testing.T) {
 	})
 
 	capabilities, err := provider.Capabilities(ctx)
-	if err != nil || capabilities.Instance.ID != instanceID || capabilities.Capabilities.ConfigTransaction != 1 {
+	if err != nil || capabilities.Instance.ID != instanceID || capabilities.Capabilities.ConfigTransaction != 1 || capabilities.Capabilities.PeerRegistry < 1 {
 		t.Fatalf("capabilities = %+v, err=%v", capabilities, err)
+	}
+	if capabilities.Capabilities.RelayQuality == 1 && capabilities.Capabilities.PeerRegistry != 2 {
+		t.Fatalf("Relay Quality-capable server must expose peer_registry=2: %+v", capabilities.Capabilities)
+	}
+	if capabilities.Capabilities.PeerRegistry >= 2 {
+		verification, err := provider.VerifyPeer(ctx, starrycontrol.PeerIdentityInput{
+			ID:              "301132036",
+			UUID:            "AQEBAQEBAQEBAQEBAQEBAQ==",
+			ActivationEpoch: 1,
+			ActivationID:    "AgICAgICAgICAgICAgICAg==",
+			RouteLeases:     []string{"AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM="},
+		})
+		if err != nil || verification.InstanceID != instanceID || verification.Registered {
+			t.Fatalf("unknown peer verification = %+v, err=%v", verification, err)
+		}
 	}
 	status, err := provider.Status(ctx)
 	if err != nil || !status.Ready || status.Config.Status != "active" {
@@ -88,36 +107,73 @@ func TestRealStarryAgentProviderE2E(t *testing.T) {
 	if err != nil || invalid.Valid || len(invalid.Diagnostics) == 0 {
 		t.Fatalf("invalid validation = %+v, err=%v", invalid, err)
 	}
-	valid, err := provider.ValidateConfig(ctx, starrycontrol.ConfigCandidate{Document: realAgentCandidate, Format: "yaml"})
-	if err != nil || !valid.Valid || valid.SourceDigest == nil {
-		t.Fatalf("valid validation = %+v, err=%v", valid, err)
+	candidates := []struct {
+		document       string
+		idempotencyKey string
+		strategy       string
+	}{
+		{realAgentLegacyCandidate, "kessoku-e2e-apply-0001", ""}, // gitleaks:allow -- deterministic non-secret test key
 	}
-
-	plan, err := provider.PlanConfig(ctx, starrycontrol.ConfigCandidate{
-		Document: realAgentCandidate,
-		Format:   "yaml",
-		BaseETag: initial.ETag,
-	})
-	if err != nil {
-		t.Fatal(err)
+	if capabilities.Capabilities.RelayQuality == 1 {
+		candidates = []struct {
+			document       string
+			idempotencyKey string
+			strategy       string
+		}{
+			{realAgentAdaptiveCandidate, "kessoku-e2e-apply-adaptive-0001", "adaptive"}, // gitleaks:allow -- deterministic non-secret test key
+			{realAgentEagerCandidate, "kessoku-e2e-apply-eager-0001", "eager"},          // gitleaks:allow -- deterministic non-secret test key
+		}
 	}
-	accepted, err := provider.ApplyConfig(ctx, starrycontrol.ApplyRequest{
-		PlanID:          plan.PlanID,
-		CandidateDigest: plan.CandidateDigest,
-		IfMatch:         initial.ETag,
-		IdempotencyKey:  "kessoku-e2e-apply-0001", // gitleaks:allow -- deterministic non-secret test key
-		Comment:         "Kessoku provider cross-repository E2E",
-	})
-	if err != nil || accepted.State != "pending" {
-		t.Fatalf("accepted apply = %+v, err=%v", accepted, err)
-	}
-	applied := waitForRealAgentOperation(t, ctx, provider, accepted.ID)
-	if applied.State != "succeeded" || applied.ActivationAck == nil || applied.ActivationAck.SourceDigest != plan.CandidateDigest {
-		t.Fatalf("completed apply = %+v", applied)
-	}
-	current, err := provider.GetConfig(ctx)
-	if err != nil || current.Document != realAgentCandidate {
-		t.Fatalf("applied config = %+v, err=%v", current, err)
+	current := initial
+	for _, candidate := range candidates {
+		valid, err := provider.ValidateConfig(ctx, starrycontrol.ConfigCandidate{Document: candidate.document, Format: "yaml"})
+		if err != nil || !valid.Valid || valid.SourceDigest == nil {
+			t.Fatalf("valid validation = %+v, err=%v", valid, err)
+		}
+		plan, err := provider.PlanConfig(ctx, starrycontrol.ConfigCandidate{
+			Document: candidate.document,
+			Format:   "yaml",
+			BaseETag: current.ETag,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if candidate.strategy != "" && plan.Impact.Risk != "medium" {
+			t.Fatalf("Relay Quality plan risk = %q, want medium", plan.Impact.Risk)
+		}
+		accepted, err := provider.ApplyConfig(ctx, starrycontrol.ApplyRequest{
+			PlanID:          plan.PlanID,
+			CandidateDigest: plan.CandidateDigest,
+			IfMatch:         current.ETag,
+			IdempotencyKey:  candidate.idempotencyKey,
+			Comment:         "Kessoku provider cross-repository E2E",
+		})
+		if err != nil || accepted.State != "pending" {
+			t.Fatalf("accepted apply = %+v, err=%v", accepted, err)
+		}
+		applied := waitForRealAgentOperation(t, ctx, provider, accepted.ID)
+		if applied.State != "succeeded" || applied.ActivationAck == nil || applied.ActivationAck.SourceDigest != plan.CandidateDigest {
+			t.Fatalf("completed apply = %+v", applied)
+		}
+		if candidate.strategy != "" && (applied.ActivationAck.SchemaVersion != 4 ||
+			applied.ActivationAck.Generation <= current.Generation) {
+			t.Fatalf("Relay Quality activation ACK = %+v", applied.ActivationAck)
+		}
+		for _, subsystem := range applied.ActivationAck.SubsystemAcks {
+			if !subsystem.Accepted {
+				t.Fatalf("activation subsystem rejected = %+v", subsystem)
+			}
+		}
+		current, err = provider.GetConfig(ctx)
+		if err != nil || current.Document != candidate.document {
+			t.Fatalf("applied config = %+v, err=%v", current, err)
+		}
+		if candidate.strategy != "" {
+			inventory, err := provider.Relays(ctx)
+			if err != nil || inventory.Quality == nil || inventory.Quality.Strategy != candidate.strategy {
+				t.Fatalf("applied Relay Quality strategy = %+v, err=%v", inventory.Quality, err)
+			}
+		}
 	}
 
 	history, err := provider.ConfigHistory(ctx)

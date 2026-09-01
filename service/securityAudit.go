@@ -90,6 +90,22 @@ func finishSecurityAudit(event *model.AdminAuditEvent, operationErr error, failu
 	return nil
 }
 
+func finishSecurityAuditSuccessTx(tx *gorm.DB, event *model.AdminAuditEvent) error {
+	if tx == nil || event == nil || event.Id == 0 {
+		return errors.New("security audit intent is unavailable")
+	}
+	result := tx.Model(&model.AdminAuditEvent{}).
+		Where("id = ? AND result = ?", event.Id, "intent").
+		Updates(map[string]interface{}{"result": "success", "error_code": ""})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return errors.New("security audit intent could not be completed")
+	}
+	return nil
+}
+
 func finalizeSecurityAudit(event *model.AdminAuditEvent, operationErr *error, failureCode string) {
 	if operationErr == nil {
 		return

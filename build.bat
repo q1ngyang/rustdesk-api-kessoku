@@ -27,10 +27,20 @@ go run github.com/swaggo/swag/cmd/swag@v1.16.6 init -g cmd/apimain.go --output d
 if errorlevel 1 exit /b 1
 go run github.com/swaggo/swag/cmd/swag@v1.16.6 init -g cmd/apimain.go --output docs/admin --instanceName admin --exclude http/controller/api
 if errorlevel 1 exit /b 1
-go build -trimpath -buildvcs=true -o release/kessoku-api.exe ./cmd
-if errorlevel 1 exit /b 1
 for /f %%i in ('git rev-parse HEAD') do set KESSOKU_SOURCE_COMMIT=%%i
 if not defined KESSOKU_SOURCE_COMMIT exit /b 1
+for /f %%i in ('git show -s --format^=%%cI HEAD') do set KESSOKU_BUILD_TIME=%%i
+if not defined KESSOKU_BUILD_TIME exit /b 1
+for /f %%i in (resources\version) do set KESSOKU_RELEASE_TAG=%%i
+set "KESSOKU_RELEASE_VERSION=%KESSOKU_RELEASE_TAG:~1%"
+go build -trimpath -buildvcs=true -ldflags "-X github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/buildinfo.Version=%KESSOKU_RELEASE_VERSION% -X github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/buildinfo.GitCommit=%KESSOKU_SOURCE_COMMIT% -X github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/buildinfo.BuildTime=%KESSOKU_BUILD_TIME%" -o release/kessoku-api.exe ./cmd
+if errorlevel 1 exit /b 1
+release\kessoku-api.exe version --json > release\VERSION.json
+if errorlevel 1 exit /b 1
+findstr /L /C:"\"version\":\"%KESSOKU_RELEASE_VERSION%\"" release\VERSION.json >NUL
+if errorlevel 1 exit /b 1
+findstr /L /C:"\"git_commit\":\"%KESSOKU_SOURCE_COMMIT%\"" release\VERSION.json >NUL
+if errorlevel 1 exit /b 1
 go version -m release\kessoku-api.exe > release\GO-BUILD-INFO.txt
 if errorlevel 1 exit /b 1
 findstr /L /C:"github.com/q1ngyang/rustdesk-api-kessoku/v3/cmd" release\GO-BUILD-INFO.txt >NUL

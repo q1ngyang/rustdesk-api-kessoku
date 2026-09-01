@@ -5,13 +5,13 @@
 镜像地址：
 [`ghcr.io/q1ngyang/rustdesk-api-kessoku`](https://github.com/q1ngyang/rustdesk-api-kessoku/pkgs/container/rustdesk-api-kessoku)
 
-当前稳定版 `v3.0.6`，正式支持 `linux/amd64`。
+当前稳定版 `v3.0.7`，正式支持 `linux/amd64`。
 
 ## 拉取和固定版本
 
 ```sh
-docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.6
-docker image inspect ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.6 \
+docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.7
+docker image inspect ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.7 \
   --format '{{json .RepoDigests}}'
 ```
 
@@ -40,6 +40,7 @@ docker image inspect ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.6 \
 - [`examples/compose.env.example`](../../examples/compose.env.example)
 - [`examples/config.docker-builtin.yaml`](../../examples/config.docker-builtin.yaml)
 - [完整教程](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Getting-Started)
+- [本地维护 CLI](../operations/LOCAL-MAINTENANCE-CLI.zh-CN.md)
 
 Kessoku + Starry HBBS/HBBR：
 
@@ -68,6 +69,10 @@ sudo chmod 0600 /opt/rustdesk-api-kessoku/secrets/*
 ```sh
 docker compose --env-file .env -f compose.yaml config
 docker compose --env-file .env -f compose.yaml config --quiet
+docker compose --env-file .env -f compose.yaml run --rm kessoku-api \
+  ./kessoku-api config validate --config /app/conf/config.yaml --json
+docker compose --env-file .env -f compose.yaml run --rm kessoku-api \
+  ./kessoku-api database migrate --config /app/conf/config.yaml --json
 docker compose --env-file .env -f compose.yaml pull
 docker compose --env-file .env -f compose.yaml up -d
 docker compose --env-file .env -f compose.yaml ps
@@ -76,6 +81,9 @@ docker compose --env-file .env -f compose.yaml logs --tail 120 kessoku-api
 
 启动前必须替换 `.env` 和 `config.yaml` 中全部示例域名、公钥和路径。`docker compose
 config` 不会把 `example.com` 识别为业务错误。
+
+配置校验不连接也不写入；迁移命令不会启动 API，并会与其他迁移者串行。现有 schema-312
+环境可用 `database status --json` 作为 S6 启动预检。救援命令只能交给可信本地 supervisor。
 
 ## 首次管理员密码
 

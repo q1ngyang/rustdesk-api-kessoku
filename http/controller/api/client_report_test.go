@@ -3,6 +3,8 @@ package api
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -164,6 +166,101 @@ type staticNetworkPeerVerifier struct {
 	uuid string
 }
 
+type staticNetworkActivationVerifier struct {
+	id              string
+	uuid            string
+	activationEpoch uint64
+	activationID    string
+	routeLease      string
+}
+
+func (v staticNetworkActivationVerifier) VerifyPeerActivation(_ context.Context, id, uuid string, epoch uint64, activationID string, routeLeases []string) (bool, error) {
+	return id == v.id && uuid == v.uuid && epoch == v.activationEpoch && activationID == v.activationID && len(routeLeases) == 1 && routeLeases[0] == v.routeLease, nil
+}
+
+func TestPresenceLeaseV2HTTPLifecycle(t *testing.T) {
+	database := clientReportDatabase(t)
+	gin.SetMode(gin.TestMode)
+	const (
+		deviceID   = "301132036"
+		deviceUUID = "MDEyMzQ1Njc4OWFiY2RlZg=="
+	)
+	activationBytes := bytes.Repeat([]byte{0x41}, 16)
+	routeLeaseBytes := bytes.Repeat([]byte{0x52}, 32)
+	activationID := base64.StdEncoding.EncodeToString(activationBytes)
+	routeLease := base64.StdEncoding.EncodeToString(routeLeaseBytes)
+	if err := database.Create(&model.Peer{Id: deviceID, Uuid: deviceUUID, IdentitySource: model.PeerIdentitySourceStarry}).Error; err != nil {
+		t.Fatal(err)
+	}
+	service.AllService.NetworkActivationVerifier = staticNetworkActivationVerifier{
+		id: deviceID, uuid: deviceUUID, activationEpoch: 9, activationID: activationID, routeLease: routeLease,
+	}
+
+	call := func(path, body string, handler func(*gin.Context)) *httptest.ResponseRecorder {
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+		ctx.Request = httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+		ctx.Request.Header.Set("Content-Type", "application/json")
+		handler(ctx)
+		return recorder
+	}
+	startBody := `{"id":"301 132 036","uuid":"` + deviceUUID + `","activation_epoch":9,"activation_id":"` + activationID + `","route_leases":["` + routeLease + `"]}`
+	start := call("/api/presence/v2/start", startBody, (&Index{}).PresenceStart)
+	if start.Code != http.StatusOK {
+		t.Fatalf("presence start status=%d body=%q", start.Code, start.Body.String())
+	}
+	startResponse := presenceLeaseResponse{}
+	if err := json.Unmarshal(start.Body.Bytes(), &startResponse); err != nil {
+		t.Fatal(err)
+	}
+	leaseIDBytes, leaseIDErr := base64.RawURLEncoding.DecodeString(startResponse.LeaseID)
+	if !startResponse.Accepted || !startResponse.PresenceV2 || startResponse.LeaseToken == "" || leaseIDErr != nil || len(leaseIDBytes) != 16 || startResponse.ActivationEpoch != 9 || startResponse.ActivationID != activationID {
+		t.Fatalf("presence start response = %+v", startResponse)
+	}
+	if start.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("presence bearer response Cache-Control = %q", start.Header().Get("Cache-Control"))
+	}
+
+	tamperedToken := base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{0x54}, 32))
+	tamperedBody := `{"id":"` + deviceID + `","uuid":"` + deviceUUID + `","activation_epoch":9,"activation_id":"` + activationID + `","lease_id":"` + startResponse.LeaseID + `","lease_token":"` + tamperedToken + `"}`
+	tampered := call("/api/presence/v2/renew", tamperedBody, (&Index{}).PresenceRenew)
+	if tampered.Code != http.StatusUnauthorized || !strings.Contains(tampered.Body.String(), "presence_lease_invalid") || strings.Contains(tampered.Body.String(), tamperedToken) {
+		t.Fatalf("tampered renewal status=%d body=%q", tampered.Code, tampered.Body.String())
+	}
+
+	leaseBody := `{"id":"` + deviceID + `","uuid":"` + deviceUUID + `","activation_epoch":9,"activation_id":"` + activationID + `","lease_id":"` + startResponse.LeaseID + `","lease_token":"` + startResponse.LeaseToken + `"}`
+	renew := call("/api/presence/v2/renew", leaseBody, (&Index{}).PresenceRenew)
+	if renew.Code != http.StatusOK || !strings.Contains(renew.Body.String(), `"accepted":true`) {
+		t.Fatalf("presence renew status=%d body=%q", renew.Code, renew.Body.String())
+	}
+	end := call("/api/presence/v2/end", leaseBody, (&Index{}).PresenceEnd)
+	if end.Code != http.StatusOK || !strings.Contains(end.Body.String(), `"accepted":true`) {
+		t.Fatalf("presence end status=%d body=%q", end.Code, end.Body.String())
+	}
+	stored := service.AllService.PeerService.FindById(deviceID)
+	if service.AllService.PeerService.IsOnlineAt(stored, time.Now().Unix()) {
+		t.Fatal("ended v2 lease remained online")
+	}
+	restarted := call("/api/presence/v2/start", startBody, (&Index{}).PresenceStart)
+	if restarted.Code != http.StatusOK {
+		t.Fatalf("presence restart status=%d body=%q", restarted.Code, restarted.Body.String())
+	}
+	deactivated := call("/api/presence/v2/deactivate", startBody, (&Index{}).PresenceDeactivate)
+	if deactivated.Code != http.StatusOK || !strings.Contains(deactivated.Body.String(), `"accepted":true`) {
+		t.Fatalf("presence deactivate status=%d body=%q", deactivated.Code, deactivated.Body.String())
+	}
+	replayed := call("/api/presence/v2/start", startBody, (&Index{}).PresenceStart)
+	if replayed.Code != http.StatusConflict || !strings.Contains(replayed.Body.String(), "presence_activation_stale") {
+		t.Fatalf("retired activation replay status=%d body=%q", replayed.Code, replayed.Body.String())
+	}
+
+	profileIDBody := strings.TrimSuffix(startBody, "}") + `,"profile_id":"local-only"}`
+	profileID := call("/api/presence/v2/start", profileIDBody, (&Index{}).PresenceStart)
+	if profileID.Code != http.StatusBadRequest || !strings.Contains(profileID.Body.String(), "presence_profile_id_forbidden") {
+		t.Fatalf("client-local profile ID status=%d body=%q", profileID.Code, profileID.Body.String())
+	}
+}
+
 func (v staticNetworkPeerVerifier) VerifyPeerIdentity(_ context.Context, id, uuid string) (bool, error) {
 	return id == v.id && uuid == v.uuid, nil
 }
@@ -280,7 +377,7 @@ func clientReportDatabase(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := database.AutoMigrate(&model.User{}, &model.UserToken{}, &model.Peer{}, &model.AddressBook{}, &model.LoginLog{}, &model.AuditConn{}, &model.AuditFile{}); err != nil {
+	if err := database.AutoMigrate(&model.User{}, &model.UserToken{}, &model.Peer{}, &model.PeerPresenceLease{}, &model.AddressBook{}, &model.LoginLog{}, &model.AuditConn{}, &model.AuditFile{}); err != nil {
 		t.Fatal(err)
 	}
 	logger := logrus.New()

@@ -104,8 +104,7 @@ func (a *Admin) Init() {
 	}
 }
 
-// Init 初始化配置
-func Init(rowVal *Config, path string) *viper.Viper {
+func newViper(path string) *viper.Viper {
 	if path == "" {
 		path = DefaultConfig
 	}
@@ -136,12 +135,23 @@ func Init(rowVal *Config, path string) *viper.Viper {
 	v.SetDefault("logger::local-time", true)
 	v.SetConfigFile(path)
 	v.SetConfigType("yaml")
-	if legacyWebClientProviderEnvironmentPresent(os.Environ()) {
-		panic(errors.New("Fatal error config validation: web-client-provider environment variables are removed; delete them and configure web-client instead"))
+	return v
+}
+
+// Load reads and validates configuration without loading referenced key
+// material or changing the filesystem. Runtime startup and local maintenance
+// commands build their command-specific initialization stages on this common
+// parser.
+func Load(rowVal *Config, path string) (*viper.Viper, error) {
+	if rowVal == nil {
+		return nil, errors.New("configuration destination is required")
 	}
-	err := v.ReadInConfig()
-	if err != nil {
-		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+	v := newViper(path)
+	if legacyWebClientProviderEnvironmentPresent(os.Environ()) {
+		return nil, errors.New("web-client-provider environment variables are removed; delete them and configure web-client instead")
+	}
+	if err := v.ReadInConfig(); err != nil {
+		return nil, fmt.Errorf("read config file: %w", err)
 	}
 	/*
 		v.WatchConfig()
@@ -159,14 +169,27 @@ func Init(rowVal *Config, path string) *viper.Viper {
 			})
 	*/
 	if err := v.Unmarshal(rowVal); err != nil {
-		panic(fmt.Errorf("Fatal error config: %s \n", err))
+		return nil, fmt.Errorf("decode config: %w", err)
 	}
-	if err := rowVal.Validate(); err != nil {
-		panic(fmt.Errorf("Fatal error config validation: %s \n", err))
-	}
-	rowVal.Rustdesk.LoadKeyFile()
 	rowVal.Admin.Init()
 	rowVal.Media.Init()
+	if err := rowVal.Validate(); err != nil {
+		return nil, fmt.Errorf("validate config: %w", err)
+	}
+	if err := rowVal.ValidateRuntime(); err != nil {
+		return nil, fmt.Errorf("validate runtime config: %w", err)
+	}
+	return v, nil
+}
+
+// Init preserves the historical startup API. New command paths should use
+// Load so ordinary validation errors can be returned instead of panicking.
+func Init(rowVal *Config, path string) *viper.Viper {
+	v, err := Load(rowVal, path)
+	if err != nil {
+		panic(fmt.Errorf("Fatal error config: %w", err))
+	}
+	rowVal.Rustdesk.LoadKeyFile()
 	return v
 }
 

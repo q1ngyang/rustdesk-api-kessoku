@@ -1,3 +1,12 @@
+rustdesk-api-kessoku (3.0.7-1) UNRELEASED; urgency=high
+
+  * Add stable local CLI contracts for version, configuration, database status, and migration.
+  * Add audited transactional administrator recovery and two-factor reset with session revocation.
+  * Add Presence Lease v2 with race-safe multi-profile online aggregation and legacy heartbeat compatibility.
+  * Serialize migrations and advance database schema from 312 to 313 with duplicate device-ID preflight.
+
+ -- q1ngyang <3444592+q1ngyang@users.noreply.github.com>  Mon, 31 Aug 2026 18:00:00 +0800
+
 rustdesk-api-kessoku (3.0.6-1) UNRELEASED; urgency=high
 
   * Discover signed-in clients from active native sessions and network clients through Starry.

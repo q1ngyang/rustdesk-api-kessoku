@@ -2,7 +2,7 @@
   <section class="schema-field">
     <template v-if="kind === 'object'">
       <h4 v-if="label">{{ label }} <span v-if="required" class="required">*</span></h4>
-      <p v-if="effectiveSchema.description" class="description">{{ effectiveSchema.description }}</p>
+      <p v-if="fieldHelp" class="description">{{ fieldHelp }}</p>
       <div v-if="propertyEntries.length" class="object-fields">
         <SchemaField
           v-for="entry in propertyEntries"
@@ -12,6 +12,9 @@
           :model-value="objectValue[entry.name]"
           :label="entry.schema.title || entry.name"
           :required="requiredProperties.includes(entry.name)"
+          :ui-schema="entry.uiSchema"
+          :path="entry.path"
+          :help-overrides="helpOverrides"
           @update:model-value="updateProperty(entry.name, $event)"
         />
       </div>
@@ -26,13 +29,16 @@
 
     <template v-else-if="kind === 'array'">
       <h4>{{ label }} <span v-if="required" class="required">*</span></h4>
-      <p v-if="effectiveSchema.description" class="description">{{ effectiveSchema.description }}</p>
+      <p v-if="fieldHelp" class="description">{{ fieldHelp }}</p>
       <el-card v-for="(item, index) in arrayValue" :key="index" class="array-item" shadow="never">
         <SchemaField
           :schema="effectiveSchema.items || {}"
           :root-schema="rootSchema"
           :model-value="item"
           :label="`${label || 'item'} ${index + 1}`"
+          :ui-schema="effectiveUISchema.items || {}"
+          :path="`${path}/${index}`"
+          :help-overrides="helpOverrides"
           @update:model-value="updateArrayItem(index, $event)"
         />
         <el-button type="danger" plain size="small" @click="removeArrayItem(index)">{{ T('Remove') }}</el-button>
@@ -41,19 +47,37 @@
     </template>
 
     <el-form-item v-else :label="label" :required="required">
+      <el-radio-group
+        v-if="effectiveSchema.enum && widget === 'radio'"
+        :model-value="modelValue"
+        :disabled="fieldDisabled"
+        @update:model-value="updateScalar"
+      >
+        <el-radio v-for="option in effectiveSchema.enum" :key="String(option)" :value="option">{{ String(option) }}</el-radio>
+      </el-radio-group>
       <el-select
-        v-if="effectiveSchema.enum"
+        v-else-if="effectiveSchema.enum"
         :model-value="modelValue"
         clearable
-        :disabled="effectiveSchema.readOnly || effectiveSchema.const !== undefined"
+        :disabled="fieldDisabled"
+        :placeholder="effectiveUISchema['ui:placeholder']"
         @update:model-value="updateScalar"
       >
         <el-option v-for="option in effectiveSchema.enum" :key="String(option)" :label="String(option)" :value="option" />
       </el-select>
+      <el-radio-group
+        v-else-if="kind === 'boolean' && widget === 'radio'"
+        :model-value="modelValue"
+        :disabled="fieldDisabled"
+        @update:model-value="updateScalar"
+      >
+        <el-radio :value="true">{{ T('Enable') }}</el-radio>
+        <el-radio :value="false">{{ T('Disable') }}</el-radio>
+      </el-radio-group>
       <el-switch
         v-else-if="kind === 'boolean'"
         :model-value="Boolean(modelValue)"
-        :disabled="effectiveSchema.readOnly || effectiveSchema.const !== undefined"
+        :disabled="fieldDisabled"
         @update:model-value="updateScalar"
       />
       <el-input-number
@@ -62,16 +86,19 @@
         :min="effectiveSchema.minimum"
         :max="effectiveSchema.maximum"
         :step="effectiveSchema.multipleOf"
-        :disabled="effectiveSchema.readOnly || effectiveSchema.const !== undefined"
+        :disabled="fieldDisabled"
         @update:model-value="updateScalar"
       />
       <el-input
         v-else
+        :type="widget === 'password' ? 'password' : widget === 'textarea' ? 'textarea' : 'text'"
         :model-value="modelValue == null ? '' : String(modelValue)"
-        :disabled="effectiveSchema.readOnly || effectiveSchema.const !== undefined"
+        :disabled="fieldDisabled"
+        :placeholder="effectiveUISchema['ui:placeholder']"
+        :show-password="widget === 'password'"
         @update:model-value="updateScalar"
       />
-      <div v-if="effectiveSchema.description" class="description">{{ effectiveSchema.description }}</div>
+      <div v-if="fieldHelp" class="description">{{ fieldHelp }}</div>
     </el-form-item>
   </section>
 </template>
@@ -86,6 +113,9 @@ const props = defineProps({
   modelValue: { default: undefined },
   label: { type: String, default: '' },
   required: { type: Boolean, default: false },
+  uiSchema: { type: Object, default: () => ({}) },
+  path: { type: String, default: '' },
+  helpOverrides: { type: Object, default: () => ({}) },
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -172,6 +202,10 @@ function materialize (input, value, seen = new Set()) {
 }
 
 const effectiveSchema = computed(() => materialize(props.schema, props.modelValue))
+const effectiveUISchema = computed(() => props.uiSchema && typeof props.uiSchema === 'object' ? props.uiSchema : {})
+const widget = computed(() => effectiveUISchema.value['ui:widget'] || '')
+const fieldDisabled = computed(() => Boolean(effectiveSchema.value.readOnly || effectiveSchema.value.const !== undefined || effectiveUISchema.value['ui:readonly']))
+const fieldHelp = computed(() => props.helpOverrides[props.path] || effectiveUISchema.value['ui:help'] || effectiveSchema.value.description || '')
 const kind = computed(() => {
   const type = effectiveSchema.value.type
   if (Array.isArray(type)) return type.find(candidate => candidate !== 'null' && valueMatchesType(props.modelValue, candidate)) || type.find(candidate => candidate !== 'null') || 'string'
@@ -189,11 +223,15 @@ function inferSchema (value) {
 }
 const propertyEntries = computed(() => {
   const declared = effectiveSchema.value.properties || {}
-  const names = [...new Set([...Object.keys(declared), ...Object.keys(objectValue.value)])]
+  const available = [...new Set([...Object.keys(declared), ...Object.keys(objectValue.value)])]
+  const requestedOrder = Array.isArray(effectiveUISchema.value['ui:order']) ? effectiveUISchema.value['ui:order'] : []
+  const ordered = requestedOrder.flatMap(name => name === '*' ? available : [name]).filter((name, index, names) => available.includes(name) && names.indexOf(name) === index)
+  const names = [...ordered, ...available.filter(name => !ordered.includes(name))]
   return names.filter(name => declared[name] !== false).map(name => {
     const additional = effectiveSchema.value.additionalProperties
     const fallback = additional && typeof additional === 'object' ? additional : inferSchema(objectValue.value[name])
-    return { name, schema: declared[name] || fallback }
+    const escaped = name.replaceAll('~', '~0').replaceAll('/', '~1')
+    return { name, schema: declared[name] || fallback, uiSchema: effectiveUISchema.value[name] || {}, path: `${props.path}/${escaped}` }
   })
 })
 const jsonValue = computed(() => JSON.stringify(objectValue.value, null, 2))

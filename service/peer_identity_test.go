@@ -45,12 +45,49 @@ func TestBindLoginIdentityCreatesClaimsAndProtectsPeers(t *testing.T) {
 		t.Fatalf("conflicting login changed peer ownership: %+v", protected)
 	}
 
-	duplicates := []model.Peer{{Id: "duplicate-id"}, {Id: "duplicate-id"}}
-	if err := database.Create(&duplicates).Error; err != nil {
+	if err := database.Create(&model.Peer{Id: "duplicate-id"}).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := AllService.PeerService.BindLoginIdentity("duplicate-id", "uuid-duplicate", 7); !errors.Is(err, ErrPeerIdentityConflict) {
-		t.Fatalf("duplicate peer rows = %v, want ErrPeerIdentityConflict", err)
+	if err := database.Create(&model.Peer{Id: "duplicate-id"}).Error; err == nil {
+		t.Fatal("database accepted a duplicate device ID")
+	}
+}
+
+func TestBindRegistryIdentityKeepsProfileIdentitiesAndOwnersIsolated(t *testing.T) {
+	database := securityAuditDatabase(t, true)
+	if err := database.AutoMigrate(&model.Peer{}); err != nil {
+		t.Fatal(err)
+	}
+	first := &model.Peer{
+		Id: "301132036", Uuid: "network-identity-a", UserId: 7,
+		IdentitySource: model.PeerIdentitySourceStarry, PresenceOnlineUntil: 9_999,
+	}
+	if err := database.Create(first).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if err := AllService.PeerService.BindRegistryIdentity(first.Id, "network-identity-b", 8); !errors.Is(err, ErrPeerIdentityConflict) {
+		t.Fatalf("different network identity bind error = %v, want ErrPeerIdentityConflict", err)
+	}
+	if err := AllService.PeerService.BindRegistryIdentity(first.Id, first.Uuid, 8); !errors.Is(err, ErrPeerIdentityConflict) {
+		t.Fatalf("different owner bind error = %v, want ErrPeerIdentityConflict", err)
+	}
+
+	stored := &model.Peer{}
+	if err := database.First(stored, first.RowId).Error; err != nil {
+		t.Fatal(err)
+	}
+	if stored.Id != first.Id || stored.Uuid != first.Uuid || stored.UserId != first.UserId || stored.PresenceOnlineUntil != first.PresenceOnlineUntil {
+		t.Fatalf("conflicting profile changed established peer: %+v", stored)
+	}
+
+	second := &model.Peer{Id: "301132037", Uuid: "network-identity-b", UserId: 8}
+	if err := AllService.PeerService.BindRegistryIdentity(second.Id, second.Uuid, second.UserId); err != nil {
+		t.Fatal(err)
+	}
+	secondStored := AllService.PeerService.FindByIdentity(second.Id, second.Uuid)
+	if secondStored.RowId == 0 || secondStored.RowId == stored.RowId || secondStored.UserId != second.UserId {
+		t.Fatalf("second profile did not receive an isolated peer row: %+v", secondStored)
 	}
 }
 

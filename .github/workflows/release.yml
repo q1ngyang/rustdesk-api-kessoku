@@ -159,6 +159,11 @@ jobs:
           release_tag="$(sed -n 's/^release_tag: //p' RELEASE_STATUS)"
           test -s candidate/docker/release/kessoku-api
           chmod 0755 candidate/docker/release/kessoku-api
+          test -s candidate/release-assets/VERSION.json
+          grep -F '"version":"'"${release_tag#v}"'"' \
+            candidate/release-assets/VERSION.json
+          grep -F '"git_commit":"'"${SOURCE_SHA}"'"' \
+            candidate/release-assets/VERSION.json
           grep -Fx "repository=${GITHUB_REPOSITORY}" \
             candidate/release-assets/BUILD-INPUTS.txt
           grep -Fx "source_commit=${SOURCE_SHA}" \
@@ -182,6 +187,11 @@ jobs:
           cmp RELEASE_STATUS candidate/release-assets/RELEASE_STATUS
           cmp internal/starrycontrol/CONTRACT_VERSION \
             candidate/release-assets/CONTRACT_VERSION
+          summary_path="$(sed -n 's/^release_summary_path: //p' \
+            internal/starrycontrol/CONTRACT_VERSION)"
+          test -s "$summary_path"
+          cmp "$summary_path" \
+            candidate/release-assets/STARRY-RELEASE-SUMMARY.json
           (cd candidate/release-assets && sha256sum --check SHA256SUMS)
           tar -tvzf candidate/release-assets/*.tar.gz release/kessoku-api \
             | grep -Eq '^-rwxr-xr-x '
@@ -298,9 +308,11 @@ jobs:
           cat > release-notes.md <<EOF
           # Kessoku ${release_tag}
 
-          - Securely discovers signed-in and Starry-registered RustDesk clients.
-          - Refreshes complete device inventory and every matching address-book reference.
-          - Starry patch-v1.2.2 is required only for clients not signed in to Kessoku.
+          - Adds stable JSON version, configuration, database-status, and explicit-migration commands for S6.
+          - Adds local-only audited administrator recovery and per-user 2FA reset with session revocation.
+          - Adds race-safe Presence Lease v2 while retaining the legacy heartbeat API.
+          - Advances database schema 312 to 313 with serialized migration and duplicate-ID preflight.
+          - Requires Starry 1.1.16-patch-v1.3.0 for verified activation routes.
           - Image: ghcr.io/${GITHUB_REPOSITORY}:${release_tag}; latest is updated to this release.
           - Platform: linux/amd64. Pin the versioned image digest in production.
           - Verify assets with SHA256SUMS and the attached Sigstore provenance/SBOM.

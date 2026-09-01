@@ -794,15 +794,8 @@ func (us *UserService) UpdatePreferencesContext(ctx context.Context, user *model
 }
 
 func (us *UserService) bumpAuthVersionAndRevoke(tx *gorm.DB, userID uint, reason string) error {
-	result := tx.Model(&model.User{}).Where("id = ?", userID).
-		UpdateColumn("auth_version", gorm.Expr("auth_version + ?", 1))
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected != 1 {
-		return errors.New("user not found while revoking sessions")
-	}
-	return us.revokeUserTokens(tx, userID, reason, time.Now().Unix())
+	_, err := us.bumpAuthVersionAndRevokeCount(tx, userID, reason)
+	return err
 }
 
 func (us *UserService) revokeUserTokens(tx *gorm.DB, userID uint, reason string, now int64) error {

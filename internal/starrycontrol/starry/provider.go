@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net"
@@ -156,7 +157,7 @@ func (p *Provider) Relays(ctx context.Context) (starrycontrol.RelayInventory, er
 	if err := p.call(ctx, clientgen.Request{Method: http.MethodGet, Path: "/control/v1/relays", Scope: "starry.relay.read"}, &result); err != nil {
 		return result, err
 	}
-	if err := validateRelaysResponse(result); err != nil {
+	if err := validateRelaysResponse(result, capabilities.Capabilities); err != nil {
 		return starrycontrol.RelayInventory{}, err
 	}
 	return result, nil
@@ -166,6 +167,27 @@ func (p *Provider) VerifyPeer(ctx context.Context, input starrycontrol.PeerIdent
 	result := starrycontrol.PeerVerification{}
 	if !validIdentifier(input.ID, 128) || !validIdentifier(input.UUID, 256) {
 		return result, starrycontrol.ErrRequestInvalid
+	}
+	requiredVersion := 1
+	if input.ActivationEpoch != 0 || input.ActivationID != "" || len(input.RouteLeases) != 0 {
+		requiredVersion = 2
+		if input.ActivationEpoch == 0 || !validStandardBase64(input.ActivationID, 16) || len(input.RouteLeases) == 0 || len(input.RouteLeases) > 16 {
+			return result, starrycontrol.ErrRequestInvalid
+		}
+		for _, routeLease := range input.RouteLeases {
+			if !validStandardBase64(routeLease, 32) {
+				return result, starrycontrol.ErrRequestInvalid
+			}
+		}
+	}
+	if requiredVersion > 1 {
+		capabilities, err := p.ensureIdentity(ctx)
+		if err != nil {
+			return result, err
+		}
+		if err := requireCapabilityVersion(capabilities.Capabilities.PeerRegistry, requiredVersion, "peer_registry"); err != nil {
+			return result, err
+		}
 	}
 	if err := p.call(ctx, clientgen.Request{Method: http.MethodPost, Path: "/control/v1/peers:verify", Scope: "starry.peer.verify", Body: input}, &result); err != nil {
 		return result, err
@@ -288,6 +310,12 @@ func (p *Provider) PlanConfig(ctx context.Context, input starrycontrol.ConfigCan
 	}
 	if err := validatePlanResponse(result, p.instanceID, input.BaseETag, documentDigest(input.Document)); err != nil {
 		return starrycontrol.ConfigPlan{}, err
+	}
+	// Starry patch-v1.3 guarantees at least medium risk for every
+	// /relay_quality change. Keep a defensive client-side floor for older or
+	// non-conforming agents without changing the server-issued plan binding.
+	if result.Impact.Risk == "low" && planTouchesRelayQuality(result.Changes) {
+		result.Impact.Risk = "medium"
 	}
 	return result, nil
 }
@@ -476,14 +504,23 @@ func (p *Provider) ensureIdentity(ctx context.Context) (starrycontrol.Capabiliti
 }
 
 func requireCapability(version int, name string) error {
-	if version == 1 {
+	return requireCapabilityVersion(version, 1, name)
+}
+
+func requireCapabilityVersion(version, required int, name string) error {
+	if version >= required {
 		return nil
 	}
 	return &starrycontrol.ProviderError{
 		Status:  http.StatusBadGateway,
 		Code:    "CAPABILITY_UNAVAILABLE",
-		Message: fmt.Sprintf("required Starry capability %s version 1 is unavailable", name),
+		Message: fmt.Sprintf("required Starry capability %s version %d is unavailable", name, required),
 	}
+}
+
+func validStandardBase64(value string, expectedBytes int) bool {
+	decoded, err := base64.StdEncoding.DecodeString(value)
+	return err == nil && len(decoded) == expectedBytes && base64.StdEncoding.EncodeToString(decoded) == value
 }
 
 func (p *Provider) call(ctx context.Context, request clientgen.Request, destination interface{}) error {

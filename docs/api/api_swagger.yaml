@@ -123,6 +123,73 @@ definitions:
       version:
         type: string
     type: object
+  api.PresenceLeaseMutationRequest:
+    properties:
+      activation_epoch:
+        type: integer
+      activation_id:
+        type: string
+      id:
+        type: string
+      lease_id:
+        type: string
+      lease_token:
+        type: string
+      uuid:
+        type: string
+    required:
+    - activation_epoch
+    - activation_id
+    - id
+    - lease_token
+    - uuid
+    type: object
+  api.PresenceLeaseResponse:
+    properties:
+      accepted:
+        type: boolean
+      activation_epoch:
+        type: integer
+      activation_id:
+        type: string
+      error:
+        type: string
+      expires_at:
+        type: integer
+      expires_in:
+        type: integer
+      lease_id:
+        type: string
+      lease_token:
+        type: string
+      online_until:
+        type: integer
+      presence_v2:
+        type: boolean
+      sysinfo:
+        type: boolean
+    type: object
+  api.PresenceStartRequest:
+    properties:
+      activation_epoch:
+        type: integer
+      activation_id:
+        type: string
+      id:
+        type: string
+      route_leases:
+        items:
+          type: string
+        type: array
+      uuid:
+        type: string
+    required:
+    - activation_epoch
+    - activation_id
+    - id
+    - route_leases
+    - uuid
+    type: object
   api.UserPayload:
     properties:
       avatar:
@@ -908,6 +975,170 @@ paths:
       summary: 机器
       tags:
       - 群组
+  /presence/v2/deactivate:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Active route proof
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.PresenceStartRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+      summary: Retire a presence activation
+      tags:
+      - System
+  /presence/v2/end:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Exact lease proof including lease_token
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.PresenceLeaseMutationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+      summary: End a presence lease
+      tags:
+      - System
+  /presence/v2/renew:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Exact lease proof
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.PresenceLeaseMutationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+      summary: Renew a presence lease
+      tags:
+      - System
+  /presence/v2/start:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Network identity and active route proof
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.PresenceStartRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/api.PresenceLeaseResponse'
+      summary: Start a presence lease
+      tags:
+      - System
   /sysinfo:
     post:
       consumes:

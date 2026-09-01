@@ -1,0 +1,46 @@
+{
+  "contracts": {
+    "config_schema": {
+      "digest": "sha256:ef14cfde96ac514af9076fdd6e251acde63c7ea75f7275ea50720b55a83d1ec9",
+      "id": "config/v4",
+      "path": "contracts/config/v4/config.schema.json"
+    },
+    "config_ui_schema": {
+      "digest": "sha256:b6e1cbd5f9db51bd0cfaf46b477c40958acb89702b4965efd89f57fb9aa7762e",
+      "id": "config/v4-ui",
+      "path": "contracts/config/v4/config.ui-schema.json"
+    },
+    "control_openapi": {
+      "digest": "sha256:f148edbbb29997e1ac919ee7b2affd89ddeeecd47220384ac25406cf692f11bf",
+      "id": "control/v1",
+      "path": "contracts/control/v1/openapi.yaml"
+    },
+    "relay_quality_protocol": {
+      "digest": "sha256:19380d18aebf91a6856e43009291c79cf002d7c843b9fd7fa92c570916b2734c",
+      "id": "relay-quality/v1",
+      "path": "contracts/relay-quality/v1/rendezvous-extension.proto",
+      "status": "FROZEN"
+    },
+    "relay_telemetry_schema": {
+      "digest": "sha256:51ef258b5c95a6f3d57787a97d54cb4215bd2ee3b43aad94ca24d4917f2aa6b2",
+      "id": "relay-telemetry/v1",
+      "path": "contracts/relay-telemetry/v1/telemetry.schema.json"
+    }
+  },
+  "image": {
+    "index_digest": "sha256:b47f0080ca29892e4d8071d8e886445ed984b29c2397f05e43a17a20beca11c0",
+    "platforms": {
+      "linux/amd64": "sha256:8ddca7ee3289f3a59370bf78e4b27f353d426d1e109a9b84a314e505e5575c10"
+    },
+    "reference": "ghcr.io/q1ngyang/rustdesk-server-starry:1.1.16-patch-v1.3.0"
+  },
+  "release": {
+    "source_commit": "abf1dbcfdf7c4384f8c7ac34724089932a1bc58c",
+    "tag": "1.1.16-patch-v1.3.0",
+    "upstream_commit": "73523b31cfd25d77dee862e6fc9f5e1fb5e485ef",
+    "upstream_hbb_common_commit": "83419b6549636ee39dacef7776c473f5802e08d6",
+    "upstream_ref": "1.1.16",
+    "upstream_repository": "rustdesk/rustdesk-server"
+  },
+  "schema_version": 1
+}
