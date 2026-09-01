@@ -75,6 +75,7 @@ hbbs_name="matrix-hbbs-${matrix_id}"
 hbbs_tls_name="matrix-hbbs-tls-${matrix_id}"
 hbbr_name="matrix-hbbr-${matrix_id}"
 hbbr_tls_name="matrix-hbbr-tls-${matrix_id}"
+bootstrap_hbbs_name="matrix-key-bootstrap-${matrix_id}"
 native_target_name="matrix-native-target-${matrix_id}"
 wss_target_name="matrix-wss-target-${matrix_id}"
 created_containers=()
@@ -148,6 +149,29 @@ find "$matrix_root/secrets" -type f -exec chmod 0600 {} +
 
 docker network create "$matrix_network" >/dev/null
 
+# Generate the release server's real key before Kessoku starts. Kessoku's
+# runtime validator deliberately rejects the old empty /data key reference,
+# and the matrix must not substitute a synthetic key that differs from the
+# HBBS/HBBR pair exercised below.
+docker run -d --name "$bootstrap_hbbs_name" \
+  --network "$matrix_network" \
+  -v "$matrix_root/starry-data:/root" \
+  "$starry_image" hbbs -r hbbr.local:21117 >/dev/null
+for _ in $(seq 1 60); do
+  test -s "$matrix_root/starry-data/id_ed25519.pub" && break
+  if [[ $(docker inspect --format '{{.State.Running}}' \
+    "$bootstrap_hbbs_name") != true ]]; then
+    docker logs "$bootstrap_hbbs_name" >&2
+    exit 1
+  fi
+  sleep 0.1
+done
+test -s "$matrix_root/starry-data/id_ed25519.pub"
+matrix_server_key=$(tr -d '\r\n' \
+  < "$matrix_root/starry-data/id_ed25519.pub")
+test "$(printf '%s' "$matrix_server_key" | base64 --decode | wc -c)" = 32
+docker rm -f "$bootstrap_hbbs_name" >/dev/null
+
 kessoku_env_args=(
   -e RUSTDESK_API_AUTH_ENABLED=true
   -e RUSTDESK_API_AUTH_ISSUER=https://kessoku.local
@@ -163,6 +187,7 @@ kessoku_env_args=(
   -e RUSTDESK_API_AUTH_INTERNAL_CLIENT_CA_FILE=/test-secrets/ca.pem
   -e RUSTDESK_API_AUTH_INTERNAL_ALLOWED_URI_SANS=spiffe://example.com/starry/production
   -e RUSTDESK_API_RUSTDESK_API_SERVER=https://kessoku.local
+  -e RUSTDESK_API_RUSTDESK_KEY="$matrix_server_key"
 )
 kessoku_args=(
   --name "$kessoku_name"
@@ -371,14 +396,25 @@ login_token() {
   local controller_id=$1
   local password
   local payload
+  local response
+  local response_body
+  local response_status
   password=$(<"$matrix_root/secrets/admin-password")
   payload=$(jq -nc --arg password "$password" --arg id "$controller_id" \
     --arg uuid "matrix-${controller_id}" \
     '{username:"admin", password:$password, id:$id, uuid:$uuid, deviceInfo:{name:"official-matrix", os:"Linux", type:"Linux"}}')
-  docker run --rm --network "$matrix_network" "$client_image" \
-    curl -fsS -H 'Content-Type: application/json' --data "$payload" \
-    http://kessoku.local:21114/api/login \
-    | jq -er .access_token
+  response=$(docker run --rm --network "$matrix_network" "$client_image" \
+    curl -sS -H 'Content-Type: application/json' --data "$payload" \
+    -w $'\n%{http_code}' http://kessoku.local:21114/api/login)
+  response_status=${response##*$'\n'}
+  response_body=${response%$'\n'*}
+  if [[ "$response_status" != 200 ]]; then
+    printf 'matrix login failed: HTTP %s error=%s\n' "$response_status" \
+      "$(printf '%s' "$response_body" | jq -er '.error // "unparseable"')" >&2
+    docker logs "$kessoku_name" >&2
+    return 1
+  fi
+  printf '%s' "$response_body" | jq -er .access_token
 }
 
 run_case() {

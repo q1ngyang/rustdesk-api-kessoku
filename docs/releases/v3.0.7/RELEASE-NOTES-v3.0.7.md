@@ -61,6 +61,11 @@ username. Role, status, scope cleanup, optional password/TOTP changes,
 challenge cleanup, token revocation, and success audit finalization share one
 database transaction. Audit metadata never contains credentials or TOTP data.
 
+Valid sub-hour access-token lifetimes are preserved at their exact configured
+duration instead of being rounded down to zero by the hour-based management
+setting. Operator-selected hour values remain capped by
+`auth.maximum-token-ttl`.
+
 SQLite, MySQL 8.4.2, and PostgreSQL 16.4 integration fixtures exercise schema
 inspection, migration serialization, recovery, idempotent 2FA reset, session
 revocation, audit completion, and schema-313 lease objects. Presence start

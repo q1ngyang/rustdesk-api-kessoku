@@ -44,6 +44,9 @@ activation/聚合字段，并在只读重复预检通过后强制设备 ID 唯�
 可选密码/TOTP 修改、挑战清理、Token 撤销与成功审计完成都在同一数据库事务中。审计元数据
 不包含密码、哈希、Token 或 TOTP 数据。
 
+合法的小时以下 access-token 有效期现在会保留精确配置值，不再被按小时管理设置向下取整为
+零；管理员选择的小时值仍受 `auth.maximum-token-ttl` 上限约束。
+
 SQLite、MySQL 8.4.2 与 PostgreSQL 16.4 集成用例覆盖 schema 检查、迁移串行化、管理员
 恢复、幂等 2FA 重置、会话撤销、审计完成及 schema-313 租约结构。Presence start 要求
 Starry `1.1.16-patch-v1.3.0` 和 peer-registry capability 2。

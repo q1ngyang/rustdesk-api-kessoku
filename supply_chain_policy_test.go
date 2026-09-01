@@ -95,6 +95,9 @@ func TestLocalReleaseDrillsPinArtifactsAndRespectTMPDIR(t *testing.T) {
 			"STARRY_MATRIX_AGENT_SHA256",
 			"starry_revision=${STARRY_MATRIX_REVISION:-bc17da50fead2519c4859e7f483d8a1773821d44}",
 			"host_tmp_root=${TMPDIR:-/var/tmp/codex-q1ngyang}",
+			"bootstrap_hbbs_name=\"matrix-key-bootstrap-${matrix_id}\"",
+			"-e RUSTDESK_API_RUSTDESK_KEY=\"$matrix_server_key\"",
+			"matrix login failed: HTTP %s error=%s",
 		},
 		"scripts/verify-local-admin-candidate.sh": {
 			"local_deb_version=\"${release_version}~local.1-1\"",
