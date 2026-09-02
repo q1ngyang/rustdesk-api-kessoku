@@ -12,16 +12,24 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func TestRedactLogLineCoversHeadersStructuredAndJSONSecrets(t *testing.T) {
-	line := `Authorization: Bearer abc.def password=plain "access_token":"jwt-value" client_secret: 'client-value' safe=value`
+func TestRedactLogLineCoversHeadersStructuredJSONSecretsAndIPAddresses(t *testing.T) {
+	line := `Authorization: Bearer abc.def password=plain "access_token":"jwt-value" client_secret: 'client-value' lease_token=lease-value connection_token=connection-value nonce=nonce-value allocation_uuid=allocation-value session_uuid=session-value "route_leases":["route-one","route-two"] remote=203.0.113.42 peer=198.51.100.8:21116 ipv6=[2001:db8::42]:443 direct=2001:db8:1::9 safe=value`
 	redacted := redactLogLine(line)
-	for _, secret := range []string{"abc.def", "plain", "jwt-value", "client-value"} {
+	for _, secret := range []string{"abc.def", "plain", "jwt-value", "client-value", "lease-value", "connection-value", "nonce-value", "allocation-value", "session-value", "route-one", "route-two", "203.0.113.42", "198.51.100.8", "2001:db8::42", "2001:db8:1::9"} {
 		if strings.Contains(redacted, secret) {
 			t.Fatalf("redacted line still contains %q: %s", secret, redacted)
 		}
 	}
-	if !strings.Contains(redacted, "safe=value") || strings.Count(redacted, "[REDACTED]") != 4 {
+	if !strings.Contains(redacted, "safe=value") || !strings.Contains(redacted, ":21116") || !strings.Contains(redacted, ":443") ||
+		strings.Count(redacted, "[REDACTED]") != 10 || strings.Count(redacted, "[REDACTED_IP]") != 4 {
 		t.Fatalf("unexpected redacted line: %s", redacted)
+	}
+}
+
+func TestRedactLogLineLeavesInvalidIPLikeValuesUntouched(t *testing.T) {
+	line := `version=1.1.16.999 timestamp=11:07:31 invalid=999.999.999.999`
+	if redacted := redactLogLine(line); redacted != line {
+		t.Fatalf("non-IP values changed: %q", redacted)
 	}
 }
 

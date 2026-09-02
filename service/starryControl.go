@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -61,7 +62,9 @@ type ControlLogResult struct {
 
 var (
 	bearerLogValue     = regexp.MustCompile(`(?i)(authorization\s*:\s*bearer\s+)[^\s,;]+`)
-	structuredLogValue = regexp.MustCompile(`(?i)(["']?(?:access[_ -]?token|refresh[_ -]?token|api[_ -]?token|client[_ -]?secret|password|control[_ -]?token|session[_ -]?cookie|private[_ -]?key)["']?\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;}]+)`)
+	structuredLogValue = regexp.MustCompile(`(?i)(["']?(?:access[_ -]?token|refresh[_ -]?token|api[_ -]?token|lease[_ -]?token|connection[_ -]?token|control[_ -]?token|route[_ -]?leases?|client[_ -]?secret|password|session[_ -]?cookie|private[_ -]?key|nonce|allocation[_ -]?(?:id|uuid)|session[_ -]?(?:id|uuid))["']?\s*[:=]\s*)(?:\[[^\]]*\]|"[^"]*"|'[^']*'|[^\s,;}]+)`)
+	ipv4LogValue       = regexp.MustCompile(`(?:[0-9]{1,3}\.){3}[0-9]{1,3}`)
+	ipv6LogValue       = regexp.MustCompile(`(?i)\[[0-9a-f:.]+(?:%[0-9a-z_.-]+)?\]|(?:[0-9a-f]{0,4}:){2,}[0-9a-f:.]*(?:%[0-9a-z_.-]+)?`)
 )
 
 type StarryControlService struct {
@@ -629,7 +632,20 @@ func detectLogLevel(line string) string {
 
 func redactLogLine(line string) string {
 	line = bearerLogValue.ReplaceAllString(line, "$1[REDACTED]")
-	return structuredLogValue.ReplaceAllString(line, "$1[REDACTED]")
+	line = structuredLogValue.ReplaceAllString(line, "$1[REDACTED]")
+	line = ipv4LogValue.ReplaceAllStringFunc(line, redactLogIPAddress)
+	return ipv6LogValue.ReplaceAllStringFunc(line, redactLogIPAddress)
+}
+
+func redactLogIPAddress(value string) string {
+	candidate := value
+	if strings.HasPrefix(candidate, "[") && strings.HasSuffix(candidate, "]") {
+		candidate = candidate[1 : len(candidate)-1]
+	}
+	if _, err := netip.ParseAddr(candidate); err != nil {
+		return value
+	}
+	return "[REDACTED_IP]"
 }
 
 func openControlLog(path string) (*os.File, error) {

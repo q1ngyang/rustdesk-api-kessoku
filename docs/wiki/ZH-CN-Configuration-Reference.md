@@ -322,7 +322,8 @@ server-control:
 
 如果上述目录与 `logger.path` 不同，Kessoku 自身日志不会被隐式加入；需要让 Kessoku 日志
 也落在该目录并显式声明。后台只读取有大小和行数上限的最新窗口，并在展示、导出前脱敏
-常见认证头、令牌、密码、会话 Cookie、客户端密钥和私钥内容；长期留存仍应交给部署日志
+常见认证头、访问/lease/连接/control token、route lease、密码、nonce、allocation/session
+标识、会话 Cookie、客户端密钥、私钥内容及完整 IPv4/IPv6 地址；长期留存仍应交给部署日志
 系统。开启控制写入后可以调整当前 Kessoku 进程的日志级别；Starry patch v1.2 尚无安全
 的运行时调级接口，仍需在维护窗口修改部署的 `RUST_LOG` 并重启。
 
