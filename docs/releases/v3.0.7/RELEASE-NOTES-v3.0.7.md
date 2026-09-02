@@ -66,6 +66,11 @@ duration instead of being rounded down to zero by the hour-based management
 setting. Operator-selected hour values remain capped by
 `auth.maximum-token-ttl`.
 
+Server Control log viewing and export redact complete IPv4/IPv6 addresses as
+well as authorization values, lease and connection tokens, route leases,
+nonces, and allocation/session identifiers before returning data to the
+administration UI.
+
 SQLite, MySQL 8.4.2, and PostgreSQL 16.4 integration fixtures exercise schema
 inspection, migration serialization, recovery, idempotent 2FA reset, session
 revocation, audit completion, and schema-313 lease objects. Presence start

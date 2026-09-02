@@ -119,10 +119,11 @@ the selected streams as regular text files and mount that directory into
 Kessoku. If this directory differs from the directory containing
 `logger.path`, add the Kessoku file explicitly as well. Paths, traversal, and
 browser-provided filenames are rejected. Kessoku reads
-only a bounded newest window and redacts common authorization, token,
-password, session-cookie, client-secret, and private-key values before display
-or export. Keep older logs and retention policy in the deployment logging
-system. Kessoku's process log level may be changed while control writes are
+only a bounded newest window and redacts common authorization, access/lease/
+connection/control tokens, route leases, passwords, nonces, allocation/session
+identifiers, session cookies, client secrets, private keys, and complete IPv4/IPv6
+values before display or export. Keep older logs and retention policy in the
+deployment logging system. Kessoku's process log level may be changed while control writes are
 enabled; Starry patch v1.2 still requires changing deployment `RUST_LOG` and a
 maintenance restart.
 
