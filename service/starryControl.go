@@ -2,7 +2,10 @@ package service
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -14,12 +17,14 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/config"
 	internalAuth "github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/auth"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/controlauth"
+	"github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/servercontrolregistry"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/starrycontrol"
 	starryProvider "github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/starrycontrol/starry"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/model"
@@ -33,6 +38,7 @@ type ServerControlInstance struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
 	Enabled   bool   `json:"enabled"`
+	Managed   bool   `json:"managed"`
 	ReadOnly  bool   `json:"read_only"`
 	Available bool   `json:"available"`
 	ErrorCode string `json:"error_code,omitempty"`
@@ -68,27 +74,48 @@ var (
 )
 
 type StarryControlService struct {
-	config       config.ServerControl
-	logDirectory string
-	logSources   []config.ControlLogSource
-	instances    map[string]ServerControlInstance
-	providers    map[string]starrycontrol.ServerControlProvider
-	providerErrs map[string]error
-	logger       *logrus.Logger
+	mu              sync.RWMutex
+	registryInitMu  sync.Mutex
+	config          config.ServerControl
+	logDirectory    string
+	logSources      []config.ControlLogSource
+	instances       map[string]ServerControlInstance
+	providers       map[string]starrycontrol.ServerControlProvider
+	providerErrs    map[string]error
+	staticIDs       map[string]struct{}
+	managedIDs      map[string]struct{}
+	registry        *servercontrolregistry.Store
+	registryErr     error
+	registryGen     uint64
+	closed          bool
+	authManager     *internalAuth.Manager
+	centerPublicKey string
+	logger          *logrus.Logger
+	planReviewKey   [32]byte
 }
 
 func NewStarryControlService(cfg *config.Config, logger *logrus.Logger, authManager *internalAuth.Manager) *StarryControlService {
 	logDirectory, logSources := controlLogConfiguration(cfg)
 	service := &StarryControlService{
-		config:       cfg.ServerControl,
-		logDirectory: logDirectory,
-		logSources:   logSources,
-		instances:    make(map[string]ServerControlInstance, len(cfg.ServerControl.Instances)),
-		providers:    make(map[string]starrycontrol.ServerControlProvider, len(cfg.ServerControl.Instances)),
-		providerErrs: make(map[string]error),
-		logger:       logger,
+		config:          cfg.ServerControl,
+		logDirectory:    logDirectory,
+		logSources:      logSources,
+		instances:       make(map[string]ServerControlInstance, len(cfg.ServerControl.Instances)),
+		providers:       make(map[string]starrycontrol.ServerControlProvider, len(cfg.ServerControl.Instances)),
+		providerErrs:    make(map[string]error),
+		staticIDs:       make(map[string]struct{}, len(cfg.ServerControl.Instances)),
+		managedIDs:      make(map[string]struct{}),
+		authManager:     authManager,
+		centerPublicKey: strings.TrimSpace(cfg.Rustdesk.Key),
+		logger:          logger,
+	}
+	if _, err := rand.Read(service.planReviewKey[:]); err != nil {
+		if logger != nil {
+			logger.Errorf("initialize server-control plan review key: %v", err)
+		}
 	}
 	for _, instance := range cfg.ServerControl.Instances {
+		service.staticIDs[instance.ID] = struct{}{}
 		summary := ServerControlInstance{ID: instance.ID, Name: instance.Name, Enabled: instance.Enabled, ReadOnly: cfg.ServerControl.ReadOnly}
 		if instance.ID == "" {
 			continue
@@ -131,14 +158,35 @@ func NewStarryControlService(cfg *config.Config, logger *logrus.Logger, authMana
 		}
 		service.instances[instance.ID] = summary
 	}
+	service.initializeManagedRegistry()
 	return service
 }
 
+func (s *StarryControlService) Close() error {
+	if s == nil {
+		return nil
+	}
+	s.registryInitMu.Lock()
+	defer s.registryInitMu.Unlock()
+	s.mu.Lock()
+	registry := s.registry
+	s.registry = nil
+	s.closed = true
+	s.mu.Unlock()
+	if registry == nil {
+		return nil
+	}
+	return registry.Close()
+}
+
 func (s *StarryControlService) Instances() []ServerControlInstance {
+	_ = s.refreshManagedInstances(context.Background())
 	labels := map[string]string{}
 	if AllService != nil && AllService.BrandingService != nil {
 		labels = AllService.BrandingService.Public().ServerInstanceNames
 	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	result := make([]ServerControlInstance, 0, len(s.instances))
 	for _, instance := range s.instances {
 		if label := strings.TrimSpace(labels[instance.ID]); label != "" {
@@ -340,19 +388,50 @@ func (s *StarryControlService) PlanConfig(ctx context.Context, instanceID string
 		if err != nil {
 			return starrycontrol.ConfigPlan{}, err
 		}
-		return provider.PlanConfig(ctx, input)
+		plan, err := provider.PlanConfig(ctx, input)
+		if err != nil {
+			return starrycontrol.ConfigPlan{}, err
+		}
+		capabilities, err := provider.Capabilities(ctx)
+		if err != nil {
+			return starrycontrol.ConfigPlan{}, err
+		}
+		plan.ReviewToken, err = s.sealPlanReview(ctx, instanceID, plan, capabilities.Config.SchemaDigest)
+		if err != nil {
+			return starrycontrol.ConfigPlan{}, err
+		}
+		return plan, nil
 	})
 }
 
 func (s *StarryControlService) ApplyConfig(ctx context.Context, instanceID string, input starrycontrol.ApplyRequest) (starrycontrol.Operation, error) {
-	return s.startControlOperation(ctx, "server_control.config.apply", instanceID, "config_apply", map[string]interface{}{
+	metadata := map[string]interface{}{
 		"plan_id":          input.PlanID,
 		"etag":             input.IfMatch,
 		"candidate_digest": input.CandidateDigest,
-	}, func() (starrycontrol.Operation, string, error) {
+	}
+	claims, reviewErr := s.verifyPlanReview(ctx, instanceID, input)
+	if reviewErr == nil {
+		metadata["before"] = map[string]interface{}{"etag": claims.BaseETag, "generation": claims.BaseGeneration}
+		metadata["after"] = map[string]interface{}{"source_digest": claims.CandidateDigest}
+		metadata["risk"] = claims.Risk
+		metadata["schema_digest"] = claims.SchemaDigest
+		metadata["change_count"] = claims.ChangeCount
+	}
+	return s.startControlOperation(ctx, "server_control.config.apply", instanceID, "config_apply", metadata, func() (starrycontrol.Operation, string, error) {
 		provider, err := s.provider(instanceID, true)
 		if err != nil {
 			return starrycontrol.Operation{}, "", err
+		}
+		if reviewErr != nil {
+			return starrycontrol.Operation{}, "", reviewErr
+		}
+		capabilities, err := provider.Capabilities(ctx)
+		if err != nil {
+			return starrycontrol.Operation{}, "", err
+		}
+		if capabilities.Config.SchemaDigest != claims.SchemaDigest {
+			return starrycontrol.Operation{}, "", planReviewError("PLAN_REVIEW_SCHEMA_CHANGED", "the Starry configuration schema changed after this plan was reviewed")
 		}
 		operation, err := provider.ApplyConfig(ctx, input)
 		return operation, input.CandidateDigest, err
@@ -400,6 +479,10 @@ func (s *StarryControlService) RollbackConfig(ctx context.Context, instanceID st
 		"revision_id": input.RevisionID,
 		"etag":        input.IfMatch,
 	}, func() (starrycontrol.Operation, string, error) {
+		expectedConfirmation := fmt.Sprintf("confirm:rollback:%s:%s", instanceID, input.RevisionID)
+		if input.RiskConfirmation != expectedConfirmation {
+			return starrycontrol.Operation{}, "", pairingProblem(428, "HIGH_RISK_CONFIRMATION_REQUIRED")
+		}
 		provider, err := s.provider(instanceID, true)
 		if err != nil {
 			return starrycontrol.Operation{}, "", err
@@ -671,6 +754,14 @@ func openControlLog(path string) (*os.File, error) {
 }
 
 func (s *StarryControlService) provider(instanceID string, mutatesActiveConfig bool) (starrycontrol.ServerControlProvider, error) {
+	if err := s.refreshManagedInstances(context.Background()); err != nil {
+		registry, _ := s.registryState()
+		if registry != nil {
+			return nil, err
+		}
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	instance, exists := s.instances[instanceID]
 	if !exists {
 		return nil, starrycontrol.ErrInstanceNotFound
@@ -678,7 +769,7 @@ func (s *StarryControlService) provider(instanceID string, mutatesActiveConfig b
 	if !instance.Enabled {
 		return nil, starrycontrol.ErrUnavailable
 	}
-	if mutatesActiveConfig && s.config.ReadOnly {
+	if mutatesActiveConfig && instance.ReadOnly {
 		return nil, starrycontrol.ErrReadOnly
 	}
 	provider, ok := s.providers[instanceID]
@@ -686,6 +777,227 @@ func (s *StarryControlService) provider(instanceID string, mutatesActiveConfig b
 		return nil, starrycontrol.ErrUnavailable
 	}
 	return provider, nil
+}
+
+func (s *StarryControlService) initializeManagedRegistry() {
+	root := s.config.EffectiveRegistryDirectory()
+	registry, err := servercontrolregistry.OpenExisting(root, servercontrolregistry.OpenOptions{HostIdentityFile: s.config.EffectiveHostIdentityFile()})
+	if err != nil {
+		s.mu.Lock()
+		s.registryErr = err
+		s.mu.Unlock()
+		if s.logger != nil && !errors.Is(err, servercontrolregistry.ErrNotFound) {
+			s.logger.Errorf("open independent server-control registry: %v", err)
+		} else if s.logger != nil && s.config.Pairing.Enabled {
+			s.logger.Warnf("server-control registry is not initialized at %s; an exact confirmed first pairing is required", root)
+		}
+		return
+	}
+	s.mu.Lock()
+	s.registry = registry
+	s.registryErr = nil
+	s.mu.Unlock()
+	if err := s.refreshManagedInstances(context.Background()); err != nil {
+		s.mu.Lock()
+		s.registryErr = err
+		s.mu.Unlock()
+		if s.logger != nil {
+			s.logger.Errorf("load managed Starry instances: %v", err)
+		}
+		return
+	}
+	s.logManagedRegistryPreflight(context.Background())
+}
+
+// openManagedRegistryIfCreated observes a registry initialized by another
+// Kessoku process (normally the Cobra CLI). It deliberately uses OpenExisting:
+// a missing volume or changed path must remain unavailable until an exact
+// confirmed first-pair action creates a new installation identity.
+func (s *StarryControlService) openManagedRegistryIfCreated() (bool, error) {
+	if s == nil || !s.config.Pairing.Enabled {
+		return false, nil
+	}
+	s.registryInitMu.Lock()
+	defer s.registryInitMu.Unlock()
+	registry, _ := s.registryState()
+	if registry != nil {
+		return false, nil
+	}
+	s.mu.RLock()
+	closed := s.closed
+	s.mu.RUnlock()
+	if closed {
+		return false, errors.New("server-control service is closed")
+	}
+	opened, err := servercontrolregistry.OpenExisting(s.config.EffectiveRegistryDirectory(), servercontrolregistry.OpenOptions{HostIdentityFile: s.config.EffectiveHostIdentityFile()})
+	if err != nil {
+		s.mu.Lock()
+		s.registryErr = err
+		s.mu.Unlock()
+		return false, err
+	}
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		_ = opened.Close()
+		return false, errors.New("server-control service is closed")
+	}
+	if s.registry != nil {
+		s.mu.Unlock()
+		_ = opened.Close()
+		return false, nil
+	}
+	s.registry = opened
+	s.registryErr = nil
+	s.mu.Unlock()
+	return true, nil
+}
+
+func (s *StarryControlService) refreshManagedInstances(ctx context.Context) error {
+	registry, registryErr := s.registryState()
+	reopened := false
+	if registry == nil && s != nil && s.config.Pairing.Enabled {
+		var err error
+		reopened, err = s.openManagedRegistryIfCreated()
+		if err != nil {
+			return err
+		}
+		registry, registryErr = s.registryState()
+	}
+	if registry == nil {
+		if s != nil && s.config.Pairing.Enabled && registryErr != nil {
+			return registryErr
+		}
+		return nil
+	}
+	metadata, err := registry.Metadata(ctx)
+	if err != nil {
+		return err
+	}
+	managed, err := registry.ManagedInstances(ctx)
+	if err != nil {
+		return err
+	}
+	// Keep one v3.0.7-compatible static fragment per managed instance. This is
+	// deliberately derived from the independent registry on every refresh so a
+	// deleted export is repaired without changing registry generation.
+	for _, item := range managed {
+		if _, err := servercontrolregistry.WriteStaticExport(registry.Root(), item); err != nil {
+			return fmt.Errorf("refresh static export for managed instance %q: %w", item.ManagedID, err)
+		}
+	}
+	s.mu.RLock()
+	currentGeneration := s.registryGen
+	s.mu.RUnlock()
+	if metadata.Generation == currentGeneration {
+		if reopened {
+			s.logManagedRegistryPreflight(context.Background())
+		}
+		return nil
+	}
+	s.mu.Lock()
+	if metadata.Generation == s.registryGen {
+		s.mu.Unlock()
+		if reopened {
+			s.logManagedRegistryPreflight(context.Background())
+		}
+		return nil
+	}
+	for id := range s.managedIDs {
+		delete(s.instances, id)
+		delete(s.providers, id)
+		delete(s.providerErrs, id)
+	}
+	s.managedIDs = make(map[string]struct{}, len(managed))
+	for _, item := range managed {
+		if _, collision := s.staticIDs[item.ManagedID]; collision {
+			s.providerErrs[item.ManagedID] = errors.New("managed instance id collides with a static instance")
+			continue
+		}
+		instance := config.StarryInstance{
+			ID: item.ManagedID, Name: item.Name, Enabled: item.State == "paired_read_only" || item.State == "paired_write_enabled",
+			BaseURL: item.AgentOrigin, ExpectedInstanceID: item.InstanceUUID, TLSServerName: item.TLSServerName,
+			CAFile: item.CAFile, ClientCertFile: item.ClientCertFile, ClientKeyFile: item.ClientKeyFile,
+			ControlKeyFile: item.ControlKeyFile, ControlKeyID: item.ControlKeyID,
+			ControlIssuer: item.ControlIssuer, AuthorizedParty: item.AuthorizedParty,
+		}
+		summary := ServerControlInstance{ID: item.ManagedID, Name: item.Name, Enabled: instance.Enabled, Managed: true, ReadOnly: item.ReadOnly}
+		s.managedIDs[item.ManagedID] = struct{}{}
+		if s.authManager != nil {
+			fingerprint, fingerprintErr := controlauth.PrivateKeyPublicFingerprint(instance.ControlKeyFile)
+			if fingerprintErr != nil || s.authManager.UsesPublicKeyFingerprint(fingerprint) {
+				s.providerErrs[item.ManagedID] = errors.New("managed control keyring is invalid or not isolated")
+				summary.ErrorCode = "CONTROL_KEYRING_NOT_ISOLATED"
+				s.instances[item.ManagedID] = summary
+				continue
+			}
+		}
+		provider, providerErr := starryProvider.NewProvider(instance, s.config)
+		if providerErr != nil {
+			s.providerErrs[item.ManagedID] = providerErr
+			summary.ErrorCode = "INSTANCE_CONFIG_INVALID"
+		} else {
+			s.providers[item.ManagedID] = provider
+			summary.Available = true
+		}
+		s.instances[item.ManagedID] = summary
+	}
+	s.registryGen = metadata.Generation
+	s.registryErr = nil
+	s.mu.Unlock()
+	if reopened {
+		// This is emitted once for the externally created registry, after its
+		// generation and managed providers have been loaded successfully.
+		s.logManagedRegistryPreflight(context.Background())
+	}
+	return nil
+}
+
+func (s *StarryControlService) logManagedRegistryPreflight(ctx context.Context) {
+	if s == nil || s.logger == nil {
+		return
+	}
+	registry, _ := s.registryState()
+	if registry == nil {
+		return
+	}
+	metadata, err := registry.Metadata(ctx)
+	if err != nil {
+		s.logger.Errorf("read independent server-control registry preflight: %v", err)
+		return
+	}
+	s.logger.WithFields(logrus.Fields{
+		"registry_root":       metadata.Root,
+		"registry_state":      filepath.Join(metadata.Root, "registry-v1.sqlite"),
+		"registry_schema":     metadata.SchemaVersion,
+		"registry_generation": metadata.Generation,
+		"installation_id":     metadata.InstallationID,
+		"host_fingerprint":    metadata.HostFingerprint,
+	}).Info("independent server-control registry preflight passed")
+	managed, err := registry.ManagedInstances(ctx)
+	if err != nil {
+		s.logger.Errorf("list managed identities for registry preflight: %v", err)
+		return
+	}
+	for _, item := range managed {
+		s.logger.WithFields(logrus.Fields{
+			"managed_id":                item.ManagedID,
+			"instance_id":               item.InstanceUUID,
+			"client_certificate_sha256": item.CertificateSHA256,
+			"control_key_sha256":        item.ControlKeySHA256,
+			"read_only":                 item.ReadOnly,
+			"state":                     item.State,
+		}).Info("managed Starry identity loaded")
+	}
+}
+
+func (s *StarryControlService) registryState() (*servercontrolregistry.Store, error) {
+	if s == nil {
+		return nil, nil
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.registry, s.registryErr
 }
 
 func candidateMetadata(input starrycontrol.ConfigCandidate) map[string]interface{} {
@@ -777,8 +1089,15 @@ func (s *StarryControlService) startControlOperation(
 		if err := tx.Create(expectation).Error; err != nil {
 			return err
 		}
-		return tx.Model(&model.AdminAuditEvent{}).Where("id = ?", event.Id).
-			Updates(map[string]interface{}{"result": result, "error_code": errorCode}).Error
+		updates := map[string]interface{}{"result": result, "error_code": errorCode}
+		if operation.ActivationAck != nil {
+			metadata, err := controlAuditMetadataWithAck(event.Metadata, operation.ActivationAck)
+			if err != nil {
+				return err
+			}
+			updates["metadata"] = metadata
+		}
+		return tx.Model(&model.AdminAuditEvent{}).Where("id = ?", event.Id).Updates(updates).Error
 	})
 	if persistErr != nil {
 		persistErr = fmt.Errorf("persist Starry operation expectation: %w", persistErr)
@@ -820,12 +1139,48 @@ func (s *StarryControlService) finalizeControlOperation(expectations []model.Con
 	if result == "pending" {
 		return nil
 	}
-	ids := make([]uint, 0, len(expectations))
-	for _, expectation := range expectations {
-		ids = append(ids, expectation.AuditEventID)
+	return DB.Transaction(func(tx *gorm.DB) error {
+		for _, expectation := range expectations {
+			updates := map[string]interface{}{"result": result, "error_code": errorCode}
+			if operation.ActivationAck != nil {
+				event := model.AdminAuditEvent{}
+				if err := tx.Select("id", "metadata").First(&event, expectation.AuditEventID).Error; err != nil {
+					return err
+				}
+				metadata, err := controlAuditMetadataWithAck(event.Metadata, operation.ActivationAck)
+				if err != nil {
+					return err
+				}
+				updates["metadata"] = metadata
+			}
+			if err := tx.Model(&model.AdminAuditEvent{}).Where("id = ?", expectation.AuditEventID).Updates(updates).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func controlAuditMetadataWithAck(raw custom_types.AutoJson, ack *starrycontrol.ActivationAck) (custom_types.AutoJson, error) {
+	metadata := map[string]interface{}{}
+	if len(raw) != 0 {
+		if err := json.Unmarshal(raw, &metadata); err != nil {
+			return nil, err
+		}
 	}
-	return DB.Model(&model.AdminAuditEvent{}).Where("id IN ?", ids).
-		Updates(map[string]interface{}{"result": result, "error_code": errorCode}).Error
+	acks := make([]map[string]interface{}, 0, len(ack.SubsystemAcks))
+	for _, item := range ack.SubsystemAcks {
+		acks = append(acks, map[string]interface{}{"subsystem": item.Subsystem, "accepted": item.Accepted})
+	}
+	metadata["activation_ack"] = map[string]interface{}{
+		"generation":       ack.Generation,
+		"schema_version":   ack.SchemaVersion,
+		"source_digest":    ack.SourceDigest,
+		"effective_digest": ack.EffectiveDigest,
+		"subsystem_acks":   acks,
+	}
+	encoded, err := json.Marshal(metadata)
+	return custom_types.AutoJson(encoded), err
 }
 
 func controlOperationAuditResult(operation starrycontrol.Operation) (string, string) {
@@ -842,6 +1197,102 @@ func controlOperationAuditResult(operation starrycontrol.Operation) (string, str
 	default:
 		return "failure", "STARRY_OPERATION_INVALID"
 	}
+}
+
+type planReviewClaims struct {
+	InstanceID      string `json:"instance_id"`
+	ActorUserID     uint   `json:"actor_user_id"`
+	PlanID          string `json:"plan_id"`
+	CandidateDigest string `json:"candidate_digest"`
+	BaseETag        string `json:"base_etag"`
+	BaseGeneration  uint64 `json:"base_generation"`
+	SchemaDigest    string `json:"schema_digest"`
+	ChangeCount     int    `json:"change_count"`
+	Risk            string `json:"risk"`
+	ExpiresAtUnix   int64  `json:"expires_at_unix"`
+}
+
+func (s *StarryControlService) sealPlanReview(ctx context.Context, instanceID string, plan starrycontrol.ConfigPlan, schemaDigest string) (string, error) {
+	request, ok := starrycontrol.MetadataFromContext(ctx)
+	if s == nil || !ok || allZeroBytes(s.planReviewKey[:]) || plan.PlanID == "" || plan.CandidateDigest == "" || plan.BaseETag == "" || plan.ExpiresAt.IsZero() || !validControlDigest(schemaDigest) {
+		return "", errors.New("server-control plan review signing is unavailable")
+	}
+	claims := planReviewClaims{
+		InstanceID: instanceID, ActorUserID: request.ActorUserID, PlanID: plan.PlanID,
+		CandidateDigest: plan.CandidateDigest, BaseETag: plan.BaseETag, BaseGeneration: plan.BaseGeneration,
+		SchemaDigest: schemaDigest, ChangeCount: len(plan.Changes), Risk: plan.Impact.Risk,
+		ExpiresAtUnix: plan.ExpiresAt.Unix(),
+	}
+	payload, err := json.Marshal(claims)
+	if err != nil {
+		return "", err
+	}
+	mac := hmac.New(sha256.New, s.planReviewKey[:])
+	_, _ = mac.Write(payload)
+	return base64.RawURLEncoding.EncodeToString(payload) + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil)), nil
+}
+
+func (s *StarryControlService) verifyPlanReview(ctx context.Context, instanceID string, input starrycontrol.ApplyRequest) (planReviewClaims, error) {
+	request, hasRequest := starrycontrol.MetadataFromContext(ctx)
+	if s == nil || input.ReviewToken == "" || len(input.ReviewToken) > 2048 || allZeroBytes(s.planReviewKey[:]) {
+		return planReviewClaims{}, planReviewError("PLAN_REVIEW_REQUIRED", "a current Kessoku plan review token is required")
+	}
+	parts := strings.Split(input.ReviewToken, ".")
+	if len(parts) != 2 {
+		return planReviewClaims{}, planReviewError("PLAN_REVIEW_INVALID", "the Kessoku plan review token is invalid")
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[0])
+	if err != nil {
+		return planReviewClaims{}, planReviewError("PLAN_REVIEW_INVALID", "the Kessoku plan review token is invalid")
+	}
+	signature, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return planReviewClaims{}, planReviewError("PLAN_REVIEW_INVALID", "the Kessoku plan review token is invalid")
+	}
+	mac := hmac.New(sha256.New, s.planReviewKey[:])
+	_, _ = mac.Write(payload)
+	if !hmac.Equal(signature, mac.Sum(nil)) {
+		return planReviewClaims{}, planReviewError("PLAN_REVIEW_INVALID", "the Kessoku plan review token is invalid")
+	}
+	claims := planReviewClaims{}
+	if json.Unmarshal(payload, &claims) != nil || !hasRequest || claims.ActorUserID != request.ActorUserID || claims.InstanceID != instanceID || claims.PlanID != input.PlanID ||
+		claims.CandidateDigest != input.CandidateDigest || claims.BaseETag != input.IfMatch || claims.ExpiresAtUnix < time.Now().Unix() ||
+		claims.ExpiresAtUnix > time.Now().Add(11*time.Minute).Unix() || !validControlDigest(claims.SchemaDigest) || claims.ChangeCount < 0 ||
+		claims.Risk != "low" && claims.Risk != "medium" && claims.Risk != "high" && claims.Risk != "critical" {
+		return planReviewClaims{}, planReviewError("PLAN_REVIEW_INVALID", "the Kessoku plan review token does not match this exact plan")
+	}
+	if claims.Risk == "high" || claims.Risk == "critical" {
+		expected := "confirm:" + claims.PlanID + ":" + claims.CandidateDigest
+		if input.RiskConfirmation != expected {
+			return planReviewClaims{}, planReviewError("HIGH_RISK_CONFIRMATION_REQUIRED", "high-risk plans require a second exact confirmation")
+		}
+	}
+	return claims, nil
+}
+
+func validControlDigest(value string) bool {
+	if len(value) != 71 || !strings.HasPrefix(value, "sha256:") {
+		return false
+	}
+	for _, character := range value[7:] {
+		if character < '0' || character > '9' && character < 'a' || character > 'f' {
+			return false
+		}
+	}
+	return true
+}
+
+func planReviewError(code, message string) error {
+	return &starrycontrol.ProviderError{Status: 428, Code: code, Message: message}
+}
+
+func allZeroBytes(value []byte) bool {
+	for _, item := range value {
+		if item != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func auditedControlCall[T any](

@@ -127,6 +127,13 @@ func TestTypedProviderSimulationAndConfigTransactions(t *testing.T) {
 	if err != nil || simulation.ConfigGeneration != 42 || !simulation.Selection.NonBinding {
 		t.Fatalf("simulation = %+v, err=%v", simulation, err)
 	}
+	if _, err := provider.SimulateAllocation(ctx, starrycontrol.SimulationInput{
+		ClientA:   starrycontrol.SimulationClient{IP: "192.0.2.10"},
+		ClientB:   starrycontrol.SimulationClient{IP: "2001:db8::20"},
+		Transport: starrycontrol.TransportMixed,
+	}); err != nil {
+		t.Fatalf("contract-optional expected_config_generation was treated as required: %v", err)
+	}
 	staleGeneration := uint64(41)
 	if _, err := provider.SimulateAllocation(ctx, starrycontrol.SimulationInput{
 		ClientA:                  starrycontrol.SimulationClient{IP: "192.0.2.10"},
@@ -189,6 +196,53 @@ func TestProviderRefusesUnsupportedCapabilityVersion(t *testing.T) {
 	}
 	if relayCalls != 0 {
 		t.Fatal("relay endpoint was called despite incompatible capability")
+	}
+}
+
+func TestProviderRejectsFastMediaPlanWithoutHealthyCandidate(t *testing.T) {
+	const instanceID = "0191f6a0-0000-7000-8000-000000000011"
+	capabilities := validFastMediaCapabilities()
+	capabilities.Instance.ID = instanceID
+	inventory := currentFastMediaInventory()
+	*inventory.Relays[0].FastMediaUDP.Healthy = false
+	planCalls := 0
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/control/v1/capabilities":
+			_ = json.NewEncoder(w).Encode(capabilities)
+		case "/control/v1/relays":
+			_ = json.NewEncoder(w).Encode(inventory)
+		case "/control/v1/config:plan":
+			planCalls++
+			w.WriteHeader(http.StatusInternalServerError)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+	client, err := clientgen.New(server.URL, server.Client(), func(context.Context, string) (string, error) {
+		return "control-token", nil
+	}, 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider := &Provider{instanceID: instanceID, client: client}
+	ctx := starrycontrol.WithRequestMetadata(context.Background(), starrycontrol.RequestMetadata{
+		ActorUserID: 42,
+		RequestID:   "0191f6a0-0000-7000-8000-000000000001",
+	})
+	_, err = provider.PlanConfig(ctx, starrycontrol.ConfigCandidate{
+		Document: "version: 5\nfast_mode:\n  relay:\n    fast_compat_enabled: false\n    fast_media_v1_enabled: true\n",
+		Format:   "yaml",
+		BaseETag: `"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"`,
+	})
+	var providerError *starrycontrol.ProviderError
+	if !errors.As(err, &providerError) || providerError.Code != "FAST_MEDIA_DEPENDENCY_UNMET" || providerError.Status != http.StatusConflict {
+		t.Fatalf("dependency gate error = %#v, %v", providerError, err)
+	}
+	if planCalls != 0 {
+		t.Fatalf("incompatible FastMedia candidate reached Starry config:plan %d time(s)", planCalls)
 	}
 }
 
@@ -280,6 +334,7 @@ func TestProviderRejectsBindingSimulationAndUnsafeComments(t *testing.T) {
 	unsafeSimulation := starrycontrol.SimulationResult{
 		ConfigGeneration: 1,
 		HealthSnapshotID: "snapshot-1",
+		Warnings:         []string{},
 		Candidates: []starrycontrol.AllocationCandidate{{
 			RelayID:         "relay-1",
 			ConfiguredOrder: 0,
@@ -297,8 +352,8 @@ func TestProviderRejectsBindingSimulationAndUnsafeComments(t *testing.T) {
 	}
 	unsafeSimulation.Selection.NonBinding = true
 	unsafeSimulation.ConfigGeneration = 0
-	if err := validateSimulationResponse(unsafeSimulation); err == nil {
-		t.Fatal("zero-generation allocation simulation response was accepted")
+	if err := validateSimulationResponse(unsafeSimulation); err != nil {
+		t.Fatalf("contract-valid zero-generation allocation simulation response was rejected: %v", err)
 	}
 
 	if validComment("approved\nforged-log-line") {

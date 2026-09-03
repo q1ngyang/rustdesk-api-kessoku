@@ -285,6 +285,20 @@ web-client:
 | `response-max-bytes` | 默认 `1048576`，最大 `4194304` |
 | `log-directory` | 可选的日志根目录；配置外部日志来源时必须是绝对、只由部署者控制的目录 |
 | `log-sources` | 日志来源白名单；每项包含唯一 `id`、`label`、组件、可选实例 ID 和简单文件名 |
+| `registry-directory` | 独立 SP1 registry；容器默认 `/app/data/server-control`，systemd 默认 `/var/lib/kessoku-api/data/server-control` |
+| `host-identity-file` | 启用配对时必填；systemd 使用 `/etc/machine-id`，容器使用单独挂载的宿主机 `/run/kessoku-host-machine-id` |
+| `pairing.enabled` | 默认 `false`；只有 Broker TLS pin 和精确 Agent allowlist 配置完成后才启用 |
+| `pairing.broker-origin` | 对外 Broker 的精确 HTTPS origin，不能含凭据、路径、查询或片段 |
+| `pairing.broker-spki-sha256` | Broker 证书 SPKI 的小写 `sha256:` 摘要 |
+| `pairing.code-ttl` | 默认 `10m`，最大一小时 |
+| `pairing.recovery-ttl` | 响应丢失后的同公钥恢复窗口，默认/最大 `10m` |
+| `pairing.agent-origins[]` | 部署预批准的 `id`、显示 `name`、精确 HTTPS `origin` 和 `tls-server-name`；浏览器只能选 ID |
+
+registry 使用独立 schema-v1 SQLite，不升级主业务数据库。完整目录必须持久化，目录权限为
+`0700`、文件为 `0600`，且不能使用符号链接。容器和 systemd 的路径、备份恢复、身份克隆
+接管与显式 purge 见 [v3.0.8 迁移指南](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/releases/v3.0.8/MIGRATION-v3.0.8.zh-CN.md)。
+`host-identity-file` 的原文不会存储或返回，只保存其哈希。容器不能使用镜像内置 machine-id，
+否则无法识别 registry 被复制到另一台宿主机；官方 Compose 会单独只读挂载宿主 machine-id。
 
 每个 `instances[]`：
 

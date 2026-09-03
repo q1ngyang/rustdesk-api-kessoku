@@ -36,6 +36,93 @@ type ControlAPIProblem struct {
 
 type ControlAuditEventList = model.AdminAuditEventList
 
+// PairingStatus reports the local SP1 registry and the deployment-owned Agent
+// origin allowlist. It never returns credential paths or pending secrets.
+// @Tags Server Control
+// @Summary Read SP1 pairing broker status
+// @Produce json
+// @Success 200 {object} ControlAPIResponse{data=service.PairingBrokerStatus}
+// @Router /admin/server-control/v1/pairing [get]
+// @Security token
+func (s *StarryControl) PairingStatus(c *gin.Context) {
+	result, err := service.AllService.StarryControlService.PairingStatus(controlContext(c))
+	writeControlResult(c, result, err)
+}
+
+// CreateControlPairing creates a short-lived one-time code for one exact
+// allowlisted Agent origin. Browser input cannot provide a URL or callback.
+// @Tags Server Control
+// @Summary Create Control Agent SP1 code
+// @Accept json
+// @Produce json
+// @Param X-Kessoku-Risk-Confirmation header string true "Exact high-risk confirmation"
+// @Param body body service.ControlPairingCreateRequest true "Managed ID and allowlist selection"
+// @Success 200 {object} ControlAPIResponse{data=service.PairingCodeResult}
+// @Failure 409 {object} ControlAPIProblem
+// @Failure 422 {object} ControlAPIProblem
+// @Failure 428 {object} ControlAPIProblem
+// @Router /admin/server-control/v1/pairing/control-agent [post]
+// @Security token
+func (s *StarryControl) CreateControlPairing(c *gin.Context) {
+	input := service.ControlPairingCreateRequest{}
+	if err := decodeControlJSON(c, &input); err != nil {
+		controlError(c, starrycontrol.ErrRequestInvalid)
+		return
+	}
+	input.Confirmation = c.GetHeader("X-Kessoku-Risk-Confirmation")
+	result, err := service.AllService.StarryControlService.CreateControlPairing(controlContext(c), input)
+	writeControlResult(c, result, err)
+}
+
+// RevokeControlPairing invalidates an unclaimed or claim-recovery Control
+// Agent code. It never accepts or returns the original SP1 secret.
+// @Tags Server Control
+// @Summary Revoke an unclaimed Control Agent SP1 code
+// @Accept json
+// @Produce json
+// @Param X-Kessoku-Risk-Confirmation header string true "Exact confirmation: confirm:revoke-pairing:<enrollment-id>"
+// @Param body body service.ControlPairingRevokeRequest true "Enrollment identifier only"
+// @Success 200 {object} ControlAPIResponse{data=service.PairingRevokeResult}
+// @Failure 409 {object} ControlAPIProblem
+// @Failure 410 {object} ControlAPIProblem
+// @Failure 428 {object} ControlAPIProblem
+// @Router /admin/server-control/v1/pairing/control-agent/revoke [post]
+// @Security token
+func (s *StarryControl) RevokeControlPairing(c *gin.Context) {
+	input := service.ControlPairingRevokeRequest{}
+	if err := decodeControlJSON(c, &input); err != nil {
+		controlError(c, starrycontrol.ErrRequestInvalid)
+		return
+	}
+	input.Confirmation = c.GetHeader("X-Kessoku-Risk-Confirmation")
+	result, err := service.AllService.StarryControlService.RevokeControlPairing(controlContext(c), input)
+	writeControlResult(c, result, err)
+}
+
+// SetManagedWriteEnabled changes only Kessoku's managed-provider policy. The
+// Agent's own write_enabled policy remains independently authoritative.
+// @Tags Server Control
+// @Summary Change managed instance write policy
+// @Accept json
+// @Produce json
+// @Param id path string true "Managed instance ID"
+// @Param X-Kessoku-Risk-Confirmation header string true "Exact high-risk confirmation"
+// @Param body body service.ManagedWriteRequest true "Write policy"
+// @Success 200 {object} ControlAPIResponse{data=service.ServerControlInstance}
+// @Failure 428 {object} ControlAPIProblem
+// @Router /admin/server-control/v1/instances/{id}/managed-write [post]
+// @Security token
+func (s *StarryControl) SetManagedWriteEnabled(c *gin.Context) {
+	input := service.ManagedWriteRequest{}
+	if err := decodeControlJSON(c, &input); err != nil {
+		controlError(c, starrycontrol.ErrRequestInvalid)
+		return
+	}
+	input.Confirmation = c.GetHeader("X-Kessoku-Risk-Confirmation")
+	result, err := service.AllService.StarryControlService.SetManagedWriteEnabled(controlContext(c), c.Param("id"), input)
+	writeControlResult(c, result, err)
+}
+
 // Instances lists deployment-owned Starry instances without credential paths.
 // @Tags Server Control
 // @Summary List configured Starry instances
@@ -101,6 +188,94 @@ func (s *StarryControl) Status(c *gin.Context) {
 // @Security token
 func (s *StarryControl) Relays(c *gin.Context) {
 	result, err := service.AllService.StarryControlService.Relays(controlContext(c), c.Param("id"))
+	writeControlResult(c, result, err)
+}
+
+// RelayEnrollments returns only Agent-redacted enrollment summaries.
+// @Tags Server Control
+// @Summary List Relay enrollments
+// @Produce json
+// @Param id path string true "Deployment instance ID"
+// @Success 200 {object} ControlAPIResponse{data=starrycontrol.RelayEnrollmentList}
+// @Router /admin/server-control/v1/instances/{id}/relay-enrollments [get]
+// @Security token
+func (s *StarryControl) RelayEnrollments(c *gin.Context) {
+	result, err := service.AllService.StarryControlService.ListRelayEnrollments(controlContext(c), c.Param("id"))
+	writeControlResult(c, result, err)
+}
+
+// CreateRelayPairing asks the authenticated Agent to authorize the exact Relay
+// configuration before Kessoku emits a one-time SP1 code.
+// @Tags Server Control
+// @Summary Create Relay enrollment SP1 code
+// @Accept json
+// @Produce json
+// @Param id path string true "Deployment instance ID"
+// @Param Idempotency-Key header string true "Unique prepare key"
+// @Param X-Kessoku-Risk-Confirmation header string false "Required for activate-after-health"
+// @Param body body starrycontrol.RelayEnrollmentPrepareRequest true "Exact Agent-authorized Relay configuration"
+// @Success 200 {object} ControlAPIResponse{data=service.PairingCodeResult}
+// @Failure 428 {object} ControlAPIProblem
+// @Router /admin/server-control/v1/instances/{id}/relay-enrollments/pairing [post]
+// @Security token
+func (s *StarryControl) CreateRelayPairing(c *gin.Context) {
+	input := starrycontrol.RelayEnrollmentPrepareRequest{}
+	if err := decodeControlJSON(c, &input); err != nil {
+		controlError(c, starrycontrol.ErrRequestInvalid)
+		return
+	}
+	idempotencyKey := c.GetHeader("Idempotency-Key")
+	if idempotencyKey == "" {
+		controlProblem(c, http.StatusPreconditionRequired, "PRECONDITION_REQUIRED", "Idempotency-Key is required", false)
+		return
+	}
+	result, err := service.AllService.StarryControlService.CreateRelayPairing(controlContext(c), service.RelayPairingCreateRequest{
+		InstanceID: c.Param("id"), Enrollment: input, IdempotencyKey: idempotencyKey,
+		Confirmation: c.GetHeader("X-Kessoku-Risk-Confirmation"),
+	})
+	writeControlResult(c, result, err)
+}
+
+// ActivateRelayEnrollment forwards only an exact successful operation,
+// generation and health snapshot to the Agent's health-gated activation API.
+// @Tags Server Control
+// @Summary Activate a health-verified Relay enrollment
+// @Accept json
+// @Produce json
+// @Param id path string true "Deployment instance ID"
+// @Param X-Kessoku-Risk-Confirmation header string true "Exact high-risk confirmation"
+// @Param body body starrycontrol.RelayEnrollmentActivateRequest true "Activation ACK evidence"
+// @Success 200 {object} ControlAPIResponse{data=starrycontrol.RelayEnrollmentSummary}
+// @Failure 428 {object} ControlAPIProblem
+// @Router /admin/server-control/v1/instances/{id}/relay-enrollments/activate [post]
+// @Security token
+func (s *StarryControl) ActivateRelayEnrollment(c *gin.Context) {
+	input := starrycontrol.RelayEnrollmentActivateRequest{}
+	if err := decodeControlJSON(c, &input); err != nil {
+		controlError(c, starrycontrol.ErrRequestInvalid)
+		return
+	}
+	result, err := service.AllService.StarryControlService.ActivateRelayEnrollment(controlContext(c), c.Param("id"), input, c.GetHeader("X-Kessoku-Risk-Confirmation"))
+	writeControlResult(c, result, err)
+}
+
+// RevokeRelayEnrollment requests Agent-authoritative revocation.
+// @Tags Server Control
+// @Summary Revoke a Relay enrollment
+// @Accept json
+// @Produce json
+// @Param id path string true "Deployment instance ID"
+// @Param body body starrycontrol.RelayEnrollmentRevokeRequest true "Enrollment binding"
+// @Success 200 {object} ControlAPIResponse{data=starrycontrol.RelayEnrollmentSummary}
+// @Router /admin/server-control/v1/instances/{id}/relay-enrollments/revoke [post]
+// @Security token
+func (s *StarryControl) RevokeRelayEnrollment(c *gin.Context) {
+	input := starrycontrol.RelayEnrollmentRevokeRequest{}
+	if err := decodeControlJSON(c, &input); err != nil {
+		controlError(c, starrycontrol.ErrRequestInvalid)
+		return
+	}
+	result, err := service.AllService.StarryControlService.RevokeRelayEnrollment(controlContext(c), c.Param("id"), input)
 	writeControlResult(c, result, err)
 }
 
@@ -233,6 +408,8 @@ func (s *StarryControl) PlanConfig(c *gin.Context) {
 // @Param id path string true "Deployment instance ID"
 // @Param If-Match header string true "Current configuration ETag"
 // @Param Idempotency-Key header string true "Unique apply key"
+// @Param X-Kessoku-Plan-Review header string true "Opaque Kessoku review binding returned by config/plan"
+// @Param X-Kessoku-Risk-Confirmation header string false "Exact second confirmation for high/critical plans"
 // @Param body body starrycontrol.ApplyRequest true "Planned apply request"
 // @Success 202 {object} ControlAPIResponse{data=starrycontrol.Operation}
 // @Failure 400 {object} ControlAPIProblem
@@ -253,12 +430,18 @@ func (s *StarryControl) ApplyConfig(c *gin.Context) {
 	}
 	input.IfMatch = c.GetHeader("If-Match")
 	input.IdempotencyKey = c.GetHeader("Idempotency-Key")
+	input.ReviewToken = c.GetHeader("X-Kessoku-Plan-Review")
+	input.RiskConfirmation = c.GetHeader("X-Kessoku-Risk-Confirmation")
 	if input.IfMatch == "" {
 		controlProblem(c, http.StatusPreconditionRequired, "PRECONDITION_REQUIRED", "If-Match is required", false)
 		return
 	}
 	if input.IdempotencyKey == "" {
 		controlProblem(c, http.StatusPreconditionRequired, "PRECONDITION_REQUIRED", "Idempotency-Key is required", false)
+		return
+	}
+	if input.ReviewToken == "" {
+		controlProblem(c, http.StatusPreconditionRequired, "PLAN_REVIEW_REQUIRED", "X-Kessoku-Plan-Review is required", false)
 		return
 	}
 	result, err := service.AllService.StarryControlService.ApplyConfig(controlContext(c), c.Param("id"), input)
@@ -311,6 +494,7 @@ func (s *StarryControl) ConfigHistory(c *gin.Context) {
 // @Param id path string true "Deployment instance ID"
 // @Param If-Match header string true "Current configuration ETag"
 // @Param Idempotency-Key header string true "Unique rollback key"
+// @Param X-Kessoku-Risk-Confirmation header string true "Exact confirmation: confirm:rollback:<instance-id>:<revision-id>"
 // @Param body body starrycontrol.RollbackRequest true "Rollback revision"
 // @Success 202 {object} ControlAPIResponse{data=starrycontrol.Operation}
 // @Failure 400 {object} ControlAPIProblem
@@ -331,12 +515,17 @@ func (s *StarryControl) RollbackConfig(c *gin.Context) {
 	}
 	input.IfMatch = c.GetHeader("If-Match")
 	input.IdempotencyKey = c.GetHeader("Idempotency-Key")
+	input.RiskConfirmation = c.GetHeader("X-Kessoku-Risk-Confirmation")
 	if input.IfMatch == "" {
 		controlProblem(c, http.StatusPreconditionRequired, "PRECONDITION_REQUIRED", "If-Match is required", false)
 		return
 	}
 	if input.IdempotencyKey == "" {
 		controlProblem(c, http.StatusPreconditionRequired, "PRECONDITION_REQUIRED", "Idempotency-Key is required", false)
+		return
+	}
+	if input.RiskConfirmation == "" {
+		controlProblem(c, http.StatusPreconditionRequired, "HIGH_RISK_CONFIRMATION_REQUIRED", "X-Kessoku-Risk-Confirmation is required", false)
 		return
 	}
 	result, err := service.AllService.StarryControlService.RollbackConfig(controlContext(c), c.Param("id"), input)
@@ -538,8 +727,10 @@ func controlError(c *gin.Context, err error) {
 func publicControlStatus(status int) int {
 	switch status {
 	case http.StatusNotFound,
+		http.StatusGone,
 		http.StatusConflict,
 		http.StatusPreconditionFailed,
+		http.StatusPreconditionRequired,
 		http.StatusUnprocessableEntity,
 		http.StatusTooManyRequests,
 		http.StatusBadGateway,

@@ -983,6 +983,93 @@ definitions:
       message:
         type: string
     type: object
+  service.ControlPairingCreateRequest:
+    properties:
+      action:
+        type: string
+      agent_origin_id:
+        type: string
+      managed_id:
+        type: string
+      name:
+        type: string
+      target_instance_id:
+        type: string
+    type: object
+  service.ControlPairingRevokeRequest:
+    properties:
+      enrollment_id:
+        type: string
+    type: object
+  service.ManagedWriteRequest:
+    properties:
+      write_enabled:
+        type: boolean
+    type: object
+  service.PairingBrokerStatus:
+    properties:
+      agent_origins:
+        items:
+          $ref: '#/definitions/service.PairingOrigin'
+        type: array
+      available:
+        type: boolean
+      broker_origin:
+        type: string
+      broker_spki_sha256:
+        type: string
+      enabled:
+        type: boolean
+      error_code:
+        type: string
+      installation_id:
+        type: string
+      protocol_version:
+        type: integer
+      registry_generation:
+        type: integer
+      registry_schema:
+        type: integer
+    type: object
+  service.PairingCodeResult:
+    properties:
+      code:
+        type: string
+      configuration_digest:
+        type: string
+      enrollment_id:
+        type: string
+      expires_at_unix:
+        type: integer
+      purpose:
+        type: string
+      state:
+        type: string
+      version:
+        type: integer
+    type: object
+  service.PairingOrigin:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      origin:
+        type: string
+      tls_server_name:
+        type: string
+    type: object
+  service.PairingRevokeResult:
+    properties:
+      enrollment_id:
+        type: string
+      purpose:
+        type: string
+      state:
+        type: string
+      version:
+        type: integer
+    type: object
   service.PresenceMetricsSnapshot:
     properties:
       active_leases:
@@ -1034,6 +1121,8 @@ definitions:
         type: string
       id:
         type: string
+      managed:
+        type: boolean
       name:
         type: string
       read_only:
@@ -1149,15 +1238,31 @@ definitions:
     properties:
       allocation_simulation:
         type: integer
+      config_downgrade_preview:
+        type: integer
       config_rollback:
+        type: integer
+      config_schema:
         type: integer
       config_transaction:
         type: integer
       connection_auth:
         type: integer
+      fast_media_relay_udp:
+        type: integer
+      fast_relay_authorization:
+        type: integer
       peer_registry:
         type: integer
+      profile_activation_lease:
+        type: integer
       relay_active_probe:
+        type: integer
+      relay_enrollment:
+        type: integer
+      relay_enrollment_health_activation:
+        type: integer
+      relay_enrollment_write:
         type: integer
       relay_inventory:
         type: integer
@@ -1168,6 +1273,8 @@ definitions:
       relay_quality:
         type: integer
       relay_telemetry_schema:
+        type: integer
+      starry_pairing:
         type: integer
     type: object
   starrycontrol.ConfigCandidate:
@@ -1237,6 +1344,8 @@ definitions:
         type: string
       plan_id:
         type: string
+      review_token:
+        type: string
     type: object
   starrycontrol.ConfigRevision:
     properties:
@@ -1273,6 +1382,116 @@ definitions:
         type: string
       severity:
         type: string
+    type: object
+  starrycontrol.FastMediaUDPRuntime:
+    properties:
+      active_allocations:
+        type: integer
+      active_streams:
+        type: integer
+      allocation_mismatch:
+        type: integer
+      bind_rejected:
+        type: integer
+      bind_succeeded:
+        type: integer
+      configured_port:
+        type: integer
+      cookie_rejected:
+        type: integer
+      dropped_packets:
+        type: integer
+      enabled:
+        type: boolean
+      expired_allocations:
+        type: integer
+      forwarded_bytes:
+        type: integer
+      forwarded_packets:
+        type: integer
+      grant_rejected:
+        type: integer
+      healthy:
+        type: boolean
+      hello_accepted:
+        type: integer
+      listener_failures:
+        type: integer
+      rate_limited:
+        type: integer
+      rebinds:
+        type: integer
+      replay_rejected:
+        type: integer
+      reported_port:
+        type: integer
+      role_mismatch:
+        type: integer
+      session_mismatch:
+        type: integer
+    type: object
+  starrycontrol.FastRelayRuntime:
+    properties:
+      active_authorizations:
+        type: integer
+      active_fast_media_authorizations:
+        type: integer
+      controller_grants_issued:
+        type: integer
+      delivered:
+        type: integer
+      disabled:
+        type: integer
+      enabled:
+        description: |-
+          Enabled and Issued are the exact patch-v1.3.0 FastCompat wire names.
+          They remain typed solely so an older Starry can keep its existing Relay
+          page; v1.3.1 responses use the fields below.
+        type: boolean
+      expired_cache_evictions:
+        type: integer
+      fast_compat_enabled:
+        type: boolean
+      fast_compat_sessions:
+        type: integer
+      fast_media_sessions:
+        type: integer
+      fast_media_unavailable:
+        type: integer
+      fast_media_v1_enabled:
+        type: boolean
+      insecure_requests:
+        type: integer
+      invalid_configuration:
+        type: integer
+      invalid_server_selection:
+        type: integer
+      invalid_uuids:
+        type: integer
+      issued:
+        type: integer
+      issued_sessions:
+        type: integer
+      last_fast_media_authorization_expires_at_unix:
+        type: integer
+      missing_signing_keys:
+        type: integer
+      protocol_version:
+        type: integer
+      quality_selection_failures:
+        type: integer
+      rate_limited:
+        type: integer
+      reliable_fallbacks:
+        type: integer
+      response_misses:
+        type: integer
+      reused:
+        type: integer
+      signing_failures:
+        type: integer
+      target_grants_issued:
+        type: integer
     type: object
   starrycontrol.InstanceInfo:
     properties:
@@ -1348,6 +1567,47 @@ definitions:
       risk:
         type: string
     type: object
+  starrycontrol.ProfileActivationRuntime:
+    properties:
+      active_leases:
+        type: integer
+      burst_limit:
+        type: integer
+      burst_window_seconds:
+        type: integer
+      capacity_rejections:
+        type: integer
+      deactivations:
+        type: integer
+      disconnect_cleanups:
+        type: integer
+      fast_reregistrations:
+        type: integer
+      invalid_requests:
+        type: integer
+      last_route_generation:
+        type: integer
+      lease_ttl_seconds:
+        type: integer
+      leases_issued:
+        type: integer
+      leases_reused:
+        type: integer
+      protocol_version:
+        type: integer
+      rate_limited:
+        type: integer
+      ready_acks:
+        type: integer
+      renewals:
+        type: integer
+      route_replacements:
+        type: integer
+      stale_rejections:
+        type: integer
+      ttl_expirations:
+        type: integer
+    type: object
   starrycontrol.ProtocolInfo:
     properties:
       major:
@@ -1367,6 +1627,8 @@ definitions:
         items:
           $ref: '#/definitions/starrycontrol.Transport'
         type: array
+      fast_media_udp:
+        $ref: '#/definitions/starrycontrol.FastMediaUDPRuntime'
       id:
         type: string
       native:
@@ -1387,17 +1649,118 @@ definitions:
     type: object
   starrycontrol.RelayCapabilities:
     properties:
+      fast_media_relay_udp:
+        type: integer
       relay_load_protocol:
         type: integer
       relay_probe_protocol:
+        type: integer
+    type: object
+  starrycontrol.RelayEnrollmentActivateRequest:
+    properties:
+      config_generation:
+        type: integer
+      configuration_digest:
+        type: string
+      enrollment_id:
+        type: string
+      health_snapshot_id:
+        type: string
+      operation_id:
+        type: string
+      version:
+        type: integer
+    type: object
+  starrycontrol.RelayEnrollmentList:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/starrycontrol.RelayEnrollmentSummary'
+        type: array
+      version:
+        type: integer
+    type: object
+  starrycontrol.RelayEnrollmentPrepareRequest:
+    properties:
+      activate_after_health:
+        type: boolean
+      capacity_bandwidth_bps:
+        type: integer
+      draining:
+        type: boolean
+      expires_in_seconds:
+        type: integer
+      fast_media_udp_port:
+        type: integer
+      max_sessions:
+        type: integer
+      node_id:
+        type: string
+      profile:
+        type: string
+      public_endpoint:
+        type: string
+      relay_pool:
+        type: string
+      relay_server:
+        type: string
+      version:
+        type: integer
+      wss_endpoint:
+        type: string
+    type: object
+  starrycontrol.RelayEnrollmentRevokeRequest:
+    properties:
+      configuration_digest:
+        type: string
+      enrollment_id:
+        type: string
+      version:
+        type: integer
+    type: object
+  starrycontrol.RelayEnrollmentSummary:
+    properties:
+      activate_after_health:
+        type: boolean
+      activated_at_unix:
+        type: integer
+      activation_config_generation:
+        type: integer
+      activation_health_snapshot_id:
+        type: string
+      activation_operation_id:
+        type: string
+      configuration_digest:
+        type: string
+      enrollment_id:
+        type: string
+      expires_at_unix:
+        type: integer
+      key_fingerprint:
+        type: string
+      node_id:
+        type: string
+      profile:
+        type: string
+      relay_pool:
+        type: string
+      relay_server:
+        type: string
+      state:
+        type: string
+      version:
         type: integer
     type: object
   starrycontrol.RelayInventory:
     properties:
       config_generation:
         type: integer
+      fast_relay:
+        $ref: '#/definitions/starrycontrol.FastRelayRuntime'
       health_snapshot_id:
         type: string
+      profile_activation:
+        $ref: '#/definitions/starrycontrol.ProfileActivationRuntime'
       quality:
         $ref: '#/definitions/starrycontrol.RelayQualityRuntime'
       relays:
@@ -1673,8 +2036,6 @@ definitions:
         type: integer
       probe_unsupported:
         type: integer
-      process_instance_id:
-        type: string
       stale:
         type: boolean
       state:
@@ -4492,6 +4853,15 @@ paths:
         name: Idempotency-Key
         required: true
         type: string
+      - description: Opaque Kessoku review binding returned by config/plan
+        in: header
+        name: X-Kessoku-Plan-Review
+        required: true
+        type: string
+      - description: Exact second confirmation for high/critical plans
+        in: header
+        name: X-Kessoku-Risk-Confirmation
+        type: string
       - description: Planned apply request
         in: body
         name: body
@@ -4684,6 +5054,11 @@ paths:
         name: Idempotency-Key
         required: true
         type: string
+      - description: 'Exact confirmation: confirm:rollback:<instance-id>:<revision-id>'
+        in: header
+        name: X-Kessoku-Risk-Confirmation
+        required: true
+        type: string
       - description: Rollback revision
         in: body
         name: body
@@ -4841,6 +5216,48 @@ paths:
       summary: Validate a Starry configuration candidate
       tags:
       - Server Control
+  /admin/server-control/v1/instances/{id}/managed-write:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Managed instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Exact high-risk confirmation
+        in: header
+        name: X-Kessoku-Risk-Confirmation
+        required: true
+        type: string
+      - description: Write policy
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.ManagedWriteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.ControlAPIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.ServerControlInstance'
+              type: object
+        "428":
+          description: Precondition Required
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+      security:
+      - token: []
+      summary: Change managed instance write policy
+      tags:
+      - Server Control
   /admin/server-control/v1/instances/{id}/operations/{operation_id}:
     get:
       parameters:
@@ -4893,6 +5310,152 @@ paths:
       security:
       - token: []
       summary: Read a Starry configuration operation
+      tags:
+      - Server Control
+  /admin/server-control/v1/instances/{id}/relay-enrollments:
+    get:
+      parameters:
+      - description: Deployment instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.ControlAPIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/starrycontrol.RelayEnrollmentList'
+              type: object
+      security:
+      - token: []
+      summary: List Relay enrollments
+      tags:
+      - Server Control
+  /admin/server-control/v1/instances/{id}/relay-enrollments/activate:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Deployment instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Exact high-risk confirmation
+        in: header
+        name: X-Kessoku-Risk-Confirmation
+        required: true
+        type: string
+      - description: Activation ACK evidence
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/starrycontrol.RelayEnrollmentActivateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.ControlAPIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/starrycontrol.RelayEnrollmentSummary'
+              type: object
+        "428":
+          description: Precondition Required
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+      security:
+      - token: []
+      summary: Activate a health-verified Relay enrollment
+      tags:
+      - Server Control
+  /admin/server-control/v1/instances/{id}/relay-enrollments/pairing:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Deployment instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Unique prepare key
+        in: header
+        name: Idempotency-Key
+        required: true
+        type: string
+      - description: Required for activate-after-health
+        in: header
+        name: X-Kessoku-Risk-Confirmation
+        type: string
+      - description: Exact Agent-authorized Relay configuration
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/starrycontrol.RelayEnrollmentPrepareRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.ControlAPIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.PairingCodeResult'
+              type: object
+        "428":
+          description: Precondition Required
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+      security:
+      - token: []
+      summary: Create Relay enrollment SP1 code
+      tags:
+      - Server Control
+  /admin/server-control/v1/instances/{id}/relay-enrollments/revoke:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Deployment instance ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Enrollment binding
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/starrycontrol.RelayEnrollmentRevokeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.ControlAPIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/starrycontrol.RelayEnrollmentSummary'
+              type: object
+      security:
+      - token: []
+      summary: Revoke a Relay enrollment
       tags:
       - Server Control
   /admin/server-control/v1/instances/{id}/relays:
@@ -5049,6 +5612,115 @@ paths:
       security:
       - token: []
       summary: Read Starry status
+      tags:
+      - Server Control
+  /admin/server-control/v1/pairing:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.ControlAPIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.PairingBrokerStatus'
+              type: object
+      security:
+      - token: []
+      summary: Read SP1 pairing broker status
+      tags:
+      - Server Control
+  /admin/server-control/v1/pairing/control-agent:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Exact high-risk confirmation
+        in: header
+        name: X-Kessoku-Risk-Confirmation
+        required: true
+        type: string
+      - description: Managed ID and allowlist selection
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.ControlPairingCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.ControlAPIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.PairingCodeResult'
+              type: object
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "428":
+          description: Precondition Required
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+      security:
+      - token: []
+      summary: Create Control Agent SP1 code
+      tags:
+      - Server Control
+  /admin/server-control/v1/pairing/control-agent/revoke:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 'Exact confirmation: confirm:revoke-pairing:<enrollment-id>'
+        in: header
+        name: X-Kessoku-Risk-Confirmation
+        required: true
+        type: string
+      - description: Enrollment identifier only
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.ControlPairingRevokeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/admin.ControlAPIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.PairingRevokeResult'
+              type: object
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+        "428":
+          description: Precondition Required
+          schema:
+            $ref: '#/definitions/admin.ControlAPIProblem'
+      security:
+      - token: []
+      summary: Revoke an unclaimed Control Agent SP1 code
       tags:
       - Server Control
   /admin/share_record/batchDelete:

@@ -846,6 +846,81 @@
                 }
             }
         },
+        "/internal/v1/starry/pairing/claim": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Starry Pairing"
+                ],
+                "summary": "Claim a pre-approved SP1 enrollment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Request UUID",
+                        "name": "X-Request-ID",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Frozen SP1 claim",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/servercontrolregistry.ClaimRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/servercontrolregistry.ClaimResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internalapi.StarryPairingAPIProblem"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/internalapi.StarryPairingAPIProblem"
+                        }
+                    },
+                    "410": {
+                        "description": "Gone",
+                        "schema": {
+                            "$ref": "#/definitions/internalapi.StarryPairingAPIProblem"
+                        }
+                    },
+                    "415": {
+                        "description": "Unsupported Media Type",
+                        "schema": {
+                            "$ref": "#/definitions/internalapi.StarryPairingAPIProblem"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/internalapi.StarryPairingAPIProblem"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/internalapi.StarryPairingAPIProblem"
+                        }
+                    }
+                }
+            }
+        },
         "/login": {
             "post": {
                 "description": "登录",
@@ -1835,6 +1910,22 @@
                 }
             }
         },
+        "internalapi.StarryPairingAPIError": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                }
+            }
+        },
+        "internalapi.StarryPairingAPIProblem": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/internalapi.StarryPairingAPIError"
+                }
+            }
+        },
         "model.AddressBookCollection": {
             "type": "object",
             "required": [
@@ -1934,6 +2025,65 @@
                 "data": {},
                 "message": {
                     "type": "string"
+                }
+            }
+        },
+        "servercontrolregistry.ClaimRequest": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "configuration_digest": {
+                    "type": "string"
+                },
+                "csr_pem": {
+                    "type": "string"
+                },
+                "enrollment_id": {
+                    "type": "string"
+                },
+                "instance_id": {
+                    "type": "string"
+                },
+                "key_fingerprint": {
+                    "type": "string"
+                },
+                "purpose": {
+                    "type": "string"
+                },
+                "request_digest": {
+                    "type": "string"
+                },
+                "secret": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "servercontrolregistry.ClaimResponse": {
+            "type": "object",
+            "properties": {
+                "bundle": {},
+                "configuration_digest": {
+                    "type": "string"
+                },
+                "enrollment_id": {
+                    "type": "string"
+                },
+                "key_fingerprint": {
+                    "type": "string"
+                },
+                "purpose": {
+                    "type": "string"
+                },
+                "request_digest": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
                 }
             }
         }

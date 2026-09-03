@@ -108,6 +108,28 @@ Each enabled instance fixes:
 The browser cannot override these values. `server-control.read-only: true` is
 the normal profile outside an approved configuration window.
 
+`server-control.registry-directory` defaults to `./data/server-control`
+(`/app/data/server-control` in the container and
+`/var/lib/kessoku-api/data/server-control` under the packaged systemd working
+directory). It is an independent schema-v1 SQLite registry; it never changes
+the main database schema. Keep its directories at `0700`, files at `0600`, and
+persist the complete tree.
+
+`server-control.host-identity-file` is required when SP1 pairing is enabled.
+For systemd use `/etc/machine-id`. A container must use the separately mounted
+host file (the official Compose example exposes it as
+`/run/kessoku-host-machine-id`); the machine ID baked into an image cannot
+detect a registry copied to another host. The value is hashed and is never
+stored or returned verbatim.
+
+SP1 is off by default. Enabling `server-control.pairing.enabled` requires an
+exact public `broker-origin`, lowercase `broker-spki-sha256`, and one or more
+deployment-owned `agent-origins`. Each allowlist entry has an `id`, display
+`name`, exact HTTPS `origin`, and certificate `tls-server-name`. `code-ttl`
+defaults to ten minutes and is capped at one hour; `recovery-ttl` defaults to
+ten minutes and cannot exceed ten minutes. These fields are deployment-only;
+the browser selects an ID and cannot submit an origin or callback.
+
 Kessoku automatically exposes its own `logger.path` when it resolves to a
 regular file. The remaining diagnostics viewer is a deployment-owned
 allowlist. Set one absolute `log-directory`, then add `log-sources` entries containing a unique

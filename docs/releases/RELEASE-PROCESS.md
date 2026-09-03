@@ -7,8 +7,11 @@ its final prepare step. Only that same workflow may consume the verified
 candidate source commit to create public artifacts. The remote GitHub tag
 object, rather than checkout's local tag representation, is authoritative.
 
-`RELEASE_STATUS` records the release owner's approval of `v3.0.7`. Approval
-does not by itself prove that a tag, image, package, Release, or Wiki exists.
+`RELEASE_STATUS` declares the intended `v3.0.8` identity. `PREVIEW_APPROVED`
+permits an immutable GitHub prerelease plus the versioned and `preview` image
+tags. It never changes `latest`. `APPROVED` is reserved for a stable Release
+and the `latest` image. Either approval still requires the protected workflows;
+it does not by itself prove that a tag, image, package, Release, or Wiki exists.
 
 ## Pre-tag approval
 
@@ -22,12 +25,15 @@ Before tagging, the reviewed commit must pass the checks in
   frontends;
 - workflow linting plus online resolution of every immutable GitHub Action
   commit pin;
-- database migrations through version 312 and backup/rollback guidance for the
-  database, TOTP key, media, configuration, and signing keys;
+- database schema 313 compatibility plus backup/rollback guidance for the
+  business database, independent SP1 registry, TOTP key, media, configuration,
+  signing keys, and per-instance PKI;
 - stable local CLI JSON/golden contracts, deterministic build-information
-  injection, and the machine-readable v3.0.7 migration metadata;
-- the pinned Starry contract, supported native-client matrix, separate-origin
-  WebClient flow, and connection-audit evidence;
+  injection, and the machine-readable v3.0.8 migration metadata;
+- the exact frozen Starry v1.3.1 contract and its immutable preview runtime
+  release; real Akari pairing, fallback/re-entry, NAT/UDP, supported native-
+  client and production-PKI matrices remain stable-promotion gates rather than
+  Kessoku preview-publication prerequisites;
 - concise bilingual release notes with explicit breaking changes; and
 - absence of credentials, local test state, historical WebClient2/V2 assets,
   or unrelated development files in tracked source.
@@ -35,8 +41,8 @@ Before tagging, the reviewed commit must pass the checks in
 ## Protected sequence
 
 1. Merge the reviewed source commit to `master` and confirm required CI passes.
-2. Confirm tag `v3.0.7` does not exist. Dispatch `.github/workflows/build.yml`
-   on `master` with `release_tag=v3.0.7`. The read-only workflow rejects any
+2. Confirm tag `v3.0.8` does not exist. Dispatch `.github/workflows/build.yml`
+   on `master` with `release_tag=v3.0.8`. The read-only workflow rejects any
    non-`master` ref or existing tag and produces
    `kessoku-release-candidate-<commit>` only after every source, frontend,
    database, generated-documentation, package, image, checksum, SBOM, and
@@ -52,18 +58,21 @@ Before tagging, the reviewed commit must pass the checks in
    candidate, exercises Sigstore signing and the short Release body, then
    builds and pushes a commit-addressed `candidate-<sha>` image with OCI
    provenance and SBOM. Only after GHCR accepts that exact image does its last
-   prepare step create annotated tag `v3.0.7` at the candidate `head_sha`.
+   prepare step create annotated tag `v3.0.8` at the candidate `head_sha`.
 5. Confirm the new tag resolves to that exact commit. Never move or reuse it.
 6. Dispatch `.github/workflows/release.yml` on protected branch `master` with
-   `mode=publish`, `release_tag=v3.0.7`, and the same candidate run ID. Publish
+   `mode=publish`, `release_tag=v3.0.8`, and the same candidate run ID. Publish
    verifies through the GitHub API that the remote annotated tag still resolves
    to the candidate source commit, then promotes the already-built candidate
-   image digest to `v3.0.7` and `latest`; it does not rebuild the image after
-   tagging. Release assets are uploaded to a draft and downloaded again for
-   name and checksum verification before the Release becomes public.
-7. After the protected environment gate, verify the GitHub Release, asset
-   checksums and attestations, GHCR `v3.0.7`, and `latest`; both image tags must
-   resolve to the same approved image index digest.
+   image digest to `v3.0.8` and the channel tag selected by `RELEASE_STATUS`
+   (`preview` for `PREVIEW_APPROVED`, `latest` for `APPROVED`); it does not
+   rebuild the image after tagging. Release assets are uploaded to a draft and
+   downloaded again for name and checksum verification before the Release
+   becomes public.
+7. After the protected environment gate, verify the GitHub Release channel,
+   asset checksums and attestations, GHCR `v3.0.8`, and the selected rolling
+   tag; both image tags must resolve to the same approved image index digest.
+   A preview must be marked prerelease and must leave `latest` unchanged.
 8. Publish the reviewed `docs/wiki/` tree to the separate GitHub Wiki repository
    and verify bilingual navigation and upgrade links.
 9. Keep all earlier Git tags immutable as historical and audit records.
@@ -73,12 +82,13 @@ the tag pattern `v*` remains for compatible retries. Keep the required reviewer
 gate. Do not add one deployment policy per version; that previously caused a
 valid v3.0.2 publication to fail only after its tag had already been created.
 
-The protected reviewer is the final product-acceptance gate, not a ceremonial
-click. Automation can prevent stale generated files and publication-pipeline
-mistakes, but it cannot prove every browser, network, proxy, and native-client
-combination. Staging acceptance before `mode=prepare` is what prevents a real
-integration defect like the withdrawn v3.0.1 release from consuming a public
-version.
+The protected reviewer confirms the selected channel and exact candidate.
+Automation can prevent stale generated files and publication-pipeline mistakes,
+but it cannot prove every browser, network, proxy, and native-client
+combination. Preview acceptance therefore covers source, compatibility,
+default-off behavior, rollback, frozen contracts, and hosted supply-chain
+checks. Stable promotion additionally requires the real-client/network/PKI
+matrix.
 
 Follow the [documentation maintenance guide](../development/DOCUMENTATION.md)
 for Wiki URL rules and post-publication link checks. Wiki sources already use
@@ -104,11 +114,11 @@ a tag whose identity cannot be proven.
 
 Deploy by immutable image digest or verified package checksum. Keep the
 pre-upgrade database backup, TOTP encryption key, media, prior image digest,
-configuration, signing keys, and PKI for the observation window. v3.0.7
-advances schema 312 to 313 for Presence Lease v2; v3.0.6 cannot safely read
-the new table/index contract. A return to v3.0.6 is restore-only after all
-writers stop and the complete matching pre-upgrade recovery set is restored. Follow
-[`MIGRATION-v3.0.7.md`](v3.0.7/MIGRATION-v3.0.7.md).
+configuration, signing keys, and PKI for the observation window. v3.0.8 keeps
+main schema 313 and adds an independent SP1 registry. A return to v3.0.7 is an
+in-place binary rollback only when the generated static instance export is
+manually merged and the managed registry remains untouched. Follow
+[`MIGRATION-v3.0.8.md`](v3.0.8/MIGRATION-v3.0.8.md).
 
 ## Historical release records
 

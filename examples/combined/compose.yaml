@@ -66,7 +66,7 @@ services:
         max-file: "5"
 
   kessoku-api:
-    image: ${KESSOKU_IMAGE:-ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.7}
+    image: ${KESSOKU_IMAGE:-ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.8}
     container_name: rustdesk-api-kessoku
     restart: unless-stopped
     read_only: true
@@ -82,6 +82,7 @@ services:
       RUSTDESK_API_RUSTDESK_API_SERVER: ${KESSOKU_PUBLIC_URL:?set KESSOKU_PUBLIC_URL}
       RUSTDESK_API_RUSTDESK_KEY: ${RUSTDESK_SERVER_PUBLIC_KEY:?set RUSTDESK_SERVER_PUBLIC_KEY}
       RUSTDESK_API_GIN_TRUST_PROXY: ${KESSOKU_TRUST_PROXY:-}
+      RUSTDESK_API_SERVER_CONTROL_HOST_IDENTITY_FILE: /run/kessoku-host-machine-id
     ports:
       - ${KESSOKU_BIND_ADDRESS:-127.0.0.1}:${KESSOKU_API_PORT:-21114}:21114
       - ${KESSOKU_CLIENT_BIND_ADDRESS:-127.0.0.1}:${KESSOKU_CLIENT_PORT:-21122}:21122
@@ -89,6 +90,7 @@ services:
       - ${KESSOKU_DATA_DIR:-./data/kessoku}:/app/data
       - ${KESSOKU_SECRETS_DIR:-./secrets/kessoku}:/run/secrets:ro
       - ${KESSOKU_CONFIG_FILE:-./kessoku-config.yaml}:/app/conf/config.yaml:ro
+      - ${KESSOKU_HOST_IDENTITY_FILE:-/etc/machine-id}:/run/kessoku-host-machine-id:ro
     tmpfs:
       - /app/runtime:uid=65534,gid=65534,mode=0700
     depends_on:

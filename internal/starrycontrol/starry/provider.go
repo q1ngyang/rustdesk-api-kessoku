@@ -19,6 +19,7 @@ import (
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/controlauth"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/starrycontrol"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/starrycontrol/clientgen"
+	"gopkg.in/yaml.v3"
 )
 
 type Provider struct {
@@ -200,9 +201,6 @@ func (p *Provider) VerifyPeer(ctx context.Context, input starrycontrol.PeerIdent
 
 func (p *Provider) SimulateAllocation(ctx context.Context, input starrycontrol.SimulationInput) (starrycontrol.SimulationResult, error) {
 	result := starrycontrol.SimulationResult{}
-	if input.ExpectedConfigGeneration == nil || *input.ExpectedConfigGeneration == 0 {
-		return result, fmt.Errorf("%w: expected_config_generation", starrycontrol.ErrRequestInvalid)
-	}
 	if !input.Transport.Valid() {
 		return result, fmt.Errorf("%w: transport", starrycontrol.ErrRequestInvalid)
 	}
@@ -225,7 +223,7 @@ func (p *Provider) SimulateAllocation(ctx context.Context, input starrycontrol.S
 	if err := validateSimulationResponse(result); err != nil {
 		return starrycontrol.SimulationResult{}, err
 	}
-	if result.ConfigGeneration != *input.ExpectedConfigGeneration {
+	if input.ExpectedConfigGeneration != nil && result.ConfigGeneration != *input.ExpectedConfigGeneration {
 		return starrycontrol.SimulationResult{}, contractResponseError()
 	}
 	return result, nil
@@ -305,6 +303,32 @@ func (p *Provider) PlanConfig(ctx context.Context, input starrycontrol.ConfigCan
 	if err := requireCapability(capabilities.Capabilities.ConfigTransaction, "config_transaction"); err != nil {
 		return result, err
 	}
+	inspection, err := inspectFastModeCandidate(input.Document)
+	if err != nil {
+		return result, starrycontrol.ErrRequestInvalid
+	}
+	if inspection.SchemaVersion == 5 && capabilities.Capabilities.ConfigSchema != 5 {
+		return result, capabilityUnavailable("config_schema", 5)
+	}
+	if inspection.HasFastMode && capabilities.Capabilities.FastRelayAuthorization != 1 {
+		return result, capabilityUnavailable("fast_relay_authorization", 1)
+	}
+	if inspection.FastMediaEnabled {
+		if capabilities.Capabilities.FastMediaRelayUDP != 1 {
+			return result, capabilityUnavailable("fast_media_relay_udp", 1)
+		}
+		inventory, inventoryErr := p.Relays(ctx)
+		if inventoryErr != nil {
+			return result, inventoryErr
+		}
+		if !hasHealthyFastMediaCandidate(inventory) {
+			return result, &starrycontrol.ProviderError{
+				Status:  http.StatusConflict,
+				Code:    "FAST_MEDIA_DEPENDENCY_UNMET",
+				Message: "FastMedia requires a selectable Relay with fresh authenticated telemetry schema 2, capability version 1, and a healthy configured UDP endpoint",
+			}
+		}
+	}
 	if err := p.call(ctx, clientgen.Request{Method: http.MethodPost, Path: "/control/v1/config:plan", Scope: "starry.config.plan", Body: input, IfMatch: input.BaseETag}, &result); err != nil {
 		return result, err
 	}
@@ -314,10 +338,59 @@ func (p *Provider) PlanConfig(ctx context.Context, input starrycontrol.ConfigCan
 	// Starry patch-v1.3 guarantees at least medium risk for every
 	// /relay_quality change. Keep a defensive client-side floor for older or
 	// non-conforming agents without changing the server-issued plan binding.
-	if result.Impact.Risk == "low" && planTouchesRelayQuality(result.Changes) {
-		result.Impact.Risk = "medium"
+	minimumRisk := planMinimumRisk(result.Changes, inspection.FastMediaEnabled)
+	if riskRank(result.Impact.Risk) < riskRank(minimumRisk) {
+		result.Impact.Risk = minimumRisk
 	}
 	return result, nil
+}
+
+type fastModeInspection struct {
+	SchemaVersion    int
+	HasFastMode      bool
+	FastMediaEnabled bool
+}
+
+func inspectFastModeCandidate(document string) (fastModeInspection, error) {
+	var candidate struct {
+		Version  int `yaml:"version"`
+		FastMode *struct {
+			Relay *struct {
+				FastMediaV1Enabled bool `yaml:"fast_media_v1_enabled"`
+			} `yaml:"relay"`
+		} `yaml:"fast_mode"`
+	}
+	if err := yaml.Unmarshal([]byte(document), &candidate); err != nil {
+		return fastModeInspection{}, err
+	}
+	result := fastModeInspection{SchemaVersion: candidate.Version, HasFastMode: candidate.FastMode != nil}
+	if candidate.FastMode != nil && candidate.FastMode.Relay != nil {
+		result.FastMediaEnabled = candidate.FastMode.Relay.FastMediaV1Enabled
+	}
+	return result, nil
+}
+
+func hasHealthyFastMediaCandidate(inventory starrycontrol.RelayInventory) bool {
+	for _, relay := range inventory.Relays {
+		udp := relay.FastMediaUDP
+		if len(relay.EligibleFor) == 0 || relay.Capabilities == nil || relay.Capabilities.FastMediaRelayUDP == nil ||
+			*relay.Capabilities.FastMediaRelayUDP != 1 || relay.WebSocket.TelemetrySchema == nil || *relay.WebSocket.TelemetrySchema != 2 ||
+			relay.WebSocket.State != "healthy" || relay.WebSocket.Stale == nil || *relay.WebSocket.Stale || udp == nil ||
+			udp.ConfiguredPort == nil || udp.ReportedPort == nil || *udp.ConfiguredPort != *udp.ReportedPort ||
+			udp.Enabled == nil || !*udp.Enabled || udp.Healthy == nil || !*udp.Healthy {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func capabilityUnavailable(name string, version int) error {
+	return &starrycontrol.ProviderError{
+		Status:  http.StatusBadGateway,
+		Code:    "CAPABILITY_UNAVAILABLE",
+		Message: fmt.Sprintf("required Starry capability %s version %d is unavailable", name, version),
+	}
 }
 
 func (p *Provider) ApplyConfig(ctx context.Context, input starrycontrol.ApplyRequest) (starrycontrol.Operation, error) {
@@ -508,7 +581,7 @@ func requireCapability(version int, name string) error {
 }
 
 func requireCapabilityVersion(version, required int, name string) error {
-	if version >= required {
+	if version == required {
 		return nil
 	}
 	return &starrycontrol.ProviderError{

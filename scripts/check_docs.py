@@ -19,7 +19,7 @@ RELEASE_TAG = re.compile(r"^v[0-9]+\.[0-9]+\.[0-9]+(?:[.-][A-Za-z0-9.]+)?$")
 
 
 def current_release_tag(root: Path = ROOT) -> str:
-    """Read the single approved release identity used by docs and workflows."""
+    """Read the declared release identity used by docs and workflows."""
     values: dict[str, str] = {}
     for raw in (root / "RELEASE_STATUS").read_text(encoding="utf-8").splitlines():
         if not raw or raw.startswith("#"):
@@ -30,8 +30,8 @@ def current_release_tag(root: Path = ROOT) -> str:
         values[key] = value
     if set(values) != {"status", "release_tag"}:
         raise ValueError("RELEASE_STATUS must contain only status and release_tag")
-    if values["status"] != "APPROVED" or not RELEASE_TAG.fullmatch(values["release_tag"]):
-        raise ValueError("RELEASE_STATUS does not name an approved semantic version tag")
+    if values["status"] not in {"APPROVED", "PREVIEW_APPROVED", "BLOCKED"} or not RELEASE_TAG.fullmatch(values["release_tag"]):
+        raise ValueError("RELEASE_STATUS does not name a valid declared semantic version tag")
     return values["release_tag"]
 
 

@@ -58,10 +58,66 @@ Allocation Simulation 必须明确标为 non-binding。它可以展示匹配的 
 候选顺序、传输资格和可能的 adaptive/eager 流程，但没有真实客户端探测数据，不能解释为
 最终质量分、最终 Relay 选择或预测客户端 RTT。
 
-发布包含 adaptive 支持的 Kessoku 前，必须先把完全相同的 Starry 契约发布到不可变标签，
-把 `internal/starrycontrol/CONTRACT_VERSION` 从 `LOCAL_CANDIDATE_VALIDATED` 改为 `PINNED`，
-记录匹配的 release digest，并重跑跨仓库与真实实例测试。移动分支或 dirty Starry 工作区不能
-作为发布依据。
+## FastCompat、FastMedia 与 schema v5
+
+v3.0.8 源码候选只固定到 Starry 契约冻结提交
+`6f5a31008ab7761d8557c8cf9fefcb5be11c49e6`，且只接受
+`fast_relay_authorization: 1`、`fast_media_relay_udp: 1` 与
+`config_schema: 5`。capability 完全缺失时显示“**不支持**”；任何已知 capability 出现未知
+版本时拒绝上游响应。Starry 运行时发布仍被阻塞，因此这不是镜像或 tag 声明。
+
+schema v5 新增由 Starry 所有的 `fast_mode.relay` 字段：`fast_compat_enabled`、
+`fast_media_v1_enabled`、`authorization_ttl_seconds`、`max_bitrate_kbps` 与
+`relay_max_datagram`。Kessoku 只渲染返回的 schema/UI schema 并补充本地化解释。两个开关
+相互独立且默认关闭。只有当前已认证 Relay 遥测证明存在 capability-v1、telemetry-schema-v2、
+端口匹配、新鲜且健康的候选时，启用 FastMedia 才能通过，不能乐观显示成功。
+
+任何 `/fast_mode` 计划至少为中风险；打开 FastMedia，或改变 UDP endpoint、datagram、
+限速及相关防火墙配置是高风险。管理员必须确认精确 plan，Kessoku 会把 review 绑定到操作人、
+ETag、base generation、candidate/schema digest、风险、变更数和过期时间。成功还必须取得
+Starry 返回的 generation、source/effective digest、schema version 和全部必需子系统接受的
+activation ACK。
+
+后台明确区分“不支持”“配置关闭”“依赖未满足”“已启用但无健康候选”“服务端已授权事件”
+“UDP 活跃度未知”和“可靠回退”。页面只显示服务端聚合：bind 成功/拒绝、cookie/grant 与
+role/session/allocation 拒绝分类、rebind、forward/drop/rate-limit、expiry、listener failure
+和可靠回退。Kessoku 会丢弃上游 process/allocation/session UUID，也不接收或显示客户端地址、
+token、签名 grant、私钥或媒体内容。计数只证明服务端事件，不能证明某个客户端进入 FastMedia。
+
+## SP1 配对与 Relay enrollment
+
+启用 pairing 时，部署配置必须拥有精确 HTTPS Broker origin、TLS SPKI SHA-256 pin 和预批准
+Agent origin/TLS 名单。UI/CLI 只能选择 allowlist ID，不能输入任意 Agent URL 或 callback。
+公开 claim 有大小限制、严格 JSON 和 `no-store`，并绑定冻结 SP1 purpose/action、enrollment/
+configuration digest、一次性 secret 摘要、CSR 公钥和实例身份。恢复窗口内用同一公钥重复
+精确 claim 可恢复丢失响应；用途交换、CSR 变化、过期和窗口外重放都会关闭失败。
+未领取 code 可在 UI 中或用 `server-control pair revoke` 按 enrollment ID 撤销；原始 code
+绝不会回传给 Kessoku。
+
+每个实例在 `data/server-control/instances` 下拥有独立 client CA/certificate/key 与
+service-JWT Ed25519 密钥。新 `pair` 学习后锁定 Agent instance UUID；`adopt` 和 `rotate`
+预绑定已有 UUID。首次配对和每次轮换都进入只读；registry 事务和静态导出成功后才热加载
+Provider。
+
+Relay enrollment 与 Control Agent pairing 不同：Kessoku 必须先让已经认证的 Agent 授权
+精确 endpoint、池、profile、容量、证书计划和过期时间。`activate_after_health` 只能在创建
+code 时形成不可变高风险预授权，否则 Relay 保持待批准。显式 activation 携带成功 operation、
+配置 generation/digest 和 Agent health snapshot。Kessoku 不保留原始 code、Relay 私钥、
+遥测 secret 或返回 bundle。
+
+容器独立 registry 位于 `/app/data/server-control/registry-v1.sqlite`，systemd 位于
+`/var/lib/kessoku-api/data/server-control/registry-v1.sqlite`，不会升级主业务 schema。每个
+托管实例另有 v3.0.7 兼容的 `server-control.instances[]` 静态导出。容器重建和二进制降级
+必须保留整个目录；详见 [v3.0.8 迁移指南](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/releases/v3.0.8/MIGRATION-v3.0.8.zh-CN.md)。
+配对还必须显式设置 `host-identity-file`：Compose 把 registry 之外的宿主机文件挂载到
+`/run/kessoku-host-machine-id`，systemd 使用 `/etc/machine-id`。Kessoku 只保存加域分隔的
+SHA-256 指纹；复制到另一主机的 registry 会关闭失败，直到管理员按精确 installation ID
+显式接管。
+
+发布前，Starry 必须为冻结契约提供不可变运行时 Release 与镜像 provenance，Kessoku 还必须
+通过真实实例、fallback/re-entry、Akari 双角色、NAT/UDP、轮换/迁移、Hosted CI、安全、
+SBOM、签名与 attestation 闸门。移动/dirty Starry 工作区或仅契约摘要都不能作为运行时
+发布证据。
 
 ## 安全结构
 

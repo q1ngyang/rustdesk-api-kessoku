@@ -8,7 +8,13 @@ open-source browser remote-desktop MVP, and integrates with
 [`rustdesk-server-starry`](https://github.com/q1ngyang/rustdesk-server-starry)
 through a typed, versioned Control API.
 
-> **v3.0.7 stable release.** v3.0.3 was the first supported v3 release. The
+> **v3.0.8 is the opt-in preview; v3.0.7 remains the stable release.** v3.0.8
+> adds Starry v1.3.1 FastCompat/FastMedia management and SP1 pairing. The new
+> controls remain default-off, the GitHub Release is a prerelease, and the
+> moving image tag is `preview`; `latest` continues to identify v3.0.7. Real
+> Akari/device/network and production-PKI validation remains required before a
+> later stable promotion. v3.0.3 was the first
+> supported v3 release. The
 > earlier v3.0.1 Release was withdrawn after significant integration defects.
 > The v3.0.2 tag records an unpublished release attempt and has no supported
 > Release assets or container image; v3.0.4 likewise remains an unpublished
@@ -36,7 +42,29 @@ Docker socket, or browser-supplied file path. Its browser client is repository-
 owned source; historical WebClient2/V2 and `resources/web*` assets remain
 excluded.
 
-## v3.0.7 highlights
+## v3.0.8 preview highlights
+
+- Exact, fail-closed negotiation of Starry
+  `fast_relay_authorization=1`, `fast_media_relay_udp=1`, and schema v5,
+  while patch-v1.2/v1.3.0 Relay pages remain compatible.
+- Independent FastCompat/FastMedia controls with current healthy UDP Relay
+  dependency checks, medium/high risk floors, exact confirmation, audited
+  generation/schema digests, and subsystem activation ACKs.
+- Aggregate-only Fast Relay telemetry and non-binding allocation simulation;
+  no client report, address, session/allocation UUID, grant, token, or media is
+  accepted for display.
+- Allowlist-only SP1 Control Agent and Agent-authorized Relay enrollment, with
+  one-time codes, CSR binding, response recovery, per-instance mTLS/JWT keys,
+  UUID locking, read-only first pairing, and hot-loaded providers.
+- An independent schema-v1 registry under `data/server-control`, secure static
+  exports for v3.0.7 takeover, clone detection, backup/restore, host adoption,
+  credential rotation, and explicitly confirmed purge. The main database stays
+  at schema 313.
+
+See the [v3.0.8 preview notes](docs/releases/v3.0.8/RELEASE-NOTES-v3.0.8.md)
+and [upgrade/rollback guide](docs/releases/v3.0.8/MIGRATION-v3.0.8.md).
+
+## v3.0.7 stable highlights
 
 - Stable local S6/operator CLI for side-effect-free `version --json` and
   `config validate`, read-only `database status`, and explicit locked
@@ -94,7 +122,7 @@ Docker Compose on Linux amd64 is the recommended deployment. Use the immutable
 version tag and then record the resolved digest in your deployment:
 
 ```sh
-docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.7
+docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.8
 cp examples/compose.env.example .env
 cp examples/config.docker-builtin.yaml config.yaml
 # Edit .env/config.yaml and provision the referenced signing key first.
@@ -104,9 +132,10 @@ docker compose --env-file .env -f docker-compose.yaml up -d
 
 The Compose default binds API port 21114 and Web Client port 21122 to
 `127.0.0.1`. Publish them through two distinct reviewed HTTPS origins; see
-[`examples/Caddyfile.example`](examples/Caddyfile.example). The release also
-publishes `latest` for users who intentionally track the newest stable build,
-while production rollback should pin the `v3.0.7` digest.
+[`examples/Caddyfile.example`](examples/Caddyfile.example). The preview also
+publishes the moving `preview` tag. It does not replace `latest`, which remains
+the v3.0.7 stable line. Production rollback should retain the previously
+verified v3.0.7 digest.
 The exact `relay-wss-urls` map lives in mounted YAML, not an environment
 variable; follow the detailed Docker guide before startup.
 
@@ -145,9 +174,9 @@ those pages to GitHub Wiki is a separate release-owner action.
 ## Release status
 
 The authoritative gate is [`RELEASE_STATUS`](RELEASE_STATUS), with evidence
-requirements in [`RELEASE-CHECKLIST.md`](docs/releases/RELEASE-CHECKLIST.md). The v3.0.7
-feature and compatibility notes are in
-[`RELEASE-NOTES-v3.0.7.md`](docs/releases/v3.0.7/RELEASE-NOTES-v3.0.7.md).
+requirements in [`RELEASE-CHECKLIST.md`](docs/releases/RELEASE-CHECKLIST.md). The
+v3.0.8 preview feature and compatibility notes are in
+[`RELEASE-NOTES-v3.0.8.md`](docs/releases/v3.0.8/RELEASE-NOTES-v3.0.8.md).
 Version-by-version summaries are in the [English changelog](CHANGELOG.md).
 
 Local development checks are not permission to publish. Tagging, pushing,

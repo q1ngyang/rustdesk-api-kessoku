@@ -5,9 +5,9 @@
 This page is the versioned entry point for users arriving from the GHCR
 package page. Docker Compose on Linux amd64 is the recommended deployment.
 
-> The `v3.0.7` image referenced here is a release target until the protected
-> publication workflow completes. The published `latest` tag will identify the
-> newest successful stable release; do not substitute a local worktree image.
+> The `v3.0.8` image referenced here is a **blocked release target**, not a
+> published image. Until all gates pass, use the published v3.0.7 digest and do
+> not substitute a local worktree image in production.
 
 Deployment links:
 
@@ -24,13 +24,15 @@ Deployment links:
 
 ## Image scope
 
-The v3.0.7 image contains one unprivileged `kessoku-api` process, the reviewed
+The v3.0.8 candidate image contains one unprivileged `kessoku-api` process, the reviewed
 management and Web Client frontends built from the same source commit, API
 documentation, and runtime configuration templates. The image:
 
 - targets `linux/amd64`;
 - runs as UID/GID `65534:65534`;
 - persists application data under `/app/data`;
+- stores the independent SP1 registry and credentials under the persistent
+  `/app/data/server-control` tree, outside the main database;
 - listens on public API port `21114`;
 - exposes the independent built-in Web Client listener on `21122`;
 - can use a separate internal mTLS listener on `21121` when explicitly enabled;
@@ -43,23 +45,23 @@ separately.
 
 ## Pull and inspect
 
-After publication:
+Only after publication:
 
 ```sh
-docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.7
+docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.8
 docker image inspect \
-  ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.7 \
+  ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.8 \
   --format '{{json .RepoDigests}}'
 ```
 
-The workflow publishes both immutable `v3.0.7` and moving `latest` tags for the
+After approval, the workflow publishes both immutable `v3.0.8` and moving `latest` tags for the
 same image. Use `latest` only when tracking the newest stable release is
 intentional; resolve and pin the versioned tag's digest for production change
 control and rollback.
 
 ## Compose quick start
 
-From a v3.0.7 source checkout or downloaded deployment files:
+From a reviewed v3.0.8 source checkout or, after publication, downloaded deployment files:
 
 ```sh
 cp examples/compose.env.example .env
@@ -101,6 +103,21 @@ The validation command never connects or writes; the migration command exits
 without starting the API and serializes against another migrator. Existing
 schema-312 deployments can use `database status --json` as an S6 readiness
 preflight. Keep recovery execution restricted to the trusted local supervisor.
+
+Image pull, force-recreate, and down/up preserve SP1 pairing only when the exact
+same `KESSOKU_DATA_DIR` is mounted at `/app/data`. Before a lifecycle change,
+resolve the host path, record the registry `installation_id`, and back up the
+whole `server-control/` tree while Kessoku is stopped. Do not use `down -v`
+without first proving from `docker compose config` that no managed identity is
+stored in a named or anonymous volume. Changed paths, unsafe permissions, and
+cloned host identities fail preflight; see the
+[v3.0.8 migration guide](../releases/v3.0.8/MIGRATION-v3.0.8.md).
+Startup and `registry status` never initialize missing identity state. Only an
+exact confirmed new `server-control pair create` may initialize a genuinely
+new registry after the operator has verified the mounted data path.
+The Compose file also mounts `${KESSOKU_HOST_IDENTITY_FILE:-/etc/machine-id}`
+read-only at `/run/kessoku-host-machine-id`. This mount is intentionally outside
+the data tree: using the image's machine ID would not detect a cross-host clone.
 
 ## First login
 

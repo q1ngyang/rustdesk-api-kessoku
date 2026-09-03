@@ -12,12 +12,13 @@ import (
 const cliSchemaVersion = 1
 
 const (
-	exitSuccess     = 0
-	exitUsage       = 2
-	exitConfig      = 3
-	exitDatabase    = 4
-	exitSchema      = 5
-	exitMaintenance = 6
+	exitSuccess       = 0
+	exitUsage         = 2
+	exitConfig        = 3
+	exitDatabase      = 4
+	exitSchema        = 5
+	exitMaintenance   = 6
+	exitServerControl = 7
 )
 
 type cliErrorDetail struct {

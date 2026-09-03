@@ -27,17 +27,26 @@ type InstanceInfo struct {
 }
 
 type CapabilityVersions struct {
-	RelayInventory       int `json:"relay_inventory"`
-	AllocationSimulation int `json:"allocation_simulation"`
-	ConfigTransaction    int `json:"config_transaction"`
-	ConfigRollback       int `json:"config_rollback"`
-	ConnectionAuth       int `json:"connection_auth"`
-	RelayQuality         int `json:"relay_quality"`
-	RelayActiveProbe     int `json:"relay_active_probe"`
-	RelayProbeProtocol   int `json:"relay_probe_protocol"`
-	RelayLoadProtocol    int `json:"relay_load_protocol"`
-	RelayTelemetrySchema int `json:"relay_telemetry_schema"`
-	PeerRegistry         int `json:"peer_registry"`
+	RelayInventory                  int `json:"relay_inventory"`
+	AllocationSimulation            int `json:"allocation_simulation"`
+	ConfigTransaction               int `json:"config_transaction"`
+	ConfigRollback                  int `json:"config_rollback"`
+	ConnectionAuth                  int `json:"connection_auth"`
+	RelayQuality                    int `json:"relay_quality"`
+	RelayActiveProbe                int `json:"relay_active_probe"`
+	RelayProbeProtocol              int `json:"relay_probe_protocol"`
+	RelayLoadProtocol               int `json:"relay_load_protocol"`
+	RelayTelemetrySchema            int `json:"relay_telemetry_schema"`
+	FastRelayAuthorization          int `json:"fast_relay_authorization"`
+	FastMediaRelayUDP               int `json:"fast_media_relay_udp"`
+	StarryPairing                   int `json:"starry_pairing"`
+	ConfigDowngradePreview          int `json:"config_downgrade_preview"`
+	RelayEnrollment                 int `json:"relay_enrollment"`
+	RelayEnrollmentWrite            int `json:"relay_enrollment_write"`
+	RelayEnrollmentHealthActivation int `json:"relay_enrollment_health_activation"`
+	ProfileActivationLease          int `json:"profile_activation_lease"`
+	PeerRegistry                    int `json:"peer_registry"`
+	ConfigSchema                    int `json:"config_schema"`
 }
 
 type PeerIdentityInput struct {
@@ -104,11 +113,13 @@ type AuthMetrics struct {
 }
 
 type RelayInventory struct {
-	ConfigGeneration uint64               `json:"config_generation"`
-	HealthSnapshotID string               `json:"health_snapshot_id"`
-	Relays           []Relay              `json:"relays"`
-	Quality          *RelayQualityRuntime `json:"quality,omitempty"`
-	Warning          string               `json:"warning"`
+	ConfigGeneration  uint64                    `json:"config_generation"`
+	HealthSnapshotID  string                    `json:"health_snapshot_id"`
+	Relays            []Relay                   `json:"relays"`
+	Quality           *RelayQualityRuntime      `json:"quality,omitempty"`
+	FastRelay         *FastRelayRuntime         `json:"fast_relay,omitempty"`
+	ProfileActivation *ProfileActivationRuntime `json:"profile_activation,omitempty"`
+	Warning           string                    `json:"warning"`
 }
 
 type Relay struct {
@@ -121,13 +132,202 @@ type Relay struct {
 	ConfiguredOrder   int                  `json:"configured_order"`
 	Native            NativeRelayStatus    `json:"native"`
 	WebSocket         WebSocketRelayStatus `json:"websocket"`
+	FastMediaUDP      *FastMediaUDPRuntime `json:"fast_media_udp,omitempty"`
 	EligibleFor       []Transport          `json:"eligible_for"`
 	ReferencedByRules []string             `json:"referenced_by_rules"`
+
+	presentFields map[string]struct{}
+}
+
+func (relay *Relay) UnmarshalJSON(data []byte) error {
+	type wireRelay Relay
+	var decoded wireRelay
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+	*relay = Relay(decoded)
+	relay.presentFields = make(map[string]struct{}, len(fields))
+	for field := range fields {
+		relay.presentFields[field] = struct{}{}
+	}
+	return nil
+}
+
+// HasWireField distinguishes an omitted additive field from an explicit null.
+// Values assembled directly in Go are treated as complete test/internal data.
+func (relay Relay) HasWireField(field string) bool {
+	if relay.presentFields == nil {
+		return true
+	}
+	_, present := relay.presentFields[field]
+	return present
 }
 
 type RelayCapabilities struct {
 	RelayProbeProtocol *int `json:"relay_probe_protocol"`
 	RelayLoadProtocol  *int `json:"relay_load_protocol"`
+	FastMediaRelayUDP  *int `json:"fast_media_relay_udp"`
+
+	presentFields map[string]struct{}
+}
+
+func (capabilities *RelayCapabilities) UnmarshalJSON(data []byte) error {
+	type wireRelayCapabilities RelayCapabilities
+	var decoded wireRelayCapabilities
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+	*capabilities = RelayCapabilities(decoded)
+	capabilities.presentFields = make(map[string]struct{}, len(fields))
+	for field := range fields {
+		capabilities.presentFields[field] = struct{}{}
+	}
+	return nil
+}
+
+func (capabilities RelayCapabilities) HasWireField(field string) bool {
+	if capabilities.presentFields == nil {
+		return true
+	}
+	_, present := capabilities.presentFields[field]
+	return present
+}
+
+// FastMediaUDPRuntime is Starry's redacted HBBR AKR1 aggregate. It contains
+// no allocation/session UUIDs, client addresses, grants, tokens, or media.
+type FastMediaUDPRuntime struct {
+	ConfiguredPort     *int    `json:"configured_port"`
+	ReportedPort       *int    `json:"reported_port"`
+	Enabled            *bool   `json:"enabled"`
+	Healthy            *bool   `json:"healthy"`
+	ActiveAllocations  *uint64 `json:"active_allocations"`
+	ActiveStreams      *uint64 `json:"active_streams"`
+	HelloAccepted      *uint64 `json:"hello_accepted"`
+	CookieRejected     *uint64 `json:"cookie_rejected"`
+	BindSucceeded      *uint64 `json:"bind_succeeded"`
+	BindRejected       *uint64 `json:"bind_rejected"`
+	GrantRejected      *uint64 `json:"grant_rejected"`
+	RoleMismatch       *uint64 `json:"role_mismatch"`
+	SessionMismatch    *uint64 `json:"session_mismatch"`
+	AllocationMismatch *uint64 `json:"allocation_mismatch"`
+	Rebinds            *uint64 `json:"rebinds"`
+	ForwardedPackets   *uint64 `json:"forwarded_packets"`
+	ForwardedBytes     *uint64 `json:"forwarded_bytes"`
+	DroppedPackets     *uint64 `json:"dropped_packets"`
+	RateLimited        *uint64 `json:"rate_limited"`
+	ReplayRejected     *uint64 `json:"replay_rejected"`
+	ExpiredAllocations *uint64 `json:"expired_allocations"`
+	ListenerFailures   *uint64 `json:"listener_failures"`
+
+	// missingRequiredFields preserves the distinction made by the frozen
+	// Starry schema between an explicitly-null aggregate and an absent key.
+	// Every field in fast_media_udp is required on the wire, although each
+	// value may be null while telemetry is unavailable.
+	missingRequiredFields []string
+}
+
+func (runtime *FastMediaUDPRuntime) UnmarshalJSON(data []byte) error {
+	type wireFastMediaUDPRuntime FastMediaUDPRuntime
+	var decoded wireFastMediaUDPRuntime
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+	required := [...]string{
+		"configured_port", "reported_port", "enabled", "healthy",
+		"active_allocations", "active_streams", "hello_accepted", "cookie_rejected",
+		"bind_succeeded", "bind_rejected", "grant_rejected", "role_mismatch",
+		"session_mismatch", "allocation_mismatch", "rebinds", "forwarded_packets",
+		"forwarded_bytes", "dropped_packets", "rate_limited", "replay_rejected",
+		"expired_allocations", "listener_failures",
+	}
+	missing := make([]string, 0)
+	for _, field := range required {
+		if _, present := fields[field]; !present {
+			missing = append(missing, field)
+		}
+	}
+	*runtime = FastMediaUDPRuntime(decoded)
+	runtime.missingRequiredFields = missing
+	return nil
+}
+
+// MissingRequiredFields returns frozen schema-v5 keys omitted by a decoded
+// Starry response. It returns a copy so callers cannot alter validation state.
+func (runtime FastMediaUDPRuntime) MissingRequiredFields() []string {
+	return append([]string(nil), runtime.missingRequiredFields...)
+}
+
+// FastRelayRuntime contains server-side authorization and fallback counters.
+// These counters prove only that Starry processed an event; they do not prove
+// that any particular client entered FastCompat or FastMedia.
+type FastRelayRuntime struct {
+	ProtocolVersion int `json:"protocol_version"`
+
+	// Enabled and Issued are the exact patch-v1.3.0 FastCompat wire names.
+	// They remain typed solely so an older Starry can keep its existing Relay
+	// page; v1.3.1 responses use the fields below.
+	Enabled *bool   `json:"enabled,omitempty"`
+	Issued  *uint64 `json:"issued,omitempty"`
+
+	FastCompatEnabled                       *bool   `json:"fast_compat_enabled,omitempty"`
+	FastMediaV1Enabled                      *bool   `json:"fast_media_v1_enabled,omitempty"`
+	ActiveAuthorizations                    *uint64 `json:"active_authorizations,omitempty"`
+	ActiveFastMediaAuthorizations           *uint64 `json:"active_fast_media_authorizations,omitempty"`
+	LastFastMediaAuthorizationExpiresAtUnix *uint64 `json:"last_fast_media_authorization_expires_at_unix,omitempty"`
+	IssuedSessions                          *uint64 `json:"issued_sessions,omitempty"`
+	TargetGrantsIssued                      *uint64 `json:"target_grants_issued,omitempty"`
+	ControllerGrantsIssued                  *uint64 `json:"controller_grants_issued,omitempty"`
+	FastCompatSessions                      *uint64 `json:"fast_compat_sessions,omitempty"`
+	FastMediaSessions                       *uint64 `json:"fast_media_sessions,omitempty"`
+	Reused                                  *uint64 `json:"reused,omitempty"`
+	Delivered                               *uint64 `json:"delivered,omitempty"`
+	Disabled                                *uint64 `json:"disabled,omitempty"`
+	InsecureRequests                        *uint64 `json:"insecure_requests,omitempty"`
+	InvalidConfiguration                    *uint64 `json:"invalid_configuration,omitempty"`
+	InvalidUUIDs                            *uint64 `json:"invalid_uuids,omitempty"`
+	InvalidServerSelection                  *uint64 `json:"invalid_server_selection,omitempty"`
+	MissingSigningKeys                      *uint64 `json:"missing_signing_keys,omitempty"`
+	SigningFailures                         *uint64 `json:"signing_failures,omitempty"`
+	QualitySelectionFailures                *uint64 `json:"quality_selection_failures,omitempty"`
+	RateLimited                             *uint64 `json:"rate_limited,omitempty"`
+	ResponseMisses                          *uint64 `json:"response_misses,omitempty"`
+	ExpiredCacheEvictions                   *uint64 `json:"expired_cache_evictions,omitempty"`
+	FastMediaUnavailable                    *uint64 `json:"fast_media_unavailable,omitempty"`
+	ReliableFallbacks                       *uint64 `json:"reliable_fallbacks,omitempty"`
+}
+
+type ProfileActivationRuntime struct {
+	ProtocolVersion     int     `json:"protocol_version"`
+	ActiveLeases        *uint64 `json:"active_leases"`
+	LastRouteGeneration *uint64 `json:"last_route_generation"`
+	LeasesIssued        *uint64 `json:"leases_issued"`
+	LeasesReused        *uint64 `json:"leases_reused"`
+	ReadyAcks           *uint64 `json:"ready_acks"`
+	FastReregistrations *uint64 `json:"fast_reregistrations"`
+	Renewals            *uint64 `json:"renewals"`
+	RouteReplacements   *uint64 `json:"route_replacements"`
+	Deactivations       *uint64 `json:"deactivations"`
+	DisconnectCleanups  *uint64 `json:"disconnect_cleanups"`
+	TTLExpirations      *uint64 `json:"ttl_expirations"`
+	InvalidRequests     *uint64 `json:"invalid_requests"`
+	StaleRejections     *uint64 `json:"stale_rejections"`
+	RateLimited         *uint64 `json:"rate_limited"`
+	CapacityRejections  *uint64 `json:"capacity_rejections"`
+	LeaseTTLSeconds     *uint64 `json:"lease_ttl_seconds"`
+	BurstWindowSeconds  *uint64 `json:"burst_window_seconds"`
+	BurstLimit          *uint64 `json:"burst_limit"`
 }
 
 type NativeRelayStatus struct {
@@ -146,7 +346,6 @@ type WebSocketRelayStatus struct {
 	Stale                        *bool      `json:"stale,omitempty"`
 	LatencyMS                    *int64     `json:"latency_ms"`
 	TelemetrySchema              *int       `json:"telemetry_schema,omitempty"`
-	ProcessInstanceID            *string    `json:"process_instance_id,omitempty"`
 	TelemetrySequence            *uint64    `json:"telemetry_sequence,omitempty"`
 	UptimeSeconds                *uint64    `json:"uptime_seconds,omitempty"`
 	TelemetryRestarts            *uint64    `json:"telemetry_restarts,omitempty"`
@@ -167,7 +366,35 @@ type WebSocketRelayStatus struct {
 	ProbeSuccessful              *uint64    `json:"probe_successful,omitempty"`
 	TelemetryAuthFailures        *uint64    `json:"telemetry_auth_failures,omitempty"`
 	ErrorCode                    *string    `json:"error_code"`
-	ErrorMessage                 *string    `json:"error_message,omitempty"`
+	ErrorMessage                 *string    `json:"error_message"`
+
+	presentFields map[string]struct{}
+}
+
+func (status *WebSocketRelayStatus) UnmarshalJSON(data []byte) error {
+	type wireWebSocketRelayStatus WebSocketRelayStatus
+	var decoded wireWebSocketRelayStatus
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+	*status = WebSocketRelayStatus(decoded)
+	status.presentFields = make(map[string]struct{}, len(fields))
+	for field := range fields {
+		status.presentFields[field] = struct{}{}
+	}
+	return nil
+}
+
+func (status WebSocketRelayStatus) HasWireField(field string) bool {
+	if status.presentFields == nil {
+		return true
+	}
+	_, present := status.presentFields[field]
+	return present
 }
 
 // RelayQualityRuntime contains only the redacted aggregate counters published
@@ -324,6 +551,7 @@ type ConfigPlan struct {
 	Changes         []json.RawMessage `json:"changes" swaggertype:"array,object"`
 	Impact          PlanImpact        `json:"impact"`
 	ExpiresAt       time.Time         `json:"expires_at"`
+	ReviewToken     string            `json:"review_token,omitempty"`
 }
 
 type PlanImpact struct {
@@ -332,18 +560,21 @@ type PlanImpact struct {
 }
 
 type ApplyRequest struct {
-	PlanID          string `json:"plan_id"`
-	CandidateDigest string `json:"candidate_digest"`
-	IfMatch         string `json:"-"`
-	IdempotencyKey  string `json:"-"`
-	Comment         string `json:"comment,omitempty"`
+	PlanID           string `json:"plan_id"`
+	CandidateDigest  string `json:"candidate_digest"`
+	IfMatch          string `json:"-"`
+	IdempotencyKey   string `json:"-"`
+	Comment          string `json:"comment,omitempty"`
+	ReviewToken      string `json:"-"`
+	RiskConfirmation string `json:"-"`
 }
 
 type RollbackRequest struct {
-	RevisionID     string `json:"revision_id"`
-	IfMatch        string `json:"-"`
-	IdempotencyKey string `json:"-"`
-	Comment        string `json:"comment,omitempty"`
+	RevisionID       string `json:"revision_id"`
+	IfMatch          string `json:"-"`
+	IdempotencyKey   string `json:"-"`
+	Comment          string `json:"comment,omitempty"`
+	RiskConfirmation string `json:"-"`
 }
 
 type RuntimeReloadRequest struct {
@@ -399,4 +630,108 @@ type ConfigRevision struct {
 	Comment         string    `json:"comment"`
 	CreatedAt       time.Time `json:"created_at"`
 	Result          string    `json:"result"`
+}
+
+type RelayEnrollmentPrepareRequest struct {
+	Version              int     `json:"version"`
+	NodeID               string  `json:"node_id"`
+	RelayServer          string  `json:"relay_server"`
+	PublicEndpoint       string  `json:"public_endpoint"`
+	RelayPool            string  `json:"relay_pool"`
+	Profile              string  `json:"profile"`
+	WSSEndpoint          *string `json:"wss_endpoint"`
+	ActivateAfterHealth  bool    `json:"activate_after_health"`
+	MaxSessions          int     `json:"max_sessions"`
+	CapacityBandwidthBPS uint64  `json:"capacity_bandwidth_bps"`
+	Draining             bool    `json:"draining"`
+	FastMediaUDPPort     *int    `json:"fast_media_udp_port"`
+	ExpiresInSeconds     int     `json:"expires_in_seconds,omitempty"`
+}
+
+type RelayEnrollmentPrepareResponse struct {
+	Version             int    `json:"version"`
+	EnrollmentID        string `json:"enrollment_id"`
+	ConfigurationDigest string `json:"configuration_digest"`
+	ExpiresAtUnix       uint64 `json:"expires_at_unix"`
+	State               string `json:"state"`
+	Reused              bool   `json:"reused"`
+}
+
+type RelayEnrollmentCompleteRequest struct {
+	Version             int    `json:"version"`
+	EnrollmentID        string `json:"enrollment_id"`
+	ConfigurationDigest string `json:"configuration_digest"`
+	RequestDigest       string `json:"request_digest"`
+	KeyFingerprint      string `json:"key_fingerprint"`
+	CSRPEM              string `json:"csr_pem"`
+}
+
+type RelayEnrollmentCompleteResponse struct {
+	Version             int                   `json:"version"`
+	EnrollmentID        string                `json:"enrollment_id"`
+	ConfigurationDigest string                `json:"configuration_digest"`
+	RequestDigest       string                `json:"request_digest"`
+	KeyFingerprint      string                `json:"key_fingerprint"`
+	State               string                `json:"state"`
+	Bundle              RelayEnrollmentBundle `json:"bundle"`
+	Reused              bool                  `json:"reused"`
+}
+
+// RelayEnrollmentBundle is a one-time pass-through payload. Callers must
+// install and discard TelemetrySecret; it must never enter the registry,
+// logs, audit metadata, browser storage, or a read API.
+type RelayEnrollmentBundle struct {
+	NodeID               string  `json:"node_id"`
+	RelayServer          string  `json:"relay_server"`
+	PublicEndpoint       string  `json:"public_endpoint"`
+	NodeCertificatePEM   string  `json:"node_certificate_pem"`
+	RelayCAPEM           string  `json:"relay_ca_pem"`
+	CenterPublicKey      string  `json:"center_public_key"`
+	TelemetrySecret      string  `json:"telemetry_secret"`
+	MaxSessions          int     `json:"max_sessions"`
+	CapacityBandwidthBPS uint64  `json:"capacity_bandwidth_bps"`
+	Draining             bool    `json:"draining"`
+	RelayPool            string  `json:"relay_pool"`
+	Profile              string  `json:"profile"`
+	WSSEndpoint          *string `json:"wss_endpoint"`
+	ActivateAfterHealth  bool    `json:"activate_after_health"`
+	FastMediaUDPPort     *int    `json:"fast_media_udp_port"`
+}
+
+type RelayEnrollmentActivateRequest struct {
+	Version             int    `json:"version"`
+	EnrollmentID        string `json:"enrollment_id"`
+	ConfigurationDigest string `json:"configuration_digest"`
+	OperationID         string `json:"operation_id"`
+	ConfigGeneration    uint64 `json:"config_generation"`
+	HealthSnapshotID    string `json:"health_snapshot_id"`
+}
+
+type RelayEnrollmentRevokeRequest struct {
+	Version             int    `json:"version"`
+	EnrollmentID        string `json:"enrollment_id"`
+	ConfigurationDigest string `json:"configuration_digest"`
+}
+
+type RelayEnrollmentList struct {
+	Version int                      `json:"version"`
+	Items   []RelayEnrollmentSummary `json:"items"`
+}
+
+type RelayEnrollmentSummary struct {
+	Version                    int     `json:"version"`
+	EnrollmentID               string  `json:"enrollment_id"`
+	NodeID                     string  `json:"node_id"`
+	RelayServer                string  `json:"relay_server"`
+	RelayPool                  string  `json:"relay_pool"`
+	Profile                    string  `json:"profile"`
+	ConfigurationDigest        string  `json:"configuration_digest"`
+	ExpiresAtUnix              uint64  `json:"expires_at_unix"`
+	State                      string  `json:"state"`
+	ActivateAfterHealth        bool    `json:"activate_after_health"`
+	KeyFingerprint             *string `json:"key_fingerprint"`
+	ActivationOperationID      *string `json:"activation_operation_id"`
+	ActivationConfigGeneration *uint64 `json:"activation_config_generation"`
+	ActivationHealthSnapshotID *string `json:"activation_health_snapshot_id"`
+	ActivatedAtUnix            *uint64 `json:"activated_at_unix"`
 }

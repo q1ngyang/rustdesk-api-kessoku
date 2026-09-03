@@ -2,9 +2,15 @@
 
 **English** | [简体中文](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Upgrade-and-Rollback)
 
-Back up data and keys before changing an image or schema. Kessoku v3.0.7
-advances database version `312` to `313` for Presence Lease v2. Returning to
-v3.0.6 is restore-only and requires the matching pre-upgrade recovery set.
+Back up data and keys before changing an image or schema. The blocked v3.0.8
+candidate keeps main database version `313` and adds an independent SP1
+registry under `data/server-control`. Its container persistence, v3.0.7 binary
+round trip, host migration, rotation, and purge procedure is the
+[v3.0.8 migration guide](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/releases/v3.0.8/MIGRATION-v3.0.8.md).
+
+The published Kessoku v3.0.7 advanced database version `312` to `313` for
+Presence Lease v2. Returning from v3.0.7 to v3.0.6 is restore-only and requires
+the matching pre-upgrade recovery set.
 
 ## Before an upgrade
 

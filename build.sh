@@ -75,7 +75,7 @@ go mod download
 if [ -n "${DOCS}" ]; then
     echo "Generating Swagger documentation with swag v1.16.6..."
     go run github.com/swaggo/swag/cmd/swag@v1.16.6 init -g cmd/apimain.go --output docs/api --instanceName api --exclude http/controller/admin
-    go run github.com/swaggo/swag/cmd/swag@v1.16.6 init -g cmd/apimain.go --output docs/admin --instanceName admin --exclude http/controller/api
+    go run github.com/swaggo/swag/cmd/swag@v1.16.6 init -g cmd/apimain.go --output docs/admin --instanceName admin --exclude http/controller/api,http/controller/internalapi
 else
     echo "Skipping Swagger documentation generation due to DOCS is empty."
 fi

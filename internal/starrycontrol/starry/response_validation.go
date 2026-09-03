@@ -32,28 +32,51 @@ func validateCapabilitiesResponse(result starrycontrol.Capabilities) error {
 		result.Capabilities.RelayActiveProbe,
 		result.Capabilities.RelayProbeProtocol,
 		result.Capabilities.RelayLoadProtocol,
-		result.Capabilities.RelayTelemetrySchema,
+		result.Capabilities.FastRelayAuthorization,
+		result.Capabilities.FastMediaRelayUDP,
+		result.Capabilities.StarryPairing,
+		result.Capabilities.ConfigDowngradePreview,
+		result.Capabilities.RelayEnrollment,
+		result.Capabilities.RelayEnrollmentWrite,
+		result.Capabilities.RelayEnrollmentHealthActivation,
+		result.Capabilities.ProfileActivationLease,
 	}
 	for _, version := range versions {
 		if version < 0 || version > 1 {
 			return contractResponseError()
 		}
 	}
+	if result.Capabilities.RelayTelemetrySchema < 0 || result.Capabilities.RelayTelemetrySchema > 2 ||
+		result.Capabilities.ConfigSchema != 0 && result.Capabilities.ConfigSchema != 5 {
+		return contractResponseError()
+	}
 	if result.Capabilities.RelayQuality == 1 && (result.Capabilities.RelayActiveProbe != 1 ||
 		result.Capabilities.RelayProbeProtocol != 1 || result.Capabilities.RelayLoadProtocol != 1 ||
-		result.Capabilities.RelayTelemetrySchema != 1) {
+		result.Capabilities.RelayTelemetrySchema < 1) {
+		return contractResponseError()
+	}
+	if result.Capabilities.FastMediaRelayUDP == 1 && (result.Capabilities.FastRelayAuthorization != 1 ||
+		result.Capabilities.RelayTelemetrySchema != 2 || result.Capabilities.ConfigSchema != 5) {
+		return contractResponseError()
+	}
+	if result.Capabilities.RelayEnrollmentWrite == 1 && (result.Capabilities.RelayEnrollment != 1 || result.Capabilities.StarryPairing != 1) ||
+		result.Capabilities.RelayEnrollmentHealthActivation == 1 && result.Capabilities.RelayEnrollmentWrite != 1 ||
+		result.Capabilities.ProfileActivationLease == 1 && result.Capabilities.PeerRegistry != 2 {
 		return contractResponseError()
 	}
 	if result.Capabilities.PeerRegistry < 0 || result.Capabilities.PeerRegistry > 2 {
 		return contractResponseError()
 	}
-	if result.Config.ActiveSchemaVersion < 1 || result.Config.ActiveSchemaVersion > 4 || !validDigest(result.Config.SchemaDigest) {
+	if result.Config.ActiveSchemaVersion < 1 || result.Config.ActiveSchemaVersion > 5 || !validDigest(result.Config.SchemaDigest) {
+		return contractResponseError()
+	}
+	if result.Config.ActiveSchemaVersion == 5 && result.Capabilities.ConfigSchema != 5 {
 		return contractResponseError()
 	}
 	foundActive := false
 	seen := make(map[int]struct{}, len(result.Config.SupportedSchemaVersions))
 	for _, version := range result.Config.SupportedSchemaVersions {
-		if version < 1 || version > 4 {
+		if version < 1 || version > 5 {
 			return contractResponseError()
 		}
 		if _, duplicate := seen[version]; duplicate {
@@ -85,7 +108,7 @@ func validateStatusResponse(result starrycontrol.Status) error {
 }
 
 func validateRuntimeConfigState(result starrycontrol.RuntimeConfigState) error {
-	if !oneOf(result.Status, "disabled_no_config", "active", "unavailable") || result.SchemaVersion != nil && (*result.SchemaVersion < 1 || *result.SchemaVersion > 4) {
+	if !oneOf(result.Status, "disabled_no_config", "active", "unavailable") || result.SchemaVersion != nil && (*result.SchemaVersion < 1 || *result.SchemaVersion > 5) {
 		return contractResponseError()
 	}
 	for _, digest := range []*string{result.SourceDigest, result.EffectiveDigest} {
@@ -111,12 +134,18 @@ func validateRuntimeConfigState(result starrycontrol.RuntimeConfigState) error {
 }
 
 func validateRelaysResponse(inventory starrycontrol.RelayInventory, negotiated ...starrycontrol.CapabilityVersions) error {
-	if inventory.ConfigGeneration == 0 || !validIdentifier(inventory.HealthSnapshotID, 256) || inventory.Relays == nil || !validResponseText(inventory.Warning, 2048) {
+	if !validIdentifier(inventory.HealthSnapshotID, 256) || inventory.Relays == nil || !validResponseText(inventory.Warning, 2048) {
 		return contractResponseError()
 	}
 	relayQualityAdvertised := inventory.Quality != nil
+	fastRelayAdvertised := inventory.FastRelay != nil
+	fastMediaAdvertised := false
+	profileActivationAdvertised := inventory.ProfileActivation != nil
 	if len(negotiated) != 0 {
 		relayQualityAdvertised = negotiated[0].RelayQuality > 0
+		fastRelayAdvertised = negotiated[0].FastRelayAuthorization > 0
+		fastMediaAdvertised = negotiated[0].FastMediaRelayUDP > 0
+		profileActivationAdvertised = negotiated[0].ProfileActivationLease > 0
 	}
 	if relayQualityAdvertised && inventory.Quality == nil {
 		return contractResponseError()
@@ -125,6 +154,13 @@ func validateRelaysResponse(inventory starrycontrol.RelayInventory, negotiated .
 		if err := validateRelayQualityRuntime(*inventory.Quality); err != nil {
 			return err
 		}
+	}
+	allowLegacyFastRelay := len(negotiated) == 0 || !fastMediaAdvertised
+	if fastRelayAdvertised && inventory.FastRelay == nil || inventory.FastRelay != nil && validateFastRelayRuntime(*inventory.FastRelay, allowLegacyFastRelay) != nil {
+		return contractResponseError()
+	}
+	if profileActivationAdvertised && inventory.ProfileActivation == nil || inventory.ProfileActivation != nil && validateProfileActivationRuntime(*inventory.ProfileActivation) != nil {
+		return contractResponseError()
 	}
 	seen := make(map[string]struct{}, len(inventory.Relays))
 	for _, relay := range inventory.Relays {
@@ -137,15 +173,27 @@ func validateRelaysResponse(inventory starrycontrol.RelayInventory, negotiated .
 		if !oneOf(relay.Native.State, "online", "offline", "unknown") || !oneOf(relay.WebSocket.State, "unknown", "healthy", "unhealthy", "disabled") {
 			return contractResponseError()
 		}
-		if relayQualityAdvertised && (relay.Capabilities == nil || relay.QualityCandidate == nil || relay.WebSocket.Stale == nil || relay.WebSocket.TelemetryRestarts == nil) {
+		if relayQualityAdvertised && (!relay.HasWireField("version") || !relay.HasWireField("capabilities") ||
+			!relay.HasWireField("quality_candidate") || relay.Capabilities == nil || relay.QualityCandidate == nil ||
+			relay.WebSocket.Stale == nil || relay.WebSocket.TelemetryRestarts == nil || !hasRequiredRelayTelemetryFields(relay.WebSocket)) {
+			return contractResponseError()
+		}
+		if fastMediaAdvertised && (!relay.HasWireField("fast_media_udp") || relay.Capabilities == nil || relay.FastMediaUDP == nil) {
 			return contractResponseError()
 		}
 		if relay.Capabilities != nil {
-			for _, version := range []*int{relay.Capabilities.RelayProbeProtocol, relay.Capabilities.RelayLoadProtocol} {
-				if version != nil && *version < 1 {
+			if relayQualityAdvertised && (!relay.Capabilities.HasWireField("relay_probe_protocol") || !relay.Capabilities.HasWireField("relay_load_protocol")) ||
+				fastMediaAdvertised && !relay.Capabilities.HasWireField("fast_media_relay_udp") {
+				return contractResponseError()
+			}
+			for _, version := range []*int{relay.Capabilities.RelayProbeProtocol, relay.Capabilities.RelayLoadProtocol, relay.Capabilities.FastMediaRelayUDP} {
+				if version != nil && *version != 1 {
 					return contractResponseError()
 				}
 			}
+		}
+		if relay.FastMediaUDP != nil && validateFastMediaUDPRuntime(*relay.FastMediaUDP) != nil {
+			return contractResponseError()
 		}
 		if _, duplicate := seen[relay.ID]; duplicate {
 			return contractResponseError()
@@ -163,8 +211,7 @@ func validateRelaysResponse(inventory starrycontrol.RelayInventory, negotiated .
 				relay.WebSocket.ProbeUnsupported, relay.WebSocket.ProbeRateLimited, relay.WebSocket.ProbeSuccessful,
 				relay.WebSocket.TelemetryAuthFailures) ||
 			relay.WebSocket.LatencyMS != nil && *relay.WebSocket.LatencyMS < 0 ||
-			relay.WebSocket.TelemetrySchema != nil && *relay.WebSocket.TelemetrySchema != 1 ||
-			relay.WebSocket.ProcessInstanceID != nil && !validIdentifier(*relay.WebSocket.ProcessInstanceID, 64) ||
+			relay.WebSocket.TelemetrySchema != nil && (*relay.WebSocket.TelemetrySchema < 1 || *relay.WebSocket.TelemetrySchema > 2) ||
 			relay.WebSocket.TelemetrySequence != nil && *relay.WebSocket.TelemetrySequence < 1 ||
 			relay.WebSocket.LoadBasisPoints != nil && (*relay.WebSocket.LoadBasisPoints < 0 || *relay.WebSocket.LoadBasisPoints > 10000) ||
 			relay.WebSocket.ActiveSessions != nil && *relay.WebSocket.ActiveSessions < 0 ||
@@ -182,7 +229,7 @@ func validateRelaysResponse(inventory starrycontrol.RelayInventory, negotiated .
 		if relay.QualityCandidate != nil && *relay.QualityCandidate {
 			if relay.Capabilities == nil || relay.Capabilities.RelayProbeProtocol == nil || relay.Capabilities.RelayLoadProtocol == nil ||
 				relay.WebSocket.State != "healthy" || relay.WebSocket.Stale == nil || *relay.WebSocket.Stale || relay.WebSocket.AgeSeconds == nil ||
-				relay.WebSocket.TelemetrySchema == nil || *relay.WebSocket.TelemetrySchema != 1 {
+				relay.WebSocket.TelemetrySchema == nil || (*relay.WebSocket.TelemetrySchema != 1 && *relay.WebSocket.TelemetrySchema != 2) {
 				return contractResponseError()
 			}
 		}
@@ -201,6 +248,84 @@ func validateRelaysResponse(inventory starrycontrol.RelayInventory, negotiated .
 				return contractResponseError()
 			}
 		}
+	}
+	return nil
+}
+
+func validateFastMediaUDPRuntime(runtime starrycontrol.FastMediaUDPRuntime) error {
+	if len(runtime.MissingRequiredFields()) != 0 {
+		return contractResponseError()
+	}
+	for _, port := range []*int{runtime.ConfiguredPort, runtime.ReportedPort} {
+		if port != nil && (*port < 1 || *port > 65535) {
+			return contractResponseError()
+		}
+	}
+	if !allOptionalInt64(runtime.ActiveAllocations, runtime.ActiveStreams, runtime.HelloAccepted,
+		runtime.CookieRejected, runtime.BindSucceeded, runtime.BindRejected, runtime.GrantRejected,
+		runtime.RoleMismatch, runtime.SessionMismatch, runtime.AllocationMismatch, runtime.Rebinds,
+		runtime.ForwardedPackets, runtime.ForwardedBytes, runtime.DroppedPackets, runtime.RateLimited,
+		runtime.ReplayRejected, runtime.ExpiredAllocations, runtime.ListenerFailures) {
+		return contractResponseError()
+	}
+	if runtime.Healthy != nil && *runtime.Healthy && (runtime.Enabled == nil || !*runtime.Enabled || runtime.ReportedPort == nil) {
+		return contractResponseError()
+	}
+	return nil
+}
+
+func validateFastRelayRuntime(runtime starrycontrol.FastRelayRuntime, allowLegacy bool) error {
+	legacy := runtime.Enabled != nil || runtime.Issued != nil
+	current := runtime.FastCompatEnabled != nil || runtime.FastMediaV1Enabled != nil || runtime.IssuedSessions != nil ||
+		runtime.ActiveFastMediaAuthorizations != nil || runtime.FastMediaSessions != nil || runtime.ReliableFallbacks != nil
+	if legacy {
+		if !allowLegacy || current || runtime.ProtocolVersion != 1 || runtime.Enabled == nil ||
+			!allUint64Present(runtime.ActiveAuthorizations, runtime.Issued, runtime.Reused, runtime.Delivered,
+				runtime.Disabled, runtime.InsecureRequests, runtime.InvalidConfiguration, runtime.InvalidUUIDs,
+				runtime.MissingSigningKeys, runtime.SigningFailures, runtime.QualitySelectionFailures,
+				runtime.RateLimited, runtime.ResponseMisses, runtime.ExpiredCacheEvictions) {
+			return contractResponseError()
+		}
+		return nil
+	}
+	if runtime.ProtocolVersion != 1 || runtime.FastCompatEnabled == nil || runtime.FastMediaV1Enabled == nil ||
+		!allUint64Present(runtime.ActiveAuthorizations, runtime.ActiveFastMediaAuthorizations,
+			runtime.LastFastMediaAuthorizationExpiresAtUnix, runtime.IssuedSessions, runtime.TargetGrantsIssued,
+			runtime.ControllerGrantsIssued, runtime.FastCompatSessions, runtime.FastMediaSessions, runtime.Reused,
+			runtime.Delivered, runtime.Disabled, runtime.InsecureRequests, runtime.InvalidConfiguration,
+			runtime.InvalidUUIDs, runtime.InvalidServerSelection, runtime.MissingSigningKeys, runtime.SigningFailures,
+			runtime.QualitySelectionFailures, runtime.RateLimited, runtime.ResponseMisses,
+			runtime.ExpiredCacheEvictions, runtime.FastMediaUnavailable, runtime.ReliableFallbacks) {
+		return contractResponseError()
+	}
+	return nil
+}
+
+func hasRequiredRelayTelemetryFields(status starrycontrol.WebSocketRelayStatus) bool {
+	required := []string{
+		"configured", "url", "state", "last_probe_at", "observed_at", "observed_at_unix_ms",
+		"age_seconds", "stale", "latency_ms", "telemetry_schema", "telemetry_sequence", "uptime_seconds",
+		"telemetry_restarts", "last_restart_at", "load_basis_points", "active_sessions", "pending_pairs",
+		"capacity_sessions", "bandwidth_bps", "bandwidth_ema_alpha_basis_points", "capacity_bandwidth_bps",
+		"draining", "admission_open", "admission_rejections", "probe_malformed", "probe_unsupported",
+		"probe_rate_limited", "probe_successful", "telemetry_auth_failures", "error_code", "error_message",
+	}
+	for _, field := range required {
+		if !status.HasWireField(field) {
+			return false
+		}
+	}
+	return true
+}
+
+func validateProfileActivationRuntime(runtime starrycontrol.ProfileActivationRuntime) error {
+	if runtime.ProtocolVersion != 1 || !allUint64Present(runtime.ActiveLeases, runtime.LastRouteGeneration,
+		runtime.LeasesIssued, runtime.LeasesReused, runtime.ReadyAcks, runtime.FastReregistrations,
+		runtime.Renewals, runtime.RouteReplacements, runtime.Deactivations, runtime.DisconnectCleanups,
+		runtime.TTLExpirations, runtime.InvalidRequests, runtime.StaleRejections, runtime.RateLimited,
+		runtime.CapacityRejections, runtime.LeaseTTLSeconds, runtime.BurstWindowSeconds, runtime.BurstLimit) ||
+		*runtime.LeaseTTLSeconds != 45 || *runtime.BurstWindowSeconds != 30 || *runtime.BurstLimit != 12 {
+		return contractResponseError()
 	}
 	return nil
 }
@@ -229,8 +354,9 @@ func validateRelayQualityRuntime(quality starrycontrol.RelayQualityRuntime) erro
 	) || len(quality.RelaySelections) > 256 {
 		return contractResponseError()
 	}
-	for relayID := range quality.RelaySelections {
-		if !validIdentifier(relayID, 256) {
+	const maxInt64 = uint64(1<<63 - 1)
+	for relayID, selections := range quality.RelaySelections {
+		if !validIdentifier(relayID, 256) || selections > maxInt64 {
 			return contractResponseError()
 		}
 	}
@@ -258,7 +384,7 @@ func allOptionalInt64(values ...*uint64) bool {
 }
 
 func validateSimulationResponse(result starrycontrol.SimulationResult) error {
-	if result.ConfigGeneration == 0 || !validIdentifier(result.HealthSnapshotID, 256) || result.Candidates == nil || result.Warnings == nil ||
+	if !validIdentifier(result.HealthSnapshotID, 256) || result.Candidates == nil || result.Warnings == nil ||
 		!oneOf(result.Selection.Kind, "geo_rule", "single_candidate", "rotation_prediction", "no_eligible_relay") || !result.Selection.NonBinding {
 		return contractResponseError()
 	}
@@ -380,8 +506,48 @@ func planTouchesRelayQuality(changes []json.RawMessage) bool {
 	return false
 }
 
+func planMinimumRisk(changes []json.RawMessage, fastMediaEnabled bool) string {
+	minimum := "low"
+	for _, change := range changes {
+		var summary struct {
+			Pointer *string `json:"pointer"`
+		}
+		if json.Unmarshal(change, &summary) != nil || summary.Pointer == nil {
+			continue
+		}
+		pointer := *summary.Pointer
+		if pointer == "" || pointer == "/relay_quality" || strings.HasPrefix(pointer, "/relay_quality/") ||
+			pointer == "/fast_mode" || strings.HasPrefix(pointer, "/fast_mode/") {
+			minimum = "medium"
+		}
+		if pointer == "/fast_mode/relay/fast_media_v1_enabled" ||
+			pointer == "/fast_mode/relay/relay_max_datagram" ||
+			pointer == "/fast_mode/relay/max_bitrate_kbps" ||
+			strings.Contains(pointer, "/fast_media_udp_port") ||
+			(pointer == "" || pointer == "/fast_mode" || pointer == "/fast_mode/relay") && fastMediaEnabled {
+			return "high"
+		}
+	}
+	return minimum
+}
+
+func riskRank(risk string) int {
+	switch risk {
+	case "low":
+		return 1
+	case "medium":
+		return 2
+	case "high":
+		return 3
+	case "critical":
+		return 4
+	default:
+		return 0
+	}
+}
+
 func validateActivationAck(result starrycontrol.ActivationAck) error {
-	if result.Generation == 0 || result.SchemaVersion < 1 || result.SchemaVersion > 4 ||
+	if result.Generation == 0 || result.SchemaVersion < 1 || result.SchemaVersion > 5 ||
 		!validDigest(result.SourceDigest) || !validDigest(result.EffectiveDigest) || result.ActivatedAt.IsZero() || len(result.SubsystemAcks) == 0 {
 		return contractResponseError()
 	}

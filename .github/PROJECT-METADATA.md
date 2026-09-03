@@ -2,8 +2,9 @@
 
 **English** | [简体中文](PROJECT-METADATA.zh-CN.md)
 
-This file records the release-owner-approved external GitHub values for
-v3.0.7. Remote changes remain restricted to the protected release process.
+This file records external GitHub values for the v3.0.8 preview. Remote changes
+remain restricted to the protected release process and exact approved
+candidate.
 
 ## Repository About
 
@@ -50,9 +51,9 @@ points to [`CONTAINER.md`](../docs/deployment/CONTAINER.md), which provides visi
 - the [Starry integration guide](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Starry-Control); and
 - the [built-in Web Client guide](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Web-Client).
 
-The release publishes immutable `v3.0.7` and moving `latest` tags for the same
-image. `latest` identifies the newest successfully published stable release;
-production operators resolve and pin the version tag's digest.
+The preview publishes immutable `v3.0.8` and moving `preview` tags for the same
+image. `latest` and v3.0.7 remain the published stable line; production
+operators should resolve and pin an immutable digest.
 
 ## Wiki publication
 
@@ -65,7 +66,7 @@ is a separate Git repository; after explicit approval, copy these files to
 
 The protected release workflow is prepared to:
 
-- build the exact v3.0.7 candidate on `master`, exercise publication readiness,
+- build the exact v3.0.8 candidate on `master`, exercise publication readiness,
   and only then create its immutable tag;
 - include the stable local maintenance CLI, Presence Lease v2 contract, and
   machine-readable schema-313 migration contract for S6 integration;
@@ -73,12 +74,12 @@ The protected release workflow is prepared to:
   release documents;
 - publish a short GitHub Release summary with Read more links to the reviewed
   English and Chinese notes;
-- publish one linux/amd64 GHCR image under both `v3.0.7` and `latest`, with OCI
+- publish one linux/amd64 GHCR image under both `v3.0.8` and `preview`, with OCI
   provenance and SBOM; and
 - preserve the fail-closed checks for pre-tag commit, candidate run, protected
   environment, signing, registry authentication, contract, checksums, frontend
   source, and release approval.
 
-The documentation/new-feature wording and release gate are approved. Repository
-About, Wiki, package, tag, image, and Release changes still follow the audited
-sequence in [`RELEASE-PROCESS.md`](../docs/releases/RELEASE-PROCESS.md).
+Repository About and Wiki publication remain separate owner actions. Package,
+tag, image, and prerelease publication must follow the audited sequence in
+[`RELEASE-PROCESS.md`](../docs/releases/RELEASE-PROCESS.md).

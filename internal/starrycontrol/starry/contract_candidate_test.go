@@ -16,7 +16,8 @@ import (
 
 func TestLocalStarryContractCandidate(t *testing.T) {
 	metadata := readCandidateMetadata(t)
-	if metadata["control_contract"] != "control/v1" || metadata["config_schema"] != "config/v4" ||
+	if metadata["control_contract"] != "control/v1" ||
+		(metadata["config_schema"] != "config/v4" && metadata["config_schema"] != "config/v5") ||
 		!validContractHexDigest(metadata["candidate_sha256"]) ||
 		!validContractHexDigest(metadata["config_schema_sha256"]) ||
 		!validContractHexDigest(metadata["config_ui_schema_sha256"]) {
@@ -29,6 +30,13 @@ func TestLocalStarryContractCandidate(t *testing.T) {
 			metadata["image_index_sha256"] != "UNAVAILABLE" || metadata["image_linux_amd64_sha256"] != "UNAVAILABLE" {
 			t.Fatalf("local candidate must remain release-blocked: %#v", metadata)
 		}
+	case "FROZEN_CONTRACT_CANDIDATE":
+		if metadata["starry_tag"] != "UNPUBLISHED" || metadata["release_sha256"] != "UNAVAILABLE" ||
+			metadata["image_index_sha256"] != "UNAVAILABLE" || metadata["image_linux_amd64_sha256"] != "UNAVAILABLE" ||
+			!validContractCommit(metadata["starry_source_commit"]) || !validContractHexDigest(metadata["release_summary_sha256"]) {
+			t.Fatalf("frozen contract candidate provenance is incomplete: %#v", metadata)
+		}
+		verifyFrozenCandidateSummary(t, metadata, "")
 	case "PINNED":
 		if metadata["starry_tag"] == "" || metadata["starry_tag"] == "UNPUBLISHED" ||
 			metadata["release_sha256"] != metadata["candidate_sha256"] ||
@@ -46,6 +54,9 @@ func TestLocalStarryContractCandidate(t *testing.T) {
 	if root == "" {
 		t.Skip("set STARRY_CONTRACT_ROOT to a Starry checkout to run the cross-repository candidate test")
 	}
+	if metadata["status"] == "FROZEN_CONTRACT_CANDIDATE" {
+		verifyFrozenCandidateSummary(t, metadata, root)
+	}
 	openAPI := readContractFile(t, root, "contracts/control/v1/openapi.yaml")
 	digest := sha256.Sum256(openAPI)
 	if actual := hex.EncodeToString(digest[:]); actual != expectedDigest {
@@ -58,7 +69,9 @@ func TestLocalStarryContractCandidate(t *testing.T) {
 		t.Fatalf("capabilities fixture: %v", err)
 	}
 	if capabilities.Capabilities.RelayQuality != 1 || capabilities.Capabilities.RelayActiveProbe != 1 ||
-		capabilities.Capabilities.RelayProbeProtocol != 1 || capabilities.Capabilities.RelayLoadProtocol != 1 {
+		capabilities.Capabilities.RelayProbeProtocol != 1 || capabilities.Capabilities.RelayLoadProtocol != 1 ||
+		capabilities.Capabilities.RelayTelemetrySchema != 2 || capabilities.Capabilities.FastRelayAuthorization != 1 ||
+		capabilities.Capabilities.FastMediaRelayUDP != 1 || capabilities.Capabilities.ConfigSchema != 5 {
 		t.Fatalf("adaptive Relay Quality capabilities: %#v", capabilities.Capabilities)
 	}
 	var status starrycontrol.Status
@@ -73,6 +86,30 @@ func TestLocalStarryContractCandidate(t *testing.T) {
 	}
 	if relays.Quality == nil || relays.Quality.ProtocolVersion != capabilities.Capabilities.RelayQuality {
 		t.Fatalf("adaptive Relay Quality version mismatch: %#v", relays.Quality)
+	}
+	if relays.FastRelay == nil || relays.FastRelay.ProtocolVersion != capabilities.Capabilities.FastRelayAuthorization ||
+		len(relays.Relays) == 0 || relays.Relays[0].FastMediaUDP == nil {
+		t.Fatalf("FastRelay runtime version mismatch: %#v", relays.FastRelay)
+	}
+	var relayEnrollmentPrepare starrycontrol.RelayEnrollmentPrepareResponse
+	readExample(t, root, "relay-enrollment-prepare.json", &relayEnrollmentPrepare)
+	if err := validateRelayEnrollmentPrepareResponse(relayEnrollmentPrepare); err != nil {
+		t.Fatalf("Relay enrollment prepare fixture: %v", err)
+	}
+	var relayEnrollmentComplete starrycontrol.RelayEnrollmentCompleteResponse
+	readExample(t, root, "relay-enrollment-complete.json", &relayEnrollmentComplete)
+	if err := validateRelayEnrollmentCompleteResponse(relayEnrollmentComplete); err != nil {
+		t.Fatalf("Relay enrollment complete fixture: %v", err)
+	}
+	var relayEnrollmentActivate starrycontrol.RelayEnrollmentActivateRequest
+	readExample(t, root, "relay-enrollment-activate.json", &relayEnrollmentActivate)
+	if !validRelayEnrollmentActivateRequest(relayEnrollmentActivate) {
+		t.Fatalf("Relay enrollment activate fixture: %#v", relayEnrollmentActivate)
+	}
+	var relayEnrollments starrycontrol.RelayEnrollmentList
+	readExample(t, root, "relay-enrollments.json", &relayEnrollments)
+	if err := validateRelayEnrollmentList(relayEnrollments); err != nil {
+		t.Fatalf("Relay enrollment inventory fixture: %v", err)
 	}
 	var peerVerification starrycontrol.PeerVerification
 	readExample(t, root, "peer-verification.json", &peerVerification)
@@ -137,13 +174,77 @@ func TestLocalStarryContractCandidate(t *testing.T) {
 	}
 }
 
+func verifyFrozenCandidateSummary(t *testing.T, metadata map[string]string, starryRoot string) {
+	t.Helper()
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("locate candidate test source")
+	}
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
+	encoded, err := os.ReadFile(filepath.Join(repositoryRoot, filepath.FromSlash(metadata["release_summary_path"])))
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(encoded)
+	if actual := hex.EncodeToString(digest[:]); actual != metadata["release_summary_sha256"] {
+		t.Fatalf("frozen Starry summary digest = %s, want %s", actual, metadata["release_summary_sha256"])
+	}
+	var summary struct {
+		Status               string `json:"status"`
+		CandidateKind        string `json:"candidate_kind"`
+		RuntimeReleaseStatus string `json:"runtime_release_status"`
+		SourceBinding        struct {
+			Branch string `json:"branch"`
+		} `json:"source_binding"`
+		Files []struct {
+			ID     string `json:"id"`
+			Path   string `json:"path"`
+			SHA256 string `json:"sha256"`
+		} `json:"files"`
+		Inherited []struct {
+			ID     string `json:"id"`
+			Path   string `json:"path"`
+			SHA256 string `json:"sha256"`
+		} `json:"inherited_frozen_contracts"`
+	}
+	if err := json.Unmarshal(encoded, &summary); err != nil {
+		t.Fatal(err)
+	}
+	if summary.Status != "FROZEN" || summary.CandidateKind != "CONTRACT_ONLY" || summary.RuntimeReleaseStatus != "BLOCKED" ||
+		summary.SourceBinding.Branch != "codex/patch-v1.3.1-fastmedia-pairing" || len(summary.Files) != 16 || len(summary.Inherited) != 1 {
+		t.Fatalf("unexpected frozen Starry contract summary: %#v", summary)
+	}
+	if starryRoot == "" {
+		return
+	}
+	for _, file := range summary.Files {
+		contents := readContractFile(t, starryRoot, filepath.FromSlash(file.Path))
+		actual := sha256.Sum256(contents)
+		if "sha256:"+hex.EncodeToString(actual[:]) != file.SHA256 {
+			t.Fatalf("Starry contract %s digest does not match frozen summary", file.ID)
+		}
+	}
+	for _, file := range summary.Inherited {
+		contents := readContractFile(t, starryRoot, filepath.FromSlash(file.Path))
+		actual := sha256.Sum256(contents)
+		if "sha256:"+hex.EncodeToString(actual[:]) != file.SHA256 {
+			t.Fatalf("inherited Starry contract %s digest does not match frozen summary", file.ID)
+		}
+	}
+}
+
 func verifyPublishedSummary(t *testing.T, metadata map[string]string) {
 	t.Helper()
-	const expectedPath = "docs/releases/v3.0.7/STARRY-RELEASE-SUMMARY.json"
-	if metadata["release_summary_path"] != expectedPath ||
+	expectedPath := metadata["release_summary_path"]
+	if expectedPath != "docs/releases/v3.0.8/STARRY-RELEASE-SUMMARY.json" ||
 		!validContractHexDigest(metadata["release_summary_sha256"]) ||
 		!validContractHexDigest(metadata["relay_quality_protocol_sha256"]) ||
-		!validContractHexDigest(metadata["relay_telemetry_schema_sha256"]) {
+		!validContractHexDigest(metadata["relay_telemetry_schema_sha256"]) ||
+		!validContractHexDigest(metadata["contract_candidate_sha256"]) ||
+		!validContractHexDigest(metadata["fast_relay_protocol_sha256"]) ||
+		!validContractHexDigest(metadata["fast_media_relay_udp_sha256"]) ||
+		!validContractHexDigest(metadata["starry_pairing_protocol_sha256"]) ||
+		!validContractHexDigest(metadata["downgrade_drain_state_sha256"]) {
 		t.Fatalf("published summary provenance is incomplete: %#v", metadata)
 	}
 	_, filename, _, ok := runtime.Caller(0)
@@ -164,6 +265,7 @@ func verifyPublishedSummary(t *testing.T, metadata map[string]string) {
 		SchemaVersion int `json:"schema_version"`
 		Release       struct {
 			Tag          string `json:"tag"`
+			Channel      string `json:"channel"`
 			SourceCommit string `json:"source_commit"`
 		} `json:"release"`
 		Image struct {
@@ -172,10 +274,11 @@ func verifyPublishedSummary(t *testing.T, metadata map[string]string) {
 			Platforms   map[string]string `json:"platforms"`
 		} `json:"image"`
 		Contracts map[string]struct {
-			ID     string `json:"id"`
-			Status string `json:"status"`
-			Path   string `json:"path"`
-			Digest string `json:"digest"`
+			ID                   string `json:"id"`
+			Status               string `json:"status"`
+			Path                 string `json:"path"`
+			Digest               string `json:"digest"`
+			RuntimeReleaseStatus string `json:"runtime_release_status"`
 		} `json:"contracts"`
 	}
 	if err := json.Unmarshal(encoded, &summary); err != nil {
@@ -183,6 +286,7 @@ func verifyPublishedSummary(t *testing.T, metadata map[string]string) {
 	}
 	trimDigest := func(value string) string { return strings.TrimPrefix(value, "sha256:") }
 	if summary.SchemaVersion != 1 || summary.Release.Tag != metadata["starry_tag"] ||
+		summary.Release.Channel != metadata["starry_release_channel"] ||
 		summary.Release.SourceCommit != metadata["starry_source_commit"] ||
 		summary.Image.Reference != "ghcr.io/q1ngyang/rustdesk-server-starry:"+metadata["starry_tag"] ||
 		trimDigest(summary.Image.IndexDigest) != metadata["image_index_sha256"] ||
@@ -190,13 +294,18 @@ func verifyPublishedSummary(t *testing.T, metadata map[string]string) {
 		t.Fatalf("published Starry release identity mismatch: %#v", summary)
 	}
 	expectedContracts := map[string]struct {
-		id, status, path, digest string
+		id, status, runtimeStatus, path, digest string
 	}{
-		"control_openapi":        {"control/v1", "", "contracts/control/v1/openapi.yaml", metadata["release_sha256"]},
-		"config_schema":          {"config/v4", "", "contracts/config/v4/config.schema.json", metadata["config_schema_sha256"]},
-		"config_ui_schema":       {"config/v4-ui", "", "contracts/config/v4/config.ui-schema.json", metadata["config_ui_schema_sha256"]},
-		"relay_quality_protocol": {"relay-quality/v1", "FROZEN", "contracts/relay-quality/v1/rendezvous-extension.proto", metadata["relay_quality_protocol_sha256"]},
-		"relay_telemetry_schema": {"relay-telemetry/v1", "", "contracts/relay-telemetry/v1/telemetry.schema.json", metadata["relay_telemetry_schema_sha256"]},
+		"contract_candidate":      {"patch-v1.3.1-contract-candidate", "FROZEN", "BLOCKED", "contracts/patch-v1.3.1/CONTRACT-RELEASE-SUMMARY.json", metadata["contract_candidate_sha256"]},
+		"control_openapi":         {"control/v1", "", "", "contracts/control/v1/openapi.yaml", metadata["release_sha256"]},
+		"config_schema":           {"config/v5", "", "", "contracts/config/v5/config.schema.json", metadata["config_schema_sha256"]},
+		"config_ui_schema":        {"config/v5-ui", "", "", "contracts/config/v5/config.ui-schema.json", metadata["config_ui_schema_sha256"]},
+		"relay_quality_protocol":  {"relay-quality/v1", "FROZEN", "", "contracts/relay-quality/v1/rendezvous-extension.proto", metadata["relay_quality_protocol_sha256"]},
+		"relay_telemetry_schema":  {"relay-telemetry/v2", "", "", "contracts/relay-telemetry/v2/telemetry.schema.json", metadata["relay_telemetry_schema_sha256"]},
+		"fast_relay_protocol":     {"fast-relay/v1", "", "", "contracts/fast-relay/v1/rendezvous-extension.proto", metadata["fast_relay_protocol_sha256"]},
+		"fast_media_relay_udp":    {"fast-media/v1", "FROZEN", "PREVIEW", "contracts/fast-media/v1/akr1-wire.json", metadata["fast_media_relay_udp_sha256"]},
+		"starry_pairing_protocol": {"starry-pairing/v1", "", "", "contracts/starry-pairing/v1/pairing.schema.json", metadata["starry_pairing_protocol_sha256"]},
+		"downgrade_drain_state":   {"config/v5-downgrade-drain-state/v1", "", "", "contracts/config/v5/downgrade-drain-state.schema.json", metadata["downgrade_drain_state_sha256"]},
 	}
 	if len(summary.Contracts) != len(expectedContracts) {
 		t.Fatalf("published Starry contract inventory = %#v", summary.Contracts)
@@ -204,6 +313,7 @@ func verifyPublishedSummary(t *testing.T, metadata map[string]string) {
 	for name, expected := range expectedContracts {
 		actual, found := summary.Contracts[name]
 		if !found || actual.ID != expected.id || actual.Status != expected.status ||
+			actual.RuntimeReleaseStatus != expected.runtimeStatus ||
 			actual.Path != expected.path || trimDigest(actual.Digest) != expected.digest {
 			t.Fatalf("published Starry contract %s = %#v, want %#v", name, actual, expected)
 		}
@@ -218,6 +328,14 @@ func verifyPublishedSummary(t *testing.T, metadata map[string]string) {
 
 func validContractHexDigest(value string) bool {
 	if len(value) != sha256.Size*2 {
+		return false
+	}
+	decoded, err := hex.DecodeString(value)
+	return err == nil && hex.EncodeToString(decoded) == value
+}
+
+func validContractCommit(value string) bool {
+	if len(value) != 40 {
 		return false
 	}
 	decoded, err := hex.DecodeString(value)

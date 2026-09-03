@@ -111,6 +111,42 @@ func TestConfigValidateFailureUsesExitCodeAndDoesNotLeakSecrets(t *testing.T) {
 	}
 }
 
+func TestConfigReferenceValidationRejectsUnsafeHostIdentity(t *testing.T) {
+	directory := t.TempDir()
+	valid := filepath.Join(directory, "machine-id")
+	if err := os.WriteFile(valid, []byte("host-a\n"), 0o444); err != nil {
+		t.Fatal(err)
+	}
+	configWithIdentity := func(path string) *config.Config {
+		return &config.Config{ServerControl: config.ServerControl{
+			HostIdentityFile: path,
+			Pairing:          config.PairingBroker{Enabled: true},
+		}}
+	}
+	if validationErrors, _ := validateConfigurationReferences(configWithIdentity(valid)); len(validationErrors) != 0 {
+		t.Fatalf("valid host identity rejected: %+v", validationErrors)
+	}
+
+	symlink := filepath.Join(directory, "machine-id-link")
+	if err := os.Symlink(valid, symlink); err != nil {
+		t.Fatal(err)
+	}
+	empty := filepath.Join(directory, "empty-id")
+	if err := os.WriteFile(empty, nil, 0o444); err != nil {
+		t.Fatal(err)
+	}
+	large := filepath.Join(directory, "large-id")
+	if err := os.WriteFile(large, bytes.Repeat([]byte{'x'}, 1025), 0o444); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{symlink, empty, large, filepath.Join(directory, "missing-id")} {
+		validationErrors, _ := validateConfigurationReferences(configWithIdentity(path))
+		if len(validationErrors) != 1 || validationErrors[0].Field != "server-control.host-identity-file" || validationErrors[0].Code != "HOST_IDENTITY_REFERENCE_INVALID" {
+			t.Fatalf("unsafe host identity %s was not rejected precisely: %+v", path, validationErrors)
+		}
+	}
+}
+
 func TestDatabaseStatusStatesAreReadOnly(t *testing.T) {
 	tests := []struct {
 		name        string

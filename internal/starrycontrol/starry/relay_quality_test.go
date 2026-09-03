@@ -99,6 +99,7 @@ func TestRelayInventorySupportsLegacyAdaptiveAndUnknownFieldsWithoutLeaks(t *tes
 	quality["raw_report"] = map[string]any{"client_ip": "203.0.113.99", "connection_token": "secret-token"}
 	relays := object["relays"].([]any)
 	relays[0].(map[string]any)["future_relay_field"] = true
+	relays[0].(map[string]any)["websocket"].(map[string]any)["process_instance_id"] = "0198f3a0-5c11-7cb2-9b64-9cf25ab8cd10"
 	encoded, err = json.Marshal(object)
 	if err != nil {
 		t.Fatal(err)
@@ -115,7 +116,7 @@ func TestRelayInventorySupportsLegacyAdaptiveAndUnknownFieldsWithoutLeaks(t *tes
 		t.Fatal(err)
 	}
 	lower := strings.ToLower(string(forwarded))
-	for _, forbidden := range []string{"allocation_id", "session_uuid", "nonce", "raw_report", "client_ip", "connection_token", "secret-allocation", "secret-token"} {
+	for _, forbidden := range []string{"allocation_id", "session_uuid", "process_instance_id", "nonce", "raw_report", "client_ip", "connection_token", "secret-allocation", "secret-token"} {
 		if strings.Contains(lower, forbidden) {
 			t.Fatalf("typed Relay inventory leaked %q: %s", forbidden, forwarded)
 		}
@@ -143,6 +144,9 @@ func TestRelayInventoryValidationBoundaries(t *testing.T) {
 		{"int64 counter overflow", func(value *starrycontrol.RelayInventory) {
 			value.Quality.ReportsLate = uint64Pointer(uint64(1) << 63)
 		}},
+		{"Relay selection int64 overflow", func(value *starrycontrol.RelayInventory) {
+			value.Quality.RelaySelections["relay.example.test:21117"] = uint64(1) << 63
+		}},
 		{"stale quality candidate", func(value *starrycontrol.RelayInventory) { value.Relays[0].WebSocket.Stale = boolPointer(true) }},
 		{"missing fallback aggregate", func(value *starrycontrol.RelayInventory) { value.Quality.FallbackReasons.ReportLate = nil }},
 	}
@@ -159,6 +163,90 @@ func TestRelayInventoryValidationBoundaries(t *testing.T) {
 	legacy := legacyRelayInventory()
 	if err := validateRelaysResponse(legacy, starrycontrol.CapabilityVersions{RelayInventory: 1}); err != nil {
 		t.Fatalf("missing adaptive fields must remain valid without negotiated capability: %v", err)
+	}
+}
+
+func TestPatchV130FastRelayRuntimeRemainsCompatible(t *testing.T) {
+	versions := validRelayQualityCapabilities().Capabilities
+	legacy := currentRelayInventory()
+	if err := validateRelaysResponse(legacy, versions); err != nil {
+		t.Fatalf("patch-v1.3.0 FastRelay runtime rejected: %v", err)
+	}
+
+	missing := cloneRelayInventory(t, legacy)
+	missing.FastRelay.Issued = nil
+	if err := validateRelaysResponse(missing, versions); err == nil {
+		t.Fatal("incomplete patch-v1.3.0 FastRelay runtime was accepted")
+	}
+
+	mixed := currentFastMediaInventory()
+	mixed.FastRelay = legacy.FastRelay
+	if err := validateRelaysResponse(mixed, validFastMediaCapabilities().Capabilities); err == nil {
+		t.Fatal("legacy FastRelay shape was accepted with the v1.3.1 FastMedia capability")
+	}
+}
+
+func TestRelayInventoryRejectsMissingFrozenAdaptiveWireFields(t *testing.T) {
+	versions := validRelayQualityCapabilities().Capabilities
+	tests := []struct {
+		name   string
+		mutate func(map[string]any)
+	}{
+		{"Relay version", func(raw map[string]any) { delete(raw["relays"].([]any)[0].(map[string]any), "version") }},
+		{"probe capability", func(raw map[string]any) {
+			delete(raw["relays"].([]any)[0].(map[string]any)["capabilities"].(map[string]any), "relay_probe_protocol")
+		}},
+		{"telemetry authentication aggregate", func(raw map[string]any) {
+			delete(raw["relays"].([]any)[0].(map[string]any)["websocket"].(map[string]any), "telemetry_auth_failures")
+		}},
+		{"nullable error message", func(raw map[string]any) {
+			delete(raw["relays"].([]any)[0].(map[string]any)["websocket"].(map[string]any), "error_message")
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			encoded, err := json.Marshal(currentRelayInventory())
+			if err != nil {
+				t.Fatal(err)
+			}
+			var raw map[string]any
+			if err := json.Unmarshal(encoded, &raw); err != nil {
+				t.Fatal(err)
+			}
+			test.mutate(raw)
+			encoded, err = json.Marshal(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var decoded starrycontrol.RelayInventory
+			if err := json.Unmarshal(encoded, &decoded); err != nil {
+				t.Fatal(err)
+			}
+			if err := validateRelaysResponse(decoded, versions); err == nil {
+				t.Fatal("missing frozen adaptive field was accepted")
+			}
+		})
+	}
+
+	encoded, err := json.Marshal(currentRelayInventory())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(encoded, &raw); err != nil {
+		t.Fatal(err)
+	}
+	raw["relays"].([]any)[0].(map[string]any)["websocket"].(map[string]any)["telemetry_auth_failures"] = nil
+	encoded, err = json.Marshal(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var explicitlyNull starrycontrol.RelayInventory
+	if err := json.Unmarshal(encoded, &explicitlyNull); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateRelaysResponse(explicitlyNull, versions); err != nil {
+		t.Fatalf("explicitly-null frozen adaptive field was rejected: %v", err)
 	}
 }
 
@@ -253,7 +341,7 @@ func validRelayQualityCapabilities() starrycontrol.Capabilities {
 		Capabilities: starrycontrol.CapabilityVersions{
 			RelayInventory: 1, AllocationSimulation: 1, ConfigTransaction: 1, ConfigRollback: 1,
 			ConnectionAuth: 1, RelayQuality: 1, RelayActiveProbe: 1, RelayProbeProtocol: 1,
-			RelayLoadProtocol: 1, RelayTelemetrySchema: 1, PeerRegistry: 2,
+			RelayLoadProtocol: 1, RelayTelemetrySchema: 1, FastRelayAuthorization: 1, PeerRegistry: 2,
 		},
 		Config: starrycontrol.ConfigCapabilities{
 			SupportedSchemaVersions: []int{1, 2, 3, 4}, ActiveSchemaVersion: 4,
@@ -286,13 +374,11 @@ func currentRelayInventory() starrycontrol.RelayInventory {
 	websocket := &value.Relays[0].WebSocket
 	observed := time.Date(2026, 8, 18, 9, 59, 30, 0, time.UTC)
 	restarted := time.Date(2026, 8, 17, 10, 0, 0, 0, time.UTC)
-	processID := "0198f3a0-5c11-7cb2-9b64-9cf25ab8cd10"
 	websocket.ObservedAt = &observed
 	websocket.ObservedAtUnixMS = uint64Pointer(1787047170000)
 	websocket.AgeSeconds = uint64Pointer(30)
 	websocket.Stale = boolPointer(false)
 	websocket.TelemetrySchema = intPointer(1)
-	websocket.ProcessInstanceID = &processID
 	websocket.TelemetrySequence = uint64Pointer(3812)
 	websocket.UptimeSeconds = uint64Pointer(86400)
 	websocket.TelemetryRestarts = uint64Pointer(1)
@@ -330,6 +416,13 @@ func currentRelayInventory() starrycontrol.RelayInventory {
 		PrimaryAccepted: uint64Pointer(920), ExpansionsTriggered: uint64Pointer(260), P2PCancellations: uint64Pointer(18),
 		EstimatedProbeAttemptsSaved: uint64Pointer(17440), ExpandedDecisions: uint64Pointer(248), StageTimeouts: uint64Pointer(4),
 		RelaySelections: map[string]uint64{"relay.example.test:21117": 1168}, RelaySelectionOverflow: uint64Pointer(0),
+	}
+	value.FastRelay = &starrycontrol.FastRelayRuntime{
+		ProtocolVersion: 1, Enabled: boolPointer(false), ActiveAuthorizations: uint64Pointer(0), Issued: uint64Pointer(0),
+		Reused: uint64Pointer(0), Delivered: uint64Pointer(0), Disabled: uint64Pointer(0), InsecureRequests: uint64Pointer(0),
+		InvalidConfiguration: uint64Pointer(0), InvalidUUIDs: uint64Pointer(0), MissingSigningKeys: uint64Pointer(0),
+		SigningFailures: uint64Pointer(0), QualitySelectionFailures: uint64Pointer(0), RateLimited: uint64Pointer(0),
+		ResponseMisses: uint64Pointer(0), ExpiredCacheEvictions: uint64Pointer(0),
 	}
 	return value
 }

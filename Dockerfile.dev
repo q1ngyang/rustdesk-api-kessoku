@@ -10,7 +10,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go mod verify && \
     go install github.com/swaggo/swag/cmd/swag@v1.16.6 && \
     swag init -g cmd/apimain.go --output docs/api --instanceName api --exclude http/controller/admin && \
-    swag init -g cmd/apimain.go --output docs/admin --instanceName admin --exclude http/controller/api
+    swag init -g cmd/apimain.go --output docs/admin --instanceName admin --exclude http/controller/api,http/controller/internalapi
 
 # This development-only source build intentionally receives no .git directory
 # through .dockerignore. Published images consume the separately verified

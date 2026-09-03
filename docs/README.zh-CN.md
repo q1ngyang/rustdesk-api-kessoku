@@ -17,6 +17,7 @@
 - [本地 S6 与救援 CLI](operations/LOCAL-MAINTENANCE-CLI.zh-CN.md)
 - [Presence Lease v2 运维与告警](operations/PRESENCE-LEASE-V2.zh-CN.md)
 - [Adaptive Relay Quality 管理与兼容性](wiki/ZH-CN-Starry-Control.md#adaptive-relay-quality)
+- [v3.0.8 FastMedia/SP1 升级与回滚](releases/v3.0.8/MIGRATION-v3.0.8.zh-CN.md)
 - [项目更新日志](../CHANGELOG.zh-CN.md)
 
 ## 分类收纳
@@ -28,7 +29,8 @@
 | [operations/](operations/) | 运维、恢复和故障回退手册 |
 | [security/](security/) | 安全模型与信任边界 |
 | [releases/](releases/) | 发布流程、检查清单和迁移历史 |
-| [releases/v3.0.7/](releases/v3.0.7/) | 当前 v3.0.7 发布说明和数据库迁移指南 |
+| [releases/v3.0.8/](releases/v3.0.8/) | 发布受阻的 v3.0.8 FastMedia/SP1 候选与迁移指南 |
+| [releases/v3.0.7/](releases/v3.0.7/) | 当前稳定 v3.0.7 发布说明和数据库迁移指南 |
 | [releases/v3.0.6/](releases/v3.0.6/) | 上一个受支持的 v3.0.6 发布文档 |
 | [releases/v3.0.5/](releases/v3.0.5/) | 更早的 v3.0.5 发布文档 |
 | [releases/v3.0.4/](releases/v3.0.4/) | 发布失败且未公开的 v3.0.4 候选文档 |

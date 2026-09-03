@@ -1,7 +1,10 @@
 # Database and Authentication Migration Guide
 
-For the current schema-312 to schema-313 v3.0.6 to v3.0.7 Presence Lease v2
-and maintenance-interface upgrade, first follow
+For the blocked v3.0.8 FastMedia/SP1 candidate and its schema-313-preserving
+v3.0.7 binary round trip, first follow
+[`MIGRATION-v3.0.8.md`](v3.0.8/MIGRATION-v3.0.8.md). For the schema-312 to
+schema-313 v3.0.6 to v3.0.7 Presence Lease v2 and maintenance-interface
+upgrade, follow
 [`MIGRATION-v3.0.7.md`](v3.0.7/MIGRATION-v3.0.7.md). For the
 verified native-device discovery and inventory refresh upgrade from 311 to
 312, follow [`MIGRATION-v3.0.6.md`](v3.0.6/MIGRATION-v3.0.6.md). For the unified branding
@@ -23,10 +26,10 @@ the authoritative path for older databases and v2/v3 role compatibility.
 
 This guide documents the version 301 authentication foundation. The historical
 v3.0.1 migration then reaches database version 302 for enterprise roles and
-scoped administration. The supported v3.0.7 release reaches version 313.
-Follow [`MIGRATION-v3.0.7.md`](v3.0.7/MIGRATION-v3.0.7.md) for the complete
-upgrade and rollback procedure, and rehearse every step against a restored
-production backup before a maintenance window.
+scoped administration. The supported v3.0.7 release reaches version 313;
+v3.0.8 does not change it and keeps SP1 in an independent registry. Follow the
+version-specific guide and rehearse every step against a restored production
+backup before a maintenance window.
 
 ## Supported databases and tested fixtures
 

@@ -1,5 +1,8 @@
-# The release owner approved this local-maintenance source candidate for the
-# protected pre-tag sequence in docs/releases/RELEASE-PROCESS.md. Approval does
-# not mean that a tag, image, package, GitHub Release, or Wiki has been published.
-status: APPROVED
-release_tag: v3.0.7
+# v3.0.8 local source, exact-state rollback/rotation/recreate/downgrade checks,
+# and the immutable Starry 1.1.16-patch-v1.3.1 preview provenance are validated.
+# PREVIEW_APPROVED authorizes only a GitHub prerelease plus the immutable
+# version image and moving `preview` image. It never replaces `latest`.
+# Real Akari/device/network and production PKI/multi-host evidence remains the
+# stable-promotion gate; hosted clean-commit checks still run before publishing.
+status: PREVIEW_APPROVED
+release_tag: v3.0.8
