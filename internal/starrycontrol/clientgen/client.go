@@ -201,19 +201,24 @@ type requestPolicy struct {
 func controlRequestPolicy(method, path string) (requestPolicy, bool) {
 	key := method + " " + path
 	policies := map[string]requestPolicy{
-		"GET /control/v1/capabilities":          {scope: "starry.control.read"},
-		"GET /control/v1/status":                {scope: "starry.control.read"},
-		"GET /control/v1/relays":                {scope: "starry.relay.read"},
-		"POST /control/v1/peers:verify":         {scope: "starry.peer.verify", bodyRequired: true},
-		"POST /control/v1/allocations:simulate": {scope: "starry.relay.simulate", bodyRequired: true},
-		"GET /control/v1/config":                {scope: "starry.config.read"},
-		"GET /control/v1/config/schema":         {scope: "starry.config.read"},
-		"POST /control/v1/config:validate":      {scope: "starry.config.validate", bodyRequired: true},
-		"POST /control/v1/config:plan":          {scope: "starry.config.plan", bodyRequired: true, ifMatchRequired: true},
-		"POST /control/v1/config:apply":         {scope: "starry.config.apply", bodyRequired: true, ifMatchRequired: true, idempotencyRequired: true},
-		"GET /control/v1/config/history":        {scope: "starry.config.read"},
-		"POST /control/v1/config:rollback":      {scope: "starry.config.rollback", bodyRequired: true, ifMatchRequired: true, idempotencyRequired: true},
-		"POST /control/v1/runtime:reload":       {scope: "starry.runtime.reload", bodyRequired: true, idempotencyRequired: true},
+		"GET /control/v1/capabilities":                {scope: "starry.control.read"},
+		"GET /control/v1/status":                      {scope: "starry.control.read"},
+		"GET /control/v1/relays":                      {scope: "starry.relay.read"},
+		"GET /control/v1/relay-enrollments":           {scope: "starry.relay.read"},
+		"POST /control/v1/relay-enrollments:prepare":  {scope: "starry.relay.enroll", bodyRequired: true, idempotencyRequired: true},
+		"POST /control/v1/relay-enrollments:complete": {scope: "starry.relay.enroll", bodyRequired: true},
+		"POST /control/v1/relay-enrollments:activate": {scope: "starry.relay.enroll", bodyRequired: true},
+		"POST /control/v1/relay-enrollments:revoke":   {scope: "starry.relay.enroll", bodyRequired: true},
+		"POST /control/v1/peers:verify":               {scope: "starry.peer.verify", bodyRequired: true},
+		"POST /control/v1/allocations:simulate":       {scope: "starry.relay.simulate", bodyRequired: true},
+		"GET /control/v1/config":                      {scope: "starry.config.read"},
+		"GET /control/v1/config/schema":               {scope: "starry.config.read"},
+		"POST /control/v1/config:validate":            {scope: "starry.config.validate", bodyRequired: true},
+		"POST /control/v1/config:plan":                {scope: "starry.config.plan", bodyRequired: true, ifMatchRequired: true},
+		"POST /control/v1/config:apply":               {scope: "starry.config.apply", bodyRequired: true, ifMatchRequired: true, idempotencyRequired: true},
+		"GET /control/v1/config/history":              {scope: "starry.config.read"},
+		"POST /control/v1/config:rollback":            {scope: "starry.config.rollback", bodyRequired: true, ifMatchRequired: true, idempotencyRequired: true},
+		"POST /control/v1/runtime:reload":             {scope: "starry.runtime.reload", bodyRequired: true, idempotencyRequired: true},
 	}
 	if policy, ok := policies[key]; ok {
 		return policy, true
@@ -222,6 +227,12 @@ func controlRequestPolicy(method, path string) (requestPolicy, bool) {
 	if method == http.MethodGet && strings.HasPrefix(path, operationPrefix) {
 		if _, err := uuid.Parse(strings.TrimPrefix(path, operationPrefix)); err == nil {
 			return requestPolicy{scope: "starry.control.read"}, true
+		}
+	}
+	const relayEnrollmentPrefix = "/control/v1/relay-enrollments/"
+	if method == http.MethodGet && strings.HasPrefix(path, relayEnrollmentPrefix) {
+		if _, err := uuid.Parse(strings.TrimPrefix(path, relayEnrollmentPrefix)); err == nil {
+			return requestPolicy{scope: "starry.relay.read"}, true
 		}
 	}
 	return requestPolicy{}, false

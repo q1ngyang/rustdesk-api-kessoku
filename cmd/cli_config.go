@@ -203,6 +203,11 @@ func validateConfigurationReferences(cfg *config.Config) (validationErrors, warn
 			addError("ldap.tls-ca-file", "CERTIFICATE_BUNDLE_INVALID", err)
 		}
 	}
+	if cfg.ServerControl.Pairing.Enabled {
+		if err := validateHostIdentityReference(cfg.ServerControl.EffectiveHostIdentityFile()); err != nil {
+			addError("server-control.host-identity-file", "HOST_IDENTITY_REFERENCE_INVALID", err)
+		}
+	}
 
 	for index, instance := range cfg.ServerControl.Instances {
 		if !instance.Enabled {
@@ -290,6 +295,27 @@ func requireNonemptyRegularReference(path string, ownerOnly bool) error {
 	}
 	if strings.TrimSpace(string(contents)) == "" {
 		return errors.New("referenced file is empty")
+	}
+	return nil
+}
+
+func validateHostIdentityReference(path string) error {
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
+		return errors.New("host identity file must use an absolute clean path")
+	}
+	info, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Size() < 1 || info.Size() > 1024 {
+		return errors.New("host identity file must be a non-symlink regular file of at most 1024 bytes")
+	}
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(string(contents)) == "" {
+		return errors.New("host identity file is empty")
 	}
 	return nil
 }

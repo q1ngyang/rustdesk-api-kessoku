@@ -22,6 +22,50 @@
       show-icon
     />
 
+    <el-card class="pairing-card" shadow="never" v-loading="loading.pairing">
+      <template #header>
+        <div class="card-header">
+          <span>{{ T('SP1PairingBroker') }}</span>
+          <el-tag :type="pairingStatus.available ? 'success' : pairingStatus.error_code === 'PAIRING_REGISTRY_NOT_INITIALIZED' ? 'warning' : 'info'">
+            {{ pairingStatus.available ? T('Available') : pairingStatus.error_code === 'PAIRING_REGISTRY_NOT_INITIALIZED' ? T('RegistryInitializationRequired') : T('NotAvailable') }}
+          </el-tag>
+        </div>
+      </template>
+      <el-alert v-if="!pairingStatus.enabled" :title="T('PairingDisabled')" :description="T('PairingDisabledHelp')" type="info" :closable="false" show-icon/>
+      <template v-else>
+        <el-alert v-if="pairingStatus.error_code === 'PAIRING_REGISTRY_NOT_INITIALIZED'" class="section" :title="T('RegistryInitializationRequired')" :description="T('RegistryInitializationHelp')" type="warning" :closable="false" show-icon/>
+        <el-descriptions :column="metricColumns" border>
+          <el-descriptions-item :label="T('Protocol')">SP1 v{{ pairingStatus.protocol_version || 1 }}</el-descriptions-item>
+          <el-descriptions-item :label="T('RegistryGeneration')">{{ pairingStatus.registry_generation ?? '-' }}</el-descriptions-item>
+          <el-descriptions-item :label="T('InstallationID')"><code>{{ pairingStatus.installation_id || '-' }}</code></el-descriptions-item>
+          <el-descriptions-item :label="T('BrokerTLSPin')"><code>{{ pairingStatus.broker_spki_sha256 || '-' }}</code></el-descriptions-item>
+        </el-descriptions>
+        <el-alert class="section" :title="T('PairingSecurityTitle')" :description="T('PairingSecurityHelp')" type="warning" :closable="false" show-icon/>
+        <el-form class="pairing-form section" :model="controlPairingForm" label-position="top">
+          <el-form-item :label="T('ManagedID')"><el-input v-model="controlPairingForm.managed_id" maxlength="128"/></el-form-item>
+          <el-form-item :label="T('Name')"><el-input v-model="controlPairingForm.name" maxlength="256"/></el-form-item>
+          <el-form-item :label="T('ApprovedAgentOrigin')">
+            <el-select v-model="controlPairingForm.agent_origin_id">
+              <el-option v-for="origin in pairingStatus.agent_origins || []" :key="origin.id" :label="`${origin.name} · ${origin.origin}`" :value="origin.id"/>
+            </el-select>
+          </el-form-item>
+          <el-form-item :label="T('PairingAction')">
+            <el-select v-model="controlPairingForm.action"><el-option label="pair" value="pair"/><el-option label="adopt" value="adopt"/><el-option label="rotate" value="rotate"/></el-select>
+          </el-form-item>
+          <el-form-item v-if="controlPairingForm.action !== 'pair'" :label="T('TargetInstanceID')"><el-input v-model="controlPairingForm.target_instance_id"/></el-form-item>
+          <el-form-item><el-button type="danger" :disabled="!pairingCanCreate" @click="createAgentPairing">{{ T('CreateOneTimeCode') }}</el-button></el-form-item>
+        </el-form>
+        <div v-if="controlPairingResult" class="one-time-code section">
+          <el-alert :title="T('OneTimeCodeTitle')" :description="T('OneTimeCodeHelp', { expires: formatUnixTime(controlPairingResult.expires_at_unix) })" type="error" :closable="false" show-icon/>
+          <el-input :model-value="controlPairingResult.code" type="textarea" :rows="4" readonly/>
+          <el-space class="section">
+            <el-button type="danger" @click="revokeAgentPairing">{{ T('RevokeUnclaimedCode') }}</el-button>
+            <el-button @click="controlPairingResult = null">{{ T('ClearCode') }}</el-button>
+          </el-space>
+        </div>
+      </template>
+    </el-card>
+
     <el-card class="toolbar" shadow="never">
       <div class="instance-toolbar">
         <div class="instance-toolbar__copy">
@@ -38,6 +82,9 @@
           />
         </el-select>
         <el-button :loading="loading.instances" @click="loadInstances">{{ T('Refresh') }}</el-button>
+        <el-button v-if="selectedInstance?.managed" :type="selectedInstance.read_only ? 'warning' : 'danger'" @click="toggleManagedWrite">
+          {{ selectedInstance.read_only ? T('EnableManagedWrites') : T('ReturnToReadOnly') }}
+        </el-button>
       </div>
     </el-card>
 
@@ -86,6 +133,40 @@
       </el-tab-pane>
 
       <el-tab-pane :label="T('RelaysAndSimulation')" name="relays">
+        <el-card class="relay-quality-card" shadow="never" v-loading="loading.relayEnrollments">
+          <template #header><div class="card-header"><span>{{ T('RelayEnrollment') }}</span><el-tag :type="relayEnrollmentSupported ? 'success' : 'info'">{{ relayEnrollmentSupported ? T('Supported') : T('Unsupported') }}</el-tag></div></template>
+          <el-alert v-if="!relayEnrollmentSupported" :title="T('RelayEnrollmentUnsupported')" :description="T('RelayEnrollmentUnsupportedHelp')" type="info" :closable="false" show-icon/>
+          <template v-else>
+            <el-alert :title="T('RelayEnrollmentAuthorityTitle')" :description="T('RelayEnrollmentAuthorityHelp')" type="warning" :closable="false" show-icon/>
+            <el-form class="relay-enrollment-form section" :model="relayPairingForm" label-position="top">
+              <el-form-item :label="T('RelayNodeID')"><el-input v-model="relayPairingForm.node_id"/></el-form-item>
+              <el-form-item :label="T('RelayServer')"><el-input v-model="relayPairingForm.relay_server"/></el-form-item>
+              <el-form-item :label="T('PublicEndpoint')"><el-input v-model="relayPairingForm.public_endpoint"/></el-form-item>
+              <el-form-item :label="T('RelayPool')"><el-input v-model="relayPairingForm.relay_pool"/></el-form-item>
+              <el-form-item :label="T('Profile')"><el-select v-model="relayPairingForm.profile"><el-option label="native" value="native"/><el-option label="native-wss" value="native-wss"/><el-option label="native-wss-fastmedia" value="native-wss-fastmedia"/></el-select></el-form-item>
+              <el-form-item v-if="relayPairingForm.profile !== 'native'" label="WSS"><el-input v-model="relayPairingForm.wss_endpoint" placeholder="wss://relay.example/ws/telemetry"/></el-form-item>
+              <el-form-item v-if="relayPairingForm.profile === 'native-wss-fastmedia'" :label="T('FastMediaUDPPort')"><el-input-number v-model="relayPairingForm.fast_media_udp_port" :min="1" :max="65535"/></el-form-item>
+              <el-form-item :label="T('MaxSessions')"><el-input-number v-model="relayPairingForm.max_sessions" :min="1" :max="1000000"/></el-form-item>
+              <el-form-item :label="T('CapacityBandwidthBPS')"><el-input-number v-model="relayPairingForm.capacity_bandwidth_bps" :min="1"/></el-form-item>
+              <el-form-item><el-checkbox v-model="relayPairingForm.draining">{{ T('Draining') }}</el-checkbox></el-form-item>
+              <el-form-item><el-checkbox v-model="relayPairingForm.activate_after_health">{{ T('ActivateAfterHealth') }}</el-checkbox></el-form-item>
+              <el-form-item><el-button type="danger" :disabled="!canWrite" @click="createRelayEnrollmentCode">{{ T('CreateOneTimeCode') }}</el-button></el-form-item>
+            </el-form>
+            <div v-if="relayPairingResult" class="one-time-code section">
+              <el-alert :title="T('OneTimeCodeTitle')" :description="T('OneTimeCodeHelp', { expires: formatUnixTime(relayPairingResult.expires_at_unix) })" type="error" :closable="false" show-icon/>
+              <el-input :model-value="relayPairingResult.code" type="textarea" :rows="4" readonly/>
+              <el-button class="section" @click="relayPairingResult = null">{{ T('ClearCode') }}</el-button>
+            </div>
+            <el-table class="section" :data="relayEnrollments.items || []" border>
+              <el-table-column prop="node_id" :label="T('RelayNodeID')"/>
+              <el-table-column prop="relay_server" :label="T('RelayServer')"/>
+              <el-table-column prop="profile" :label="T('Profile')"/>
+              <el-table-column prop="state" :label="T('State')"><template #default="{ row }"><StatusValue :value="row.state"/></template></el-table-column>
+              <el-table-column prop="activate_after_health" :label="T('ActivateAfterHealth')"><template #default="{ row }"><StatusValue :value="row.activate_after_health"/></template></el-table-column>
+              <el-table-column :label="T('Actions')" min-width="180"><template #default="{ row }"><el-button size="small" :disabled="!canWrite || row.state === 'active' || row.state === 'revoked'" @click="openRelayActivation(row)">{{ T('Activate') }}</el-button><el-button size="small" type="danger" :disabled="!canWrite || row.state === 'revoked'" @click="revokeRelay(row)">{{ T('Revoke') }}</el-button></template></el-table-column>
+            </el-table>
+          </template>
+        </el-card>
         <el-card class="relay-quality-card" shadow="never" v-loading="loading.relays || loading.capabilities">
           <template #header>
             <div class="card-header">
@@ -130,6 +211,42 @@
           </template>
         </el-card>
 
+        <el-card class="relay-quality-card" shadow="never" v-loading="loading.relays || loading.capabilities">
+          <template #header>
+            <div class="card-header">
+              <span>{{ T('RelayFastMode') }}</span>
+              <el-space>
+                <el-tag :type="fastRelaySupported ? 'success' : 'info'">{{ fastRelaySupported ? T('Supported') : T('Unsupported') }}</el-tag>
+                <el-tag v-if="reliableFallbackObserved" type="warning">{{ T('ReliableFallback') }}</el-tag>
+              </el-space>
+            </div>
+          </template>
+          <el-alert
+            v-if="!fastRelaySupported"
+            :title="T('FastRelayUnsupported')"
+            :description="T('FastRelayUnsupportedHelp')"
+            type="info"
+            :closable="false"
+            show-icon
+          />
+          <template v-else>
+            <el-alert :title="T('ServerCountersOnly')" :description="T('ServerCountersOnlyHelp')" type="warning" :closable="false" show-icon />
+            <el-descriptions class="section" :column="metricColumns" border>
+              <el-descriptions-item><template #label><InfoLabel :label="T('FastRelayProtocol')" :help="T('FastRelayProtocolHelp')"/></template>v{{ relays.fast_relay.protocol_version }}</el-descriptions-item>
+              <el-descriptions-item><template #label><InfoLabel label="FastCompat" :help="T('FastCompatStateHelp')"/></template><StatusValue :value="fastCompatState"/></el-descriptions-item>
+              <el-descriptions-item><template #label><InfoLabel label="FastMediaV1" :help="T('FastMediaStateHelp')"/></template><StatusValue :value="fastMediaState"/></el-descriptions-item>
+              <el-descriptions-item><template #label><InfoLabel :label="T('ActiveAuthorizations')" :help="T('ActiveAuthorizationsHelp')"/></template>{{ formatOptionalMetric(relays.fast_relay.active_authorizations) }}</el-descriptions-item>
+              <el-descriptions-item><template #label><InfoLabel :label="T('ActiveFastMediaAuthorizations')" :help="T('ActiveFastMediaAuthorizationsHelp')"/></template>{{ formatOptionalMetric(relays.fast_relay.active_fast_media_authorizations) }}</el-descriptions-item>
+              <el-descriptions-item><template #label><InfoLabel :label="T('FastMediaUnavailable')" :help="T('FastMediaUnavailableHelp')"/></template>{{ formatOptionalMetric(relays.fast_relay.fast_media_unavailable) }}</el-descriptions-item>
+              <el-descriptions-item><template #label><InfoLabel :label="T('ReliableFallbacks')" :help="T('ReliableFallbacksHelp')"/></template>{{ formatOptionalMetric(relays.fast_relay.reliable_fallbacks) }}</el-descriptions-item>
+              <el-descriptions-item><template #label><InfoLabel :label="T('ResponseMisses')" :help="T('ResponseMissesHelp')"/></template>{{ formatOptionalMetric(relays.fast_relay.response_misses) }}</el-descriptions-item>
+              <el-descriptions-item v-for="metric in fastRelayCounterRows" :key="metric.name">
+                <template #label>{{ formatMetricName(metric.name) }}</template>{{ metric.value }}
+              </el-descriptions-item>
+            </el-descriptions>
+          </template>
+        </el-card>
+
         <el-card shadow="never" v-loading="loading.relays">
           <template #header>
             <div class="card-header">
@@ -139,6 +256,14 @@
           </template>
           <el-alert v-if="relays.warning" :title="relays.warning" type="warning" :closable="false" />
           <el-table :data="relays.relays || []" border>
+            <el-table-column type="expand">
+              <template #default="{ row }">
+                <el-alert :title="T('ServerCountersOnly')" :description="T('RelayUDPCountersHelp')" type="info" :closable="false" />
+                <el-descriptions class="relay-udp-details" :column="metricColumns" border>
+                  <el-descriptions-item v-for="metric in relayUDPCounterRows(row)" :key="metric.name" :label="formatMetricName(metric.name)">{{ metric.value }}</el-descriptions-item>
+                </el-descriptions>
+              </template>
+            </el-table-column>
             <el-table-column prop="id" :label="T('Relay')" min-width="220" />
             <el-table-column prop="configured_order" :label="T('Order')" width="90" />
             <el-table-column :label="T('Native')" width="120"><template #default="{ row }"><StatusValue :value="row.native?.state || '-'"/></template></el-table-column>
@@ -146,6 +271,12 @@
             <el-table-column prop="websocket.latency_ms" :label="T('WSSLatency')" width="150" />
             <el-table-column :label="T('RelayCapability')" min-width="210">
               <template #default="{ row }">{{ relayCapabilityLabel(row) }}</template>
+            </el-table-column>
+            <el-table-column :label="T('FastMediaUDPEndpoint')" min-width="180">
+              <template #default="{ row }">{{ relayUDPEndpointLabel(row) }}</template>
+            </el-table-column>
+            <el-table-column :label="T('CurrentAuthorizability')" min-width="190">
+              <template #default="{ row }"><StatusValue :value="relayFastMediaState(row)"/></template>
             </el-table-column>
             <el-table-column :label="T('TelemetryFreshness')" min-width="180">
               <template #default="{ row }">{{ telemetryFreshnessLabel(row) }}</template>
@@ -243,7 +374,7 @@
                   :root-schema="schemaBundle.schema"
                   :model-value="formModel"
                   :ui-schema="schemaBundle.ui_schema"
-                  :help-overrides="relayQualityHelp"
+                  :help-overrides="starrySchemaHelp"
                   @update:model-value="updateFormModel"
                 />
               </el-form>
@@ -362,11 +493,21 @@
         </el-card>
       </el-tab-pane>
     </el-tabs>
+
+    <el-dialog v-model="relayActivation.visible" :title="T('ActivateRelayEnrollment')" width="min(620px, 94vw)">
+      <el-alert :title="T('ActivationEvidenceTitle')" :description="T('ActivationEvidenceHelp')" type="error" :closable="false" show-icon/>
+      <el-form class="section" label-position="top">
+        <el-form-item :label="T('OperationID')"><el-input v-model="relayActivation.operation_id"/></el-form-item>
+        <el-form-item :label="T('Generation')"><el-input-number v-model="relayActivation.config_generation" :min="1"/></el-form-item>
+        <el-form-item :label="T('HealthSnapshotID')"><el-input v-model="relayActivation.health_snapshot_id"/></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="relayActivation.visible = false">{{ T('Cancel') }}</el-button><el-button type="danger" @click="activateRelay">{{ T('Activate') }}</el-button></template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import SchemaField from '@/components/schema/SchemaField.vue'
 import InfoLabel from '@/components/common/InfoLabel.vue'
@@ -380,6 +521,9 @@ import { withDateRange } from '@/utils/dateRange'
 import { parseSchemaFormDocument, serializeSchemaFormDocument } from '@/utils/schema_form'
 import {
   applyConfig,
+  activateRelayEnrollment,
+  createControlPairing,
+  createRelayPairing,
   getCapabilities,
   getConfig,
   getConfigHistory,
@@ -389,18 +533,27 @@ import {
   getLogSources,
   getLogs,
   getStatus,
+  getPairingStatus,
   listAuditEvents,
   listInstances,
+  listRelayEnrollments,
   newIdempotencyKey,
   planConfig,
   reloadRuntime,
   rollbackConfig,
+  revokeControlPairing,
+  revokeRelayEnrollment,
+  setManagedWriteEnabled,
   simulateAllocation,
   setLogLevel,
   validateConfig,
 } from '@/api/server_control'
 
 const instances = ref([])
+const pairingStatus = ref({ enabled: false, available: false, agent_origins: [] })
+const controlPairingResult = ref(null)
+const relayPairingResult = ref(null)
+const relayEnrollments = ref({ version: 1, items: [] })
 const appStore = useAppStore()
 const selectedID = ref('')
 const capabilities = ref({})
@@ -420,6 +573,13 @@ const applyComment = ref('')
 const editorMode = ref('yaml')
 const activeTab = ref('status')
 const simulationInput = reactive({ clientA: '', clientB: '', transport: 'native' })
+const controlPairingForm = reactive({ managed_id: '', name: '', agent_origin_id: '', action: 'pair', target_instance_id: '' })
+const relayPairingForm = reactive({
+  node_id: '', relay_server: '', public_endpoint: '', relay_pool: '', profile: 'native',
+  wss_endpoint: '', activate_after_health: false, max_sessions: 10000,
+  capacity_bandwidth_bps: 1000000000, draining: false, fast_media_udp_port: 22119,
+})
+const relayActivation = reactive({ visible: false, enrollment: null, operation_id: '', config_generation: 1, health_snapshot_id: '' })
 const audit = reactive({ list: [], page: 1, page_size: 50, total: 0, date_range: [] })
 const logSources = ref([])
 const selectedLogSource = ref('')
@@ -441,9 +601,17 @@ const loading = reactive({
   history: false,
   audit: false,
   logs: false,
+  pairing: false,
+  relayEnrollments: false,
 })
 
 const selectedInstance = computed(() => instances.value.find(item => item.id === selectedID.value))
+const pairingCanCreate = computed(() => Boolean(
+  pairingStatus.value.enabled && (
+    pairingStatus.value.available ||
+    (pairingStatus.value.error_code === 'PAIRING_REGISTRY_NOT_INITIALIZED' && controlPairingForm.action === 'pair')
+  ),
+))
 const canWrite = computed(() => Boolean(
   selectedInstance.value?.enabled &&
   selectedInstance.value?.available &&
@@ -456,6 +624,9 @@ const detailColumns = computed(() => appStore.setting.viewportWidth < 720 ? 1 : 
 const metricColumns = computed(() => appStore.setting.viewportWidth < 720 ? 1 : appStore.setting.viewportWidth < 1100 ? 2 : 4)
 const wideColumns = computed(() => appStore.setting.viewportWidth < 720 ? 1 : 3)
 const relayQualitySupported = computed(() => Number(capabilities.value.capabilities?.relay_quality || 0) >= 1 && Boolean(relays.value.quality))
+const fastRelaySupported = computed(() => capabilities.value.capabilities?.fast_relay_authorization === 1 && Boolean(relays.value.fast_relay))
+const fastMediaSupported = computed(() => capabilities.value.capabilities?.fast_media_relay_udp === 1)
+const relayEnrollmentSupported = computed(() => capabilities.value.capabilities?.relay_enrollment === 1 && capabilities.value.capabilities?.relay_enrollment_write === 1)
 const relayByID = computed(() => new Map((relays.value.relays || []).map(relay => [relay.id, relay])))
 const relayQualityAlerts = computed(() => {
   if (!relayQualitySupported.value || !relays.value.quality?.enabled) return []
@@ -477,7 +648,7 @@ const relayQualityAlerts = computed(() => {
   }
   return alerts
 })
-const adaptiveOutcomeTotal = computed(() => Number(relays.value.quality?.primary_accepted || 0) + Number(relays.value.quality?.expansions_triggered || 0))
+const adaptivePrimaryProbeTotal = computed(() => Number(relays.value.quality?.primary_probes || 0))
 const primaryAcceptedRatio = computed(() => formatAdaptiveRatio(relays.value.quality?.primary_accepted))
 const expansionTriggeredRatio = computed(() => formatAdaptiveRatio(relays.value.quality?.expansions_triggered))
 const fallbackReasonRows = computed(() => {
@@ -488,12 +659,46 @@ const fallbackReasonRows = computed(() => {
   }
   return Object.entries(labels).map(([name, key]) => ({ name, label: T(key), value: reasons[name] ?? 0 }))
 })
-const relayQualityHelp = computed(() => ({
+const healthyFastMediaRelays = computed(() => (relays.value.relays || []).filter(relay => relayFastMediaReady(relay)))
+const fastCompatState = computed(() => {
+  if (!fastRelaySupported.value) return T('Unsupported')
+  const enabled = relays.value.fast_relay?.fast_compat_enabled ?? relays.value.fast_relay?.enabled
+  if (enabled !== true) return T('ConfigurationDisabled')
+  if (Number(relays.value.fast_relay?.active_authorizations || 0) > 0) return T('AuthorizedServerEvent')
+  return T('Enabled')
+})
+const fastMediaState = computed(() => {
+  if (!fastMediaSupported.value || !fastRelaySupported.value) return T('Unsupported')
+  if (relays.value.fast_relay?.fast_media_v1_enabled !== true) return T('ConfigurationDisabled')
+  if (healthyFastMediaRelays.value.length === 0) return T('EnabledNoHealthyCandidate')
+  if (Number(relays.value.fast_relay?.active_fast_media_authorizations || 0) > 0) return T('AuthorizedServerEvent')
+  return T('UDPActivityUnknown')
+})
+const reliableFallbackObserved = computed(() => Number(relays.value.fast_relay?.reliable_fallbacks || 0) > 0)
+const fastRelayCounterRows = computed(() => {
+  const aggregate = relays.value.fast_relay || {}
+  const names = [
+    'issued_sessions', 'target_grants_issued', 'controller_grants_issued', 'fast_compat_sessions', 'fast_media_sessions',
+    'reused', 'delivered', 'disabled', 'insecure_requests', 'invalid_configuration', 'invalid_uuids',
+    'invalid_server_selection', 'missing_signing_keys', 'signing_failures', 'quality_selection_failures',
+    'rate_limited', 'expired_cache_evictions',
+  ]
+  return names.map(name => {
+    const value = name === 'issued_sessions' ? (aggregate.issued_sessions ?? aggregate.issued) : aggregate[name]
+    return { name, value: formatOptionalMetric(value) }
+  })
+})
+const starrySchemaHelp = computed(() => ({
   '/relay_quality/strategy': T('RelayQualityStrategyHelp'),
   '/relay_quality/primary_probe_samples': T('RelayQualityPrimarySamplesHelp'),
   '/relay_quality/primary_accept_score': T('RelayQualityAcceptScoreHelp'),
   '/relay_quality/primary_max_loss_basis_points': T('RelayQualityLossGateHelp'),
   '/relay_quality/p2p_probe_grace_ms': T('RelayQualityP2PGraceHelp'),
+  '/fast_mode/relay/fast_compat_enabled': T('FastCompatConfigHelp'),
+  '/fast_mode/relay/fast_media_v1_enabled': T('FastMediaConfigHelp'),
+  '/fast_mode/relay/authorization_ttl_seconds': T('AuthorizationTTLHelp'),
+  '/fast_mode/relay/max_bitrate_kbps': T('MaxBitrateHelp'),
+  '/fast_mode/relay/relay_max_datagram': T('RelayMaxDatagramHelp'),
 }))
 const adaptiveFlowDescription = computed(() => {
   if (!simulationResult.value) return T('RunSimulationForAdaptiveFlow')
@@ -523,6 +728,65 @@ async function withLoading (name, action) {
   }
 }
 
+async function loadPairingStatus () {
+  await withLoading('pairing', async () => {
+    pairingStatus.value = (await getPairingStatus()).data || { enabled: false, available: false, agent_origins: [] }
+    if (!(pairingStatus.value.agent_origins || []).some(item => item.id === controlPairingForm.agent_origin_id)) {
+      controlPairingForm.agent_origin_id = pairingStatus.value.agent_origins?.[0]?.id || ''
+    }
+  })
+}
+
+async function createAgentPairing () {
+  const action = controlPairingForm.action || 'pair'
+  const confirmation = `confirm:${action}:${controlPairingForm.managed_id}:${controlPairingForm.agent_origin_id}`
+  const confirmed = await ElMessageBox.confirm(
+    T('ConfirmControlPairing', { id: controlPairingForm.managed_id, action }),
+    T('HighRiskConfirmation'),
+    { type: 'error', confirmButtonText: T('CreateOneTimeCode'), cancelButtonText: T('Cancel') },
+  ).catch(() => false)
+  if (!confirmed) return
+  await withLoading('pairing', async () => {
+    controlPairingResult.value = (await createControlPairing({
+      managed_id: controlPairingForm.managed_id,
+      name: controlPairingForm.name,
+      agent_origin_id: controlPairingForm.agent_origin_id,
+      action,
+      ...(controlPairingForm.target_instance_id ? { target_instance_id: controlPairingForm.target_instance_id } : {}),
+    }, confirmation)).data
+    await loadPairingStatus()
+  })
+}
+
+async function revokeAgentPairing () {
+  const enrollmentID = controlPairingResult.value?.enrollment_id
+  if (!enrollmentID) return
+  const confirmed = await ElMessageBox.confirm(
+    T('ConfirmPairingCodeRevoke', { id: enrollmentID }),
+    T('HighRiskConfirmation'),
+    { type: 'error', confirmButtonText: T('Revoke'), cancelButtonText: T('Cancel') },
+  ).catch(() => false)
+  if (!confirmed) return
+  await withLoading('pairing', async () => {
+    await revokeControlPairing(enrollmentID, `confirm:revoke-pairing:${enrollmentID}`)
+    controlPairingResult.value = null
+    await loadPairingStatus()
+  })
+}
+
+async function toggleManagedWrite () {
+  const writeEnabled = Boolean(selectedInstance.value?.read_only)
+  const confirmation = `confirm:managed-write:${selectedID.value}:${writeEnabled}`
+  const confirmed = await ElMessageBox.confirm(
+    T(writeEnabled ? 'ConfirmEnableManagedWrites' : 'ConfirmReturnReadOnly', { id: selectedID.value }),
+    T('HighRiskConfirmation'),
+    { type: 'error', confirmButtonText: T(writeEnabled ? 'EnableManagedWrites' : 'ReturnToReadOnly'), cancelButtonText: T('Cancel') },
+  ).catch(() => false)
+  if (!confirmed) return
+  await setManagedWriteEnabled(selectedID.value, writeEnabled, confirmation)
+  await loadInstances()
+}
+
 async function loadInstances () {
   await withLoading('instances', async () => {
     const response = await listInstances()
@@ -541,15 +805,21 @@ async function loadSelected () {
   capabilities.value = {}
   status.value = {}
   relays.value = {}
+  relayEnrollments.value = { version: 1, items: [] }
+  relayPairingResult.value = null
   simulationResult.value = null
   simulationInput.clientA = ''
   simulationInput.clientB = ''
-  await Promise.allSettled([loadCapabilities(), loadStatus(), loadRelays(), loadConfig(), loadSchema(), loadHistory(), loadAudit(), loadLogSources()])
+  await loadCapabilities()
+  const tasks = [loadStatus(), loadRelays(), loadConfig(), loadSchema(), loadHistory(), loadAudit(), loadLogSources()]
+  if (relayEnrollmentSupported.value) tasks.push(loadRelayEnrollments())
+  await Promise.allSettled(tasks)
 }
 
 const loadCapabilities = () => withLoading('capabilities', async () => { capabilities.value = (await getCapabilities(selectedID.value)).data })
 const loadStatus = () => withLoading('status', async () => { status.value = (await getStatus(selectedID.value)).data })
 const loadRelays = () => withLoading('relays', async () => { relays.value = (await getRelays(selectedID.value)).data })
+const loadRelayEnrollments = () => withLoading('relayEnrollments', async () => { relayEnrollments.value = (await listRelayEnrollments(selectedID.value)).data || { version: 1, items: [] } })
 const loadSchema = () => withLoading('config', async () => { schemaBundle.value = (await getConfigSchema(selectedID.value)).data })
 const loadHistory = () => withLoading('history', async () => { history.value = (await getConfigHistory(selectedID.value)).data || [] })
 
@@ -590,6 +860,72 @@ async function loadLogs () {
     logResult.source = data.source || {}; logResult.entries = data.entries || []; logResult.truncated = Boolean(data.truncated)
     if (data.source?.current_level) logLevel.value = data.source.current_level
   })
+}
+
+async function createRelayEnrollmentCode () {
+  const highRisk = relayPairingForm.activate_after_health
+  const confirmed = await ElMessageBox.confirm(
+    T(highRisk ? 'ConfirmAutoRelayEnrollment' : 'ConfirmRelayEnrollment', { node: relayPairingForm.node_id }),
+    T(highRisk ? 'HighRiskConfirmation' : 'RelayEnrollment'),
+    { type: highRisk ? 'error' : 'warning', confirmButtonText: T('CreateOneTimeCode'), cancelButtonText: T('Cancel') },
+  ).catch(() => false)
+  if (!confirmed) return
+  const request = {
+    version: 1,
+    node_id: relayPairingForm.node_id,
+    relay_server: relayPairingForm.relay_server,
+    public_endpoint: relayPairingForm.public_endpoint,
+    relay_pool: relayPairingForm.relay_pool,
+    profile: relayPairingForm.profile,
+    activate_after_health: relayPairingForm.activate_after_health,
+    max_sessions: relayPairingForm.max_sessions,
+    capacity_bandwidth_bps: relayPairingForm.capacity_bandwidth_bps,
+    draining: relayPairingForm.draining,
+    expires_in_seconds: 600,
+    ...(relayPairingForm.profile !== 'native' ? { wss_endpoint: relayPairingForm.wss_endpoint } : {}),
+    ...(relayPairingForm.profile === 'native-wss-fastmedia' ? { fast_media_udp_port: relayPairingForm.fast_media_udp_port } : {}),
+  }
+  const confirmation = highRisk ? `confirm:activate-after-health:${selectedID.value}:${relayPairingForm.node_id}` : ''
+  await withLoading('relayEnrollments', async () => {
+    relayPairingResult.value = (await createRelayPairing(selectedID.value, request, newIdempotencyKey(), confirmation)).data
+    await loadRelayEnrollments()
+  })
+}
+
+function openRelayActivation (enrollment) {
+  relayActivation.enrollment = enrollment
+  relayActivation.operation_id = ''
+  relayActivation.config_generation = Math.max(1, Number(status.value.config?.generation || 1))
+  relayActivation.health_snapshot_id = ''
+  relayActivation.visible = true
+}
+
+async function activateRelay () {
+  const enrollment = relayActivation.enrollment
+  if (!enrollment) return
+  const request = {
+    version: 1,
+    enrollment_id: enrollment.enrollment_id,
+    configuration_digest: enrollment.configuration_digest,
+    operation_id: relayActivation.operation_id,
+    config_generation: relayActivation.config_generation,
+    health_snapshot_id: relayActivation.health_snapshot_id,
+  }
+  const confirmation = `confirm:relay-activate:${request.enrollment_id}:${request.operation_id}:${request.config_generation}`
+  const confirmed = await ElMessageBox.confirm(T('ConfirmRelayActivationEvidence'), T('HighRiskConfirmation'), { type: 'error' }).catch(() => false)
+  if (!confirmed) return
+  await activateRelayEnrollment(selectedID.value, request, confirmation)
+  relayActivation.visible = false
+  await loadRelayEnrollments()
+}
+
+async function revokeRelay (enrollment) {
+  const confirmed = await ElMessageBox.confirm(T('ConfirmRelayRevoke', { node: enrollment.node_id }), T('RelayEnrollment'), { type: 'error' }).catch(() => false)
+  if (!confirmed) return
+  await revokeRelayEnrollment(selectedID.value, {
+    version: 1, enrollment_id: enrollment.enrollment_id, configuration_digest: enrollment.configuration_digest,
+  })
+  await loadRelayEnrollments()
 }
 
 async function changeLogLevel () {
@@ -682,6 +1018,7 @@ async function applyReviewedPlan () {
       configDocument.value.etag,
       newIdempotencyKey(),
       applyComment.value,
+      highRisk ? `confirm:${plan.value.plan_id}:${plan.value.candidate_digest}` : '',
     )).data
     await pollOperation(operation.value.id)
   })
@@ -703,6 +1040,7 @@ async function rollback (revision) {
       configDocument.value.etag,
       newIdempotencyKey(),
       comment,
+      `confirm:rollback:${selectedID.value}:${revision.id}`,
     )).data
     await pollOperation(operation.value.id)
   })
@@ -761,17 +1099,54 @@ async function simulate () {
 
 const compactJSON = value => JSON.stringify(value)
 const formatTime = value => value ? new Date(value).toLocaleString() : '-'
+const formatUnixTime = value => value ? new Date(Number(value) * 1000).toLocaleString() : '-'
 const formatMetricName = name => String(name).replaceAll('_', ' ').replace(/\b\w/g, value => value.toUpperCase())
+const formatOptionalMetric = value => value == null ? T('Unsupported') : value
 const formatAdaptiveRatio = value => {
   const numerator = Number(value || 0)
-  const denominator = adaptiveOutcomeTotal.value
+  const denominator = adaptivePrimaryProbeTotal.value
   return denominator > 0 ? `${((numerator / denominator) * 100).toFixed(1)}% (${numerator} / ${denominator})` : '-'
 }
 const relayCapabilityLabel = relay => {
   if (!relay?.capabilities) return T('Unsupported')
   const probe = relay.capabilities.relay_probe_protocol == null ? T('Unsupported') : `v${relay.capabilities.relay_probe_protocol}`
   const load = relay.capabilities.relay_load_protocol == null ? T('Unsupported') : `v${relay.capabilities.relay_load_protocol}`
-  return `${T('ProbeProtocol')} ${probe} · ${T('LoadProtocol')} ${load}`
+  const udp = relay.capabilities.fast_media_relay_udp == null ? T('Unsupported') : `AKR1 v${relay.capabilities.fast_media_relay_udp}`
+  return `${T('ProbeProtocol')} ${probe} · ${T('LoadProtocol')} ${load} · FastMedia ${udp}`
+}
+const relayFastMediaReady = relay => Boolean(
+  relay?.capabilities?.fast_media_relay_udp === 1 &&
+  relay?.websocket?.telemetry_schema === 2 &&
+  relay?.websocket?.state === 'healthy' &&
+  relay?.websocket?.stale === false &&
+  relay?.fast_media_udp?.enabled === true &&
+  relay?.fast_media_udp?.healthy === true &&
+  relay?.fast_media_udp?.configured_port != null &&
+  relay.fast_media_udp.configured_port === relay.fast_media_udp.reported_port &&
+  (relay?.eligible_for || []).length > 0,
+)
+const relayFastMediaState = relay => {
+  if (!fastMediaSupported.value || relay?.capabilities?.fast_media_relay_udp == null) return T('Unsupported')
+  if (relays.value.fast_relay?.fast_media_v1_enabled !== true) return T('ConfigurationDisabled')
+  if (!relayFastMediaReady(relay)) return T('DependencyUnmet')
+  return T('CurrentlyAuthorizable')
+}
+const relayUDPEndpointLabel = relay => {
+  const udp = relay?.fast_media_udp
+  if (!fastMediaSupported.value || !udp) return T('Unsupported')
+  if (udp.configured_port == null && udp.reported_port == null) return T('DependencyUnmet')
+  const configured = udp.configured_port ?? '-'
+  const reported = udp.reported_port ?? '-'
+  return `${T('RedactedPort')} ${configured} · ${T('ReportedPort')} ${reported}`
+}
+const relayUDPCounterRows = relay => {
+  const udp = relay?.fast_media_udp || {}
+  const names = [
+    'active_allocations', 'active_streams', 'hello_accepted', 'cookie_rejected', 'bind_succeeded', 'bind_rejected',
+    'grant_rejected', 'role_mismatch', 'session_mismatch', 'allocation_mismatch', 'rebinds', 'forwarded_packets',
+    'forwarded_bytes', 'dropped_packets', 'rate_limited', 'replay_rejected', 'expired_allocations', 'listener_failures',
+  ]
+  return names.map(name => ({ name, value: udp[name] ?? T('Unsupported') }))
 }
 const telemetryFreshnessLabel = relay => {
   if (relay?.websocket?.stale == null) return T('Unsupported')
@@ -800,7 +1175,13 @@ const metricHelp = name => {
   return T(keys[normalized] || 'AuthenticationMetricHelp', { name: formatMetricName(name) })
 }
 
-onMounted(loadInstances)
+function clearOneTimeCodes () {
+  controlPairingResult.value = null
+  relayPairingResult.value = null
+}
+
+onBeforeUnmount(clearOneTimeCodes)
+onMounted(() => Promise.allSettled([loadPairingStatus(), loadInstances()]))
 </script>
 
 <style scoped lang="scss">
@@ -808,6 +1189,12 @@ onMounted(loadInstances)
 .page-heading__starry > div { min-width: 0; }
 .page-heading__starry-logo { width: 308px !important; max-width: min(308px, 36vw); padding-right: 24px; border-right: 1px solid var(--border-subtle); }
 .policy-alert { margin-bottom: 14px; border: 1px solid var(--primary-border); border-radius: 14px; background: color-mix(in srgb, var(--primary-soft) 72%, var(--surface-1)); }
+.pairing-card { margin-bottom: 14px; }
+.pairing-form,.relay-enrollment-form { display: grid; align-items: end; gap: 0 12px; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); }
+.pairing-form :deep(.el-form-item),.relay-enrollment-form :deep(.el-form-item) { margin-bottom: 10px; }
+.pairing-form :deep(.el-select),.relay-enrollment-form :deep(.el-select),.relay-enrollment-form :deep(.el-input-number) { width: 100%; }
+.one-time-code { padding: 12px; border: 1px solid var(--danger-border, #a64049); border-radius: 12px; }
+.one-time-code :deep(.el-alert) { margin-bottom: 10px; }
 .toolbar { margin-bottom: 16px; }
 .toolbar :deep(.el-card__body) { padding: 14px 17px; }
 .instance-toolbar { display: flex; min-width: 0; align-items: center; gap: 12px; }
@@ -828,6 +1215,7 @@ onMounted(loadInstances)
 .fallback-reasons .el-tag { margin: 0 7px 7px 0; }
 .relay-quality-card + .el-card + .section :deep(.el-alert) { margin-bottom: 14px; }
 .relay-quality-alert { margin-bottom: 12px; }
+.relay-udp-details { margin: 12px 16px 16px; }
 .card-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .card-header > span { color: var(--text-primary); font-size: 13px; font-weight: 740; }
 .editor-tabs { margin-top: 16px; }

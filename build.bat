@@ -25,7 +25,7 @@ set GOOS=windows
 set GOARCH=amd64
 go run github.com/swaggo/swag/cmd/swag@v1.16.6 init -g cmd/apimain.go --output docs/api --instanceName api --exclude http/controller/admin
 if errorlevel 1 exit /b 1
-go run github.com/swaggo/swag/cmd/swag@v1.16.6 init -g cmd/apimain.go --output docs/admin --instanceName admin --exclude http/controller/api
+go run github.com/swaggo/swag/cmd/swag@v1.16.6 init -g cmd/apimain.go --output docs/admin --instanceName admin --exclude http/controller/api,http/controller/internalapi
 if errorlevel 1 exit /b 1
 for /f %%i in ('git rev-parse HEAD') do set KESSOKU_SOURCE_COMMIT=%%i
 if not defined KESSOKU_SOURCE_COMMIT exit /b 1

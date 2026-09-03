@@ -5,13 +5,14 @@
 镜像地址：
 [`ghcr.io/q1ngyang/rustdesk-api-kessoku`](https://github.com/q1ngyang/rustdesk-api-kessoku/pkgs/container/rustdesk-api-kessoku)
 
-当前稳定版 `v3.0.7`，正式支持 `linux/amd64`。
+`v3.0.8` 当前是 **BLOCKED** 的镜像目标，并未发布；所有闸门通过前，生产环境继续固定
+已发布 v3.0.7 digest。目标平台仍为 `linux/amd64`。
 
 ## 拉取和固定版本
 
 ```sh
-docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.7
-docker image inspect ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.7 \
+docker pull ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.8
+docker image inspect ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.8 \
   --format '{{json .RepoDigests}}'
 ```
 
@@ -23,7 +24,7 @@ docker image inspect ghcr.io/q1ngyang/rustdesk-api-kessoku:v3.0.7 \
 | 项目 | 值 |
 | --- | --- |
 | 运行用户 | `65534:65534` |
-| 持久化目录 | `/app/data` |
+| 持久化目录 | `/app/data`，含独立 `/app/data/server-control` SP1 registry 与凭据 |
 | 配置文件 | `/app/conf/config.yaml` |
 | 只读密钥目录 | `/run/secrets`（由 Compose 挂载） |
 | 公共 API/管理后台 | `21114/TCP` |
@@ -122,5 +123,17 @@ docker compose --env-file .env -f compose.yaml pull kessoku-api
 docker compose --env-file .env -f compose.yaml up -d kessoku-api
 docker compose --env-file .env -f compose.yaml logs --tail 150 kessoku-api
 ```
+
+`pull`、`--force-recreate` 和 `down`/`up` 只有在同一个 `KESSOKU_DATA_DIR` 继续挂载到
+`/app/data` 时才保留配对。变更前应解析宿主机绝对路径、记录 registry
+`installation_id`，并在停止 Kessoku 后备份完整 `server-control/`。不要在没有通过
+`docker compose config` 确认卷类型和可恢复备份时执行 `down -v`；路径变化、权限错误和
+活跃身份克隆都会关闭失败。完整预检、v3.0.7 往返、跨主机接管和 purge 见
+[`MIGRATION-v3.0.8.zh-CN.md`](../releases/v3.0.8/MIGRATION-v3.0.8.zh-CN.md)。
+启动和 `registry status` 绝不会初始化缺失的身份状态。只有管理员核对挂载路径后，携带精确
+二次确认的新建 `server-control pair create` 才能初始化真正的新 registry。
+Compose 还会把 `${KESSOKU_HOST_IDENTITY_FILE:-/etc/machine-id}` 单独只读挂载到
+`/run/kessoku-host-machine-id`。该文件有意位于数据树之外；使用镜像内置 machine-id 无法
+识别跨宿主机身份克隆。
 
 跨 v2/v3 升降级前阅读[升级与回退](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Upgrade-and-Rollback)。

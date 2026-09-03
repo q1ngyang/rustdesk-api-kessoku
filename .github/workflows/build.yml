@@ -90,7 +90,8 @@ jobs:
           release_tag="$(sed -n 's/^release_tag: //p' RELEASE_STATUS)"
           keys="$(sed -n 's/^\([a-z_]*\): .*/\1/p' RELEASE_STATUS | LC_ALL=C sort | tr '\n' ' ')"
           test "$keys" = "release_tag status "
-          test "$status" = APPROVED
+          printf '%s' "$status" \
+            | grep -Eq '^(PREVIEW_APPROVED|APPROVED)$'
           test "${GITHUB_REF_TYPE}" = branch
           test "${GITHUB_REF_NAME}" = master
           printf '%s' "$release_tag" \

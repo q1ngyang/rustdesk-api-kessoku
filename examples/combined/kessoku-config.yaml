@@ -104,6 +104,17 @@ server-control:
   # that absolute in-container directory here, and allowlist simple filenames.
   log-directory: ""
   log-sources: []
+  # Persist the independent SP1 registry with /app/data. Enable only after
+  # pinning the Broker certificate and pre-approving exact Agent origins.
+  registry-directory: "/app/data/server-control"
+  host-identity-file: "/run/kessoku-host-machine-id"
+  pairing:
+    enabled: false
+    broker-origin: ""
+    broker-spki-sha256: ""
+    code-ttl: 10m
+    recovery-ttl: 10m
+    agent-origins: []
   instances: []
 
 ldap:

@@ -74,15 +74,22 @@ def main() -> int:
             "schema: 1\n",
             "component: kessoku\n",
             f"version: {version}\n",
-            "  from: [312]\n",
+            "  from: [313]\n",
             "  to: 313\n",
-            "  - 3.0.6\n",
-            "  to: 3.0.6\n",
-            "  mode: restore-only\n",
+            "  - 3.0.7\n",
+            "  to: 3.0.7\n",
+            "  mode: in-place-compatible\n",
             '  starry: ">=1.1.16-patch-v1.2.2"\n',
             "  starry_peer_registry_capability: 1\n",
             '  starry: ">=1.1.16-patch-v1.3.0"\n',
             "  starry_peer_registry_capability: 2\n",
+            '    starry: "1.1.16-patch-v1.3.1"\n',
+            "  starry_contract_commit: 6f5a31008ab7761d8557c8cf9fefcb5be11c49e6\n",
+            "  starry_runtime_source_commit: 1b8080bf074e3236cf9a3c0dfae2bdf16832249e\n",
+            "  starry_release_channel: preview\n",
+            "  starry_release_summary_sha256: fedeb47ff77bdbc594ddd3ba5b54238a469b02416cfb3410dbd535eff9c7e0ef\n",
+            "  config_schema: 5\n",
+            "  registry_schema: 1\n",
         )
         for required in required_metadata:
             if required not in body:
@@ -102,6 +109,11 @@ def main() -> int:
             "recover-admin",
             "reset-two-factor",
             "presence-lease-v2",
+            "server-control-sp1-v1",
+            "relay-fast-compat-v1",
+            "relay-fast-media-v1-observation",
+            "relay-enrollment-v1",
+            "static-control-export-v1",
         }
         if not expected_capabilities.issubset(capabilities):
             errors.append(

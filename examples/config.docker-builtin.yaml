@@ -109,6 +109,19 @@ server-control:
   # deployment-owned regular files mounted into Kessoku and explicit entries.
   log-directory: ""
   log-sources: []
+  # This path is inside the persistent /app/data bind mount. Pairing remains
+  # disabled until the public Broker TLS pin and exact Agent allowlist exist.
+  registry-directory: "/app/data/server-control"
+  # docker-compose mounts the host's machine-id here. Never use the image's
+  # /etc/machine-id for clone detection.
+  host-identity-file: "/run/kessoku-host-machine-id"
+  pairing:
+    enabled: false
+    broker-origin: ""
+    broker-spki-sha256: ""
+    code-ttl: 10m
+    recovery-ttl: 10m
+    agent-origins: []
   instances: []
 
 ldap:

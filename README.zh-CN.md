@@ -9,7 +9,11 @@ Kessoku 不包含 HBBS/HBBR。它可以搭配官方 RustDesk Server；推荐搭�
 [`q1ngyang/rustdesk-server-starry`](https://github.com/q1ngyang/rustdesk-server-starry)，
 获得安全 TCP、WSS、按地理位置选择中继服务器、连接令牌认证和可选管理代理。
 
-当前稳定版：`v3.0.7`；v3.0.3 是首个正式支持的 v3 版本，正式支持 Docker/Linux `amd64`。
+当前稳定版仍是 `v3.0.7`；`v3.0.8` 是需主动选择的预览版，增加 Starry v1.3.1
+FastCompat/FastMedia 管理和 SP1 配对。新增开关默认关闭，GitHub Release 标记为
+prerelease，移动镜像标签使用 `preview`；`latest` 继续指向 v3.0.7。真实 Akari、设备网络
+与生产 PKI 验证仍是后续稳定版门禁。v3.0.3 是首个正式支持的 v3 版本，正式支持
+Docker/Linux `amd64`。
 此前 `v3.0.1` 因重大集成缺陷已撤回；`v3.0.2` 仅保留未公开发布尝试的标签，没有受支持
 的 Release 制品或容器镜像；`v3.0.4` 同样仅保留失败候选记录。请勿将这些版本用于新部署。
 
@@ -26,6 +30,11 @@ Kessoku 不包含 HBBS/HBBR。它可以搭配官方 RustDesk Server；推荐搭�
 - 密码登录、TOTP 双重认证、LDAP、GitHub/Google OAuth 和通用 OIDC；
 - Ed25519/EdDSA 访问令牌、JWKS 和可撤销令牌状态查询；
 - 与 Starry 的连接认证和类型化管理接口；
+- 精确协商 schema v5 FastCompat/FastMedia、只显示脱敏聚合状态，并保留旧 Starry 页面；
+- allowlist 限定的 SP1 Control Agent/Relay enrollment、每实例 mTLS/JWT 身份、响应恢复、
+  只读首次配对和 Provider 热加载；
+- 独立 `data/server-control` registry、v3.0.7 静态接管导出、克隆检测、轮换、迁移与显式
+  双重确认 purge，主业务数据库仍为 schema 313；
 - 供 S6/运维脚本使用的版本、配置校验、数据库状态与显式带锁迁移 CLI；
 - 仅限本地、带审计和会话撤销的管理员恢复与单用户 2FA 重置；
 - 内置响应式管理后台、集中品牌设置、头像、公告、GeoIP 与多语言；
@@ -108,7 +117,15 @@ Kessoku 容器使用 UID/GID `65534:65534`。数据和密钥目录必须属于�
 | 升级 | [升级与回退](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/ZH-CN-Upgrade-and-Rollback) |
 | English | [English documentation](https://github.com/q1ngyang/rustdesk-api-kessoku/wiki/Home) |
 
-## 升级提示
+## v3.0.8 预览版升级提示
+
+v3.0.8 不升级主业务数据库，但新增的 SP1 registry 与凭据必须随完整 `/app/data` 一起持久化。
+Docker 重建、v3.0.8 → v3.0.7 → v3.0.8 往返、证书轮换、跨主机接管和 purge 的精确步骤见
+[`MIGRATION-v3.0.8.zh-CN.md`](docs/releases/v3.0.8/MIGRATION-v3.0.8.zh-CN.md)。预览范围与
+稳定版剩余门禁见
+[`RELEASE-NOTES-v3.0.8.zh-CN.md`](docs/releases/v3.0.8/RELEASE-NOTES-v3.0.8.zh-CN.md)。
+
+## v3.0.7 稳定版升级提示
 
 v3.0.7 把数据库从 schema 312 增量升级到 313，新增 Presence Lease v2 存储及设备 ID
 唯一约束；迁移前会拒绝重复设备 ID。旧 heartbeat API 保持兼容，但 schema 313 不能由

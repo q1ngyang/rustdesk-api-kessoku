@@ -5,9 +5,47 @@ const pathSegment = value => encodeURIComponent(String(value))
 const instanceBase = id => `${base}/instances/${pathSegment(id)}`
 
 export const listInstances = () => request({ url: `${base}/instances` })
+export const getPairingStatus = () => request({ url: `${base}/pairing` })
+export const createControlPairing = (data, confirmation) => request({
+  url: `${base}/pairing/control-agent`,
+  method: 'post',
+  headers: { 'X-Kessoku-Risk-Confirmation': confirmation },
+  data,
+})
+export const revokeControlPairing = (enrollmentID, confirmation) => request({
+  url: `${base}/pairing/control-agent/revoke`,
+  method: 'post',
+  headers: { 'X-Kessoku-Risk-Confirmation': confirmation },
+  data: { enrollment_id: enrollmentID },
+})
+export const setManagedWriteEnabled = (id, writeEnabled, confirmation) => request({
+  url: `${instanceBase(id)}/managed-write`,
+  method: 'post',
+  headers: { 'X-Kessoku-Risk-Confirmation': confirmation },
+  data: { write_enabled: writeEnabled },
+})
 export const getCapabilities = id => request({ url: `${instanceBase(id)}/capabilities` })
 export const getStatus = id => request({ url: `${instanceBase(id)}/status` })
 export const getRelays = id => request({ url: `${instanceBase(id)}/relays` })
+export const listRelayEnrollments = id => request({ url: `${instanceBase(id)}/relay-enrollments` })
+export const createRelayPairing = (id, data, idempotencyKey, confirmation) => request({
+  url: `${instanceBase(id)}/relay-enrollments/pairing`,
+  method: 'post',
+  headers: {
+    'Idempotency-Key': idempotencyKey,
+    ...(confirmation ? { 'X-Kessoku-Risk-Confirmation': confirmation } : {}),
+  },
+  data,
+})
+export const activateRelayEnrollment = (id, data, confirmation) => request({
+  url: `${instanceBase(id)}/relay-enrollments/activate`,
+  method: 'post',
+  headers: { 'X-Kessoku-Risk-Confirmation': confirmation },
+  data,
+})
+export const revokeRelayEnrollment = (id, data) => request({
+  url: `${instanceBase(id)}/relay-enrollments/revoke`, method: 'post', data,
+})
 export const getLogSources = id => request({ url: `${instanceBase(id)}/logs/sources` })
 export const getLogs = (id, sourceID, limit = 400) => request({ url: `${instanceBase(id)}/logs`, params: { source_id: sourceID, limit } })
 export const setLogLevel = (id, sourceID, level) => request({ url: `${instanceBase(id)}/logs/level`, method: 'post', data: { source_id: sourceID, level } })
@@ -34,10 +72,15 @@ export const planConfig = (id, document, etag) => request({
   data: { document, format: 'yaml' },
 })
 
-export const applyConfig = (id, plan, etag, idempotencyKey, comment) => request({
+export const applyConfig = (id, plan, etag, idempotencyKey, comment, riskConfirmation) => request({
   url: `${instanceBase(id)}/config/apply`,
   method: 'post',
-  headers: { 'If-Match': etag, 'Idempotency-Key': idempotencyKey },
+  headers: {
+    'If-Match': etag,
+    'Idempotency-Key': idempotencyKey,
+    'X-Kessoku-Plan-Review': plan.review_token,
+    ...(riskConfirmation ? { 'X-Kessoku-Risk-Confirmation': riskConfirmation } : {}),
+  },
   data: {
     plan_id: plan.plan_id,
     candidate_digest: plan.candidate_digest,
@@ -51,10 +94,14 @@ export const getOperation = (id, operationID) => request({
 
 export const getConfigHistory = id => request({ url: `${instanceBase(id)}/config/history` })
 
-export const rollbackConfig = (id, revisionID, etag, idempotencyKey, comment) => request({
+export const rollbackConfig = (id, revisionID, etag, idempotencyKey, comment, confirmation) => request({
   url: `${instanceBase(id)}/config/rollback`,
   method: 'post',
-  headers: { 'If-Match': etag, 'Idempotency-Key': idempotencyKey },
+  headers: {
+    'If-Match': etag,
+    'Idempotency-Key': idempotencyKey,
+    'X-Kessoku-Risk-Confirmation': confirmation,
+  },
   data: { revision_id: revisionID, comment: comment || undefined },
 })
 

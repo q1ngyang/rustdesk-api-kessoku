@@ -1,6 +1,7 @@
 package config
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -118,5 +119,69 @@ func TestStarryControlValidationRejectsUnsafeLogAllowlist(t *testing.T) {
 	candidate.LogSources = []ControlLogSource{{ID: "center", Label: "Center", Component: "starry", File: "starry.log"}}
 	if err := candidate.Validate(); err == nil {
 		t.Fatal("relative log directory accepted")
+	}
+}
+
+func TestPairingBrokerRequiresExactHTTPSPinAndAgentAllowlist(t *testing.T) {
+	candidate := validStarryControlConfig()
+	candidate.RegistryDirectory = "/app/data/server-control"
+	candidate.HostIdentityFile = "/etc/machine-id"
+	candidate.Pairing = PairingBroker{
+		Enabled: true, BrokerOrigin: "https://kessoku.example.test",
+		BrokerSPKISHA256: "sha256:" + strings.Repeat("a", 64),
+		CodeTTL:          10 * time.Minute, RecoveryTTL: 5 * time.Minute,
+		AgentOrigins: []PairingAgentOrigin{{
+			ID: "primary", Name: "Primary Agent", Origin: "https://starry.internal.test:21120",
+			TLSServerName: "starry.internal.test",
+		}},
+	}
+	if err := candidate.Validate(); err != nil {
+		t.Fatalf("valid pairing broker rejected: %v", err)
+	}
+
+	tests := []struct {
+		name   string
+		mutate func(*ServerControl)
+	}{
+		{name: "plain broker", mutate: func(c *ServerControl) { c.Pairing.BrokerOrigin = "http://kessoku.example.test" }},
+		{name: "broker path", mutate: func(c *ServerControl) { c.Pairing.BrokerOrigin += "/pair" }},
+		{name: "short pin", mutate: func(c *ServerControl) { c.Pairing.BrokerSPKISHA256 = "sha256:aa" }},
+		{name: "uppercase pin", mutate: func(c *ServerControl) { c.Pairing.BrokerSPKISHA256 = "sha256:" + strings.Repeat("A", 64) }},
+		{name: "no allowlist", mutate: func(c *ServerControl) { c.Pairing.AgentOrigins = nil }},
+		{name: "arbitrary path", mutate: func(c *ServerControl) { c.Pairing.AgentOrigins[0].Origin += "/callback" }},
+		{name: "duplicate origin", mutate: func(c *ServerControl) {
+			c.Pairing.AgentOrigins = append(c.Pairing.AgentOrigins, PairingAgentOrigin{ID: "other", Name: "Other", Origin: c.Pairing.AgentOrigins[0].Origin, TLSServerName: "other.test"})
+		}},
+		{name: "long recovery", mutate: func(c *ServerControl) { c.Pairing.RecoveryTTL = 11 * time.Minute }},
+		{name: "long code", mutate: func(c *ServerControl) { c.Pairing.CodeTTL = 61 * time.Minute }},
+		{name: "unsafe registry whitespace", mutate: func(c *ServerControl) { c.RegistryDirectory = " /app/data/server-control" }},
+		{name: "missing host identity", mutate: func(c *ServerControl) { c.HostIdentityFile = "" }},
+		{name: "relative host identity", mutate: func(c *ServerControl) { c.HostIdentityFile = "machine-id" }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			copy := candidate
+			copy.Pairing.AgentOrigins = append([]PairingAgentOrigin(nil), candidate.Pairing.AgentOrigins...)
+			test.mutate(&copy)
+			if err := copy.Validate(); err == nil {
+				t.Fatal("unsafe pairing configuration accepted")
+			}
+		})
+	}
+}
+
+func TestRegistryDeploymentDefaultsMatchContainerAndSystemdWorkingDirectories(t *testing.T) {
+	candidate := ServerControl{}
+	if got := candidate.EffectiveRegistryDirectory(); got != filepath.Clean("./data/server-control") {
+		t.Fatalf("default registry directory = %q", got)
+	}
+	for _, test := range []struct{ working, want string }{
+		{"/app", "/app/data/server-control"},
+		{"/var/lib/kessoku-api", "/var/lib/kessoku-api/data/server-control"},
+	} {
+		got := filepath.Clean(filepath.Join(test.working, candidate.EffectiveRegistryDirectory()))
+		if got != test.want {
+			t.Fatalf("working directory %s resolves registry to %s", test.working, got)
+		}
 	}
 }

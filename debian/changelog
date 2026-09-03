@@ -1,3 +1,11 @@
+rustdesk-api-kessoku (3.0.8-1) UNRELEASED; urgency=high
+
+  * Add Starry v1.3.1 FastCompat/FastMedia contract management and telemetry.
+  * Add the independent SP1 Control Agent and Relay enrollment registry.
+  * Preserve schema 313 and v3.0.7-compatible static control exports.
+
+ -- q1ngyang <q1ngyang@users.noreply.github.com>  Thu, 03 Sep 2026 00:00:00 +0800
+
 rustdesk-api-kessoku (3.0.7-1) UNRELEASED; urgency=high
 
   * Add stable local CLI contracts for version, configuration, database status, and migration.

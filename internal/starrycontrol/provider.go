@@ -20,4 +20,10 @@ type ServerControlProvider interface {
 	ConfigHistory(context.Context) ([]ConfigRevision, error)
 	RollbackConfig(context.Context, RollbackRequest) (Operation, error)
 	ReloadRuntime(context.Context, RuntimeReloadRequest) (ActivationAck, error)
+	ListRelayEnrollments(context.Context) (RelayEnrollmentList, error)
+	GetRelayEnrollment(context.Context, string) (RelayEnrollmentSummary, error)
+	PrepareRelayEnrollment(context.Context, RelayEnrollmentPrepareRequest, string) (RelayEnrollmentPrepareResponse, error)
+	CompleteRelayEnrollment(context.Context, RelayEnrollmentCompleteRequest) (RelayEnrollmentCompleteResponse, error)
+	ActivateRelayEnrollment(context.Context, RelayEnrollmentActivateRequest) (RelayEnrollmentSummary, error)
+	RevokeRelayEnrollment(context.Context, RelayEnrollmentRevokeRequest) (RelayEnrollmentSummary, error)
 }

@@ -4702,6 +4702,19 @@ const docTemplateadmin = `{
                         "required": true
                     },
                     {
+                        "type": "string",
+                        "description": "Opaque Kessoku review binding returned by config/plan",
+                        "name": "X-Kessoku-Plan-Review",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exact second confirmation for high/critical plans",
+                        "name": "X-Kessoku-Risk-Confirmation",
+                        "in": "header"
+                    },
+                    {
                         "description": "Planned apply request",
                         "name": "body",
                         "in": "body",
@@ -5011,6 +5024,13 @@ const docTemplateadmin = `{
                         "required": true
                     },
                     {
+                        "type": "string",
+                        "description": "Exact confirmation: confirm:rollback:\u003cinstance-id\u003e:\u003crevision-id\u003e",
+                        "name": "X-Kessoku-Risk-Confirmation",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
                         "description": "Rollback revision",
                         "name": "body",
                         "in": "body",
@@ -5258,6 +5278,76 @@ const docTemplateadmin = `{
                 }
             }
         },
+        "/admin/server-control/v1/instances/{id}/managed-write": {
+            "post": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server Control"
+                ],
+                "summary": "Change managed instance write policy",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Managed instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exact high-risk confirmation",
+                        "name": "X-Kessoku-Risk-Confirmation",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Write policy",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.ManagedWriteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.ControlAPIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.ServerControlInstance"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "428": {
+                        "description": "Precondition Required",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/server-control/v1/instances/{id}/operations/{operation_id}": {
             "get": {
                 "security": [
@@ -5341,6 +5431,254 @@ const docTemplateadmin = `{
                         "description": "Service Unavailable",
                         "schema": {
                             "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/server-control/v1/instances/{id}/relay-enrollments": {
+            "get": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server Control"
+                ],
+                "summary": "List Relay enrollments",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Deployment instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.ControlAPIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/starrycontrol.RelayEnrollmentList"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/server-control/v1/instances/{id}/relay-enrollments/activate": {
+            "post": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server Control"
+                ],
+                "summary": "Activate a health-verified Relay enrollment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Deployment instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Exact high-risk confirmation",
+                        "name": "X-Kessoku-Risk-Confirmation",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Activation ACK evidence",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/starrycontrol.RelayEnrollmentActivateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.ControlAPIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/starrycontrol.RelayEnrollmentSummary"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "428": {
+                        "description": "Precondition Required",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/server-control/v1/instances/{id}/relay-enrollments/pairing": {
+            "post": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server Control"
+                ],
+                "summary": "Create Relay enrollment SP1 code",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Deployment instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Unique prepare key",
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Required for activate-after-health",
+                        "name": "X-Kessoku-Risk-Confirmation",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Exact Agent-authorized Relay configuration",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/starrycontrol.RelayEnrollmentPrepareRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.ControlAPIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.PairingCodeResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "428": {
+                        "description": "Precondition Required",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/server-control/v1/instances/{id}/relay-enrollments/revoke": {
+            "post": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server Control"
+                ],
+                "summary": "Revoke a Relay enrollment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Deployment instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Enrollment binding",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/starrycontrol.RelayEnrollmentRevokeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.ControlAPIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/starrycontrol.RelayEnrollmentSummary"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -5595,6 +5933,192 @@ const docTemplateadmin = `{
                     },
                     "503": {
                         "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/server-control/v1/pairing": {
+            "get": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server Control"
+                ],
+                "summary": "Read SP1 pairing broker status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.ControlAPIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.PairingBrokerStatus"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/server-control/v1/pairing/control-agent": {
+            "post": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server Control"
+                ],
+                "summary": "Create Control Agent SP1 code",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Exact high-risk confirmation",
+                        "name": "X-Kessoku-Risk-Confirmation",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Managed ID and allowlist selection",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.ControlPairingCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.ControlAPIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.PairingCodeResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "428": {
+                        "description": "Precondition Required",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/server-control/v1/pairing/control-agent/revoke": {
+            "post": {
+                "security": [
+                    {
+                        "token": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Server Control"
+                ],
+                "summary": "Revoke an unclaimed Control Agent SP1 code",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Exact confirmation: confirm:revoke-pairing:\u003cenrollment-id\u003e",
+                        "name": "X-Kessoku-Risk-Confirmation",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Enrollment identifier only",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.ControlPairingRevokeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/admin.ControlAPIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.PairingRevokeResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "410": {
+                        "description": "Gone",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ControlAPIProblem"
+                        }
+                    },
+                    "428": {
+                        "description": "Precondition Required",
                         "schema": {
                             "$ref": "#/definitions/admin.ControlAPIProblem"
                         }
@@ -8149,6 +8673,140 @@ const docTemplateadmin = `{
                 }
             }
         },
+        "service.ControlPairingCreateRequest": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "agent_origin_id": {
+                    "type": "string"
+                },
+                "managed_id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "target_instance_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.ControlPairingRevokeRequest": {
+            "type": "object",
+            "properties": {
+                "enrollment_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.ManagedWriteRequest": {
+            "type": "object",
+            "properties": {
+                "write_enabled": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "service.PairingBrokerStatus": {
+            "type": "object",
+            "properties": {
+                "agent_origins": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.PairingOrigin"
+                    }
+                },
+                "available": {
+                    "type": "boolean"
+                },
+                "broker_origin": {
+                    "type": "string"
+                },
+                "broker_spki_sha256": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "error_code": {
+                    "type": "string"
+                },
+                "installation_id": {
+                    "type": "string"
+                },
+                "protocol_version": {
+                    "type": "integer"
+                },
+                "registry_generation": {
+                    "type": "integer"
+                },
+                "registry_schema": {
+                    "type": "integer"
+                }
+            }
+        },
+        "service.PairingCodeResult": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "configuration_digest": {
+                    "type": "string"
+                },
+                "enrollment_id": {
+                    "type": "string"
+                },
+                "expires_at_unix": {
+                    "type": "integer"
+                },
+                "purpose": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "service.PairingOrigin": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "origin": {
+                    "type": "string"
+                },
+                "tls_server_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.PairingRevokeResult": {
+            "type": "object",
+            "properties": {
+                "enrollment_id": {
+                    "type": "string"
+                },
+                "purpose": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
         "service.PresenceMetricsSnapshot": {
             "type": "object",
             "properties": {
@@ -8225,6 +8883,9 @@ const docTemplateadmin = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "managed": {
+                    "type": "boolean"
                 },
                 "name": {
                     "type": "string"
@@ -8403,7 +9064,13 @@ const docTemplateadmin = `{
                 "allocation_simulation": {
                     "type": "integer"
                 },
+                "config_downgrade_preview": {
+                    "type": "integer"
+                },
                 "config_rollback": {
+                    "type": "integer"
+                },
+                "config_schema": {
                     "type": "integer"
                 },
                 "config_transaction": {
@@ -8412,10 +9079,28 @@ const docTemplateadmin = `{
                 "connection_auth": {
                     "type": "integer"
                 },
+                "fast_media_relay_udp": {
+                    "type": "integer"
+                },
+                "fast_relay_authorization": {
+                    "type": "integer"
+                },
                 "peer_registry": {
                     "type": "integer"
                 },
+                "profile_activation_lease": {
+                    "type": "integer"
+                },
                 "relay_active_probe": {
+                    "type": "integer"
+                },
+                "relay_enrollment": {
+                    "type": "integer"
+                },
+                "relay_enrollment_health_activation": {
+                    "type": "integer"
+                },
+                "relay_enrollment_write": {
                     "type": "integer"
                 },
                 "relay_inventory": {
@@ -8431,6 +9116,9 @@ const docTemplateadmin = `{
                     "type": "integer"
                 },
                 "relay_telemetry_schema": {
+                    "type": "integer"
+                },
+                "starry_pairing": {
                     "type": "integer"
                 }
             }
@@ -8536,6 +9224,9 @@ const docTemplateadmin = `{
                 },
                 "plan_id": {
                     "type": "string"
+                },
+                "review_token": {
+                    "type": "string"
                 }
             }
         },
@@ -8591,6 +9282,167 @@ const docTemplateadmin = `{
                 },
                 "severity": {
                     "type": "string"
+                }
+            }
+        },
+        "starrycontrol.FastMediaUDPRuntime": {
+            "type": "object",
+            "properties": {
+                "active_allocations": {
+                    "type": "integer"
+                },
+                "active_streams": {
+                    "type": "integer"
+                },
+                "allocation_mismatch": {
+                    "type": "integer"
+                },
+                "bind_rejected": {
+                    "type": "integer"
+                },
+                "bind_succeeded": {
+                    "type": "integer"
+                },
+                "configured_port": {
+                    "type": "integer"
+                },
+                "cookie_rejected": {
+                    "type": "integer"
+                },
+                "dropped_packets": {
+                    "type": "integer"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "expired_allocations": {
+                    "type": "integer"
+                },
+                "forwarded_bytes": {
+                    "type": "integer"
+                },
+                "forwarded_packets": {
+                    "type": "integer"
+                },
+                "grant_rejected": {
+                    "type": "integer"
+                },
+                "healthy": {
+                    "type": "boolean"
+                },
+                "hello_accepted": {
+                    "type": "integer"
+                },
+                "listener_failures": {
+                    "type": "integer"
+                },
+                "rate_limited": {
+                    "type": "integer"
+                },
+                "rebinds": {
+                    "type": "integer"
+                },
+                "replay_rejected": {
+                    "type": "integer"
+                },
+                "reported_port": {
+                    "type": "integer"
+                },
+                "role_mismatch": {
+                    "type": "integer"
+                },
+                "session_mismatch": {
+                    "type": "integer"
+                }
+            }
+        },
+        "starrycontrol.FastRelayRuntime": {
+            "type": "object",
+            "properties": {
+                "active_authorizations": {
+                    "type": "integer"
+                },
+                "active_fast_media_authorizations": {
+                    "type": "integer"
+                },
+                "controller_grants_issued": {
+                    "type": "integer"
+                },
+                "delivered": {
+                    "type": "integer"
+                },
+                "disabled": {
+                    "type": "integer"
+                },
+                "enabled": {
+                    "description": "Enabled and Issued are the exact patch-v1.3.0 FastCompat wire names.\nThey remain typed solely so an older Starry can keep its existing Relay\npage; v1.3.1 responses use the fields below.",
+                    "type": "boolean"
+                },
+                "expired_cache_evictions": {
+                    "type": "integer"
+                },
+                "fast_compat_enabled": {
+                    "type": "boolean"
+                },
+                "fast_compat_sessions": {
+                    "type": "integer"
+                },
+                "fast_media_sessions": {
+                    "type": "integer"
+                },
+                "fast_media_unavailable": {
+                    "type": "integer"
+                },
+                "fast_media_v1_enabled": {
+                    "type": "boolean"
+                },
+                "insecure_requests": {
+                    "type": "integer"
+                },
+                "invalid_configuration": {
+                    "type": "integer"
+                },
+                "invalid_server_selection": {
+                    "type": "integer"
+                },
+                "invalid_uuids": {
+                    "type": "integer"
+                },
+                "issued": {
+                    "type": "integer"
+                },
+                "issued_sessions": {
+                    "type": "integer"
+                },
+                "last_fast_media_authorization_expires_at_unix": {
+                    "type": "integer"
+                },
+                "missing_signing_keys": {
+                    "type": "integer"
+                },
+                "protocol_version": {
+                    "type": "integer"
+                },
+                "quality_selection_failures": {
+                    "type": "integer"
+                },
+                "rate_limited": {
+                    "type": "integer"
+                },
+                "reliable_fallbacks": {
+                    "type": "integer"
+                },
+                "response_misses": {
+                    "type": "integer"
+                },
+                "reused": {
+                    "type": "integer"
+                },
+                "signing_failures": {
+                    "type": "integer"
+                },
+                "target_grants_issued": {
+                    "type": "integer"
                 }
             }
         },
@@ -8708,6 +9560,68 @@ const docTemplateadmin = `{
                 }
             }
         },
+        "starrycontrol.ProfileActivationRuntime": {
+            "type": "object",
+            "properties": {
+                "active_leases": {
+                    "type": "integer"
+                },
+                "burst_limit": {
+                    "type": "integer"
+                },
+                "burst_window_seconds": {
+                    "type": "integer"
+                },
+                "capacity_rejections": {
+                    "type": "integer"
+                },
+                "deactivations": {
+                    "type": "integer"
+                },
+                "disconnect_cleanups": {
+                    "type": "integer"
+                },
+                "fast_reregistrations": {
+                    "type": "integer"
+                },
+                "invalid_requests": {
+                    "type": "integer"
+                },
+                "last_route_generation": {
+                    "type": "integer"
+                },
+                "lease_ttl_seconds": {
+                    "type": "integer"
+                },
+                "leases_issued": {
+                    "type": "integer"
+                },
+                "leases_reused": {
+                    "type": "integer"
+                },
+                "protocol_version": {
+                    "type": "integer"
+                },
+                "rate_limited": {
+                    "type": "integer"
+                },
+                "ready_acks": {
+                    "type": "integer"
+                },
+                "renewals": {
+                    "type": "integer"
+                },
+                "route_replacements": {
+                    "type": "integer"
+                },
+                "stale_rejections": {
+                    "type": "integer"
+                },
+                "ttl_expirations": {
+                    "type": "integer"
+                }
+            }
+        },
         "starrycontrol.ProtocolInfo": {
             "type": "object",
             "properties": {
@@ -8737,6 +9651,9 @@ const docTemplateadmin = `{
                         "$ref": "#/definitions/starrycontrol.Transport"
                     }
                 },
+                "fast_media_udp": {
+                    "$ref": "#/definitions/starrycontrol.FastMediaUDPRuntime"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -8764,10 +9681,158 @@ const docTemplateadmin = `{
         "starrycontrol.RelayCapabilities": {
             "type": "object",
             "properties": {
+                "fast_media_relay_udp": {
+                    "type": "integer"
+                },
                 "relay_load_protocol": {
                     "type": "integer"
                 },
                 "relay_probe_protocol": {
+                    "type": "integer"
+                }
+            }
+        },
+        "starrycontrol.RelayEnrollmentActivateRequest": {
+            "type": "object",
+            "properties": {
+                "config_generation": {
+                    "type": "integer"
+                },
+                "configuration_digest": {
+                    "type": "string"
+                },
+                "enrollment_id": {
+                    "type": "string"
+                },
+                "health_snapshot_id": {
+                    "type": "string"
+                },
+                "operation_id": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "starrycontrol.RelayEnrollmentList": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/starrycontrol.RelayEnrollmentSummary"
+                    }
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "starrycontrol.RelayEnrollmentPrepareRequest": {
+            "type": "object",
+            "properties": {
+                "activate_after_health": {
+                    "type": "boolean"
+                },
+                "capacity_bandwidth_bps": {
+                    "type": "integer"
+                },
+                "draining": {
+                    "type": "boolean"
+                },
+                "expires_in_seconds": {
+                    "type": "integer"
+                },
+                "fast_media_udp_port": {
+                    "type": "integer"
+                },
+                "max_sessions": {
+                    "type": "integer"
+                },
+                "node_id": {
+                    "type": "string"
+                },
+                "profile": {
+                    "type": "string"
+                },
+                "public_endpoint": {
+                    "type": "string"
+                },
+                "relay_pool": {
+                    "type": "string"
+                },
+                "relay_server": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                },
+                "wss_endpoint": {
+                    "type": "string"
+                }
+            }
+        },
+        "starrycontrol.RelayEnrollmentRevokeRequest": {
+            "type": "object",
+            "properties": {
+                "configuration_digest": {
+                    "type": "string"
+                },
+                "enrollment_id": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "starrycontrol.RelayEnrollmentSummary": {
+            "type": "object",
+            "properties": {
+                "activate_after_health": {
+                    "type": "boolean"
+                },
+                "activated_at_unix": {
+                    "type": "integer"
+                },
+                "activation_config_generation": {
+                    "type": "integer"
+                },
+                "activation_health_snapshot_id": {
+                    "type": "string"
+                },
+                "activation_operation_id": {
+                    "type": "string"
+                },
+                "configuration_digest": {
+                    "type": "string"
+                },
+                "enrollment_id": {
+                    "type": "string"
+                },
+                "expires_at_unix": {
+                    "type": "integer"
+                },
+                "key_fingerprint": {
+                    "type": "string"
+                },
+                "node_id": {
+                    "type": "string"
+                },
+                "profile": {
+                    "type": "string"
+                },
+                "relay_pool": {
+                    "type": "string"
+                },
+                "relay_server": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "version": {
                     "type": "integer"
                 }
             }
@@ -8778,8 +9843,14 @@ const docTemplateadmin = `{
                 "config_generation": {
                     "type": "integer"
                 },
+                "fast_relay": {
+                    "$ref": "#/definitions/starrycontrol.FastRelayRuntime"
+                },
                 "health_snapshot_id": {
                     "type": "string"
+                },
+                "profile_activation": {
+                    "$ref": "#/definitions/starrycontrol.ProfileActivationRuntime"
                 },
                 "quality": {
                     "$ref": "#/definitions/starrycontrol.RelayQualityRuntime"
@@ -9197,9 +10268,6 @@ const docTemplateadmin = `{
                 },
                 "probe_unsupported": {
                     "type": "integer"
-                },
-                "process_instance_id": {
-                    "type": "string"
                 },
                 "stale": {
                     "type": "boolean"

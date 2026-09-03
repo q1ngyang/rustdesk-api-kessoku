@@ -5,6 +5,7 @@ import (
 	_ "github.com/q1ngyang/rustdesk-api-kessoku/v3/docs/api"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/global"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/controller/api"
+	internalController "github.com/q1ngyang/rustdesk-api-kessoku/v3/http/controller/internalapi"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/http/middleware"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -23,6 +24,7 @@ func ApiInit(g *gin.Engine) {
 
 	frg := g.Group("/api")
 	frg.Use(middleware.RequestBodyLimit(2 << 20))
+	PairingBind(g, frg)
 
 	{
 		i := &api.Index{}
@@ -106,6 +108,15 @@ func ApiInit(g *gin.Engine) {
 	PersonalRoutes(frg)
 	//访问静态文件
 	g.StaticFS("/upload", http.Dir(global.Config.Gin.ResourcesPath+"/public/upload"))
+}
+
+func PairingBind(g *gin.Engine, api *gin.RouterGroup) {
+	if !global.Config.ServerControl.Pairing.Enabled {
+		return
+	}
+	controller := &internalController.StarryPairing{}
+	g.GET("/.well-known/starry-pairing-v1", controller.Preflight)
+	api.POST("/internal/v1/starry/pairing/claim", controller.Claim)
 }
 
 func WebClientAPIBind(rg *gin.RouterGroup) {

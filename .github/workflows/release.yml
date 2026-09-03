@@ -65,7 +65,22 @@ jobs:
           release_tag="$(sed -n 's/^release_tag: //p' RELEASE_STATUS)"
           keys="$(sed -n 's/^\([a-z_]*\): .*/\1/p' RELEASE_STATUS | LC_ALL=C sort | tr '\n' ' ')"
           test "$keys" = "release_tag status "
-          test "$status" = APPROVED
+          case "$status" in
+            APPROVED)
+              release_channel=stable
+              rolling_tag=latest
+              expected_prerelease=false
+              ;;
+            PREVIEW_APPROVED)
+              release_channel=preview
+              rolling_tag=preview
+              expected_prerelease=true
+              ;;
+            *)
+              echo "publication is blocked by RELEASE_STATUS" >&2
+              exit 1
+              ;;
+          esac
           printf '%s' "$release_tag" \
             | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.]+)?$'
           test "$release_tag" = "$REQUESTED_RELEASE_TAG"
@@ -140,6 +155,9 @@ jobs:
           {
             printf 'source_sha=%s\n' "$candidate_sha"
             printf 'release_tag=%s\n' "$release_tag"
+            printf 'release_channel=%s\n' "$release_channel"
+            printf 'rolling_tag=%s\n' "$rolling_tag"
+            printf 'expected_prerelease=%s\n' "$expected_prerelease"
           } >> "$GITHUB_OUTPUT"
 
       - name: Download exact candidate from the verified run
@@ -296,6 +314,9 @@ jobs:
           test "$registry_digest" = "$PUSHED_DIGEST"
 
       - name: Prepare concise release notes
+        env:
+          RELEASE_CHANNEL: ${{ steps.guard.outputs.release_channel }}
+          ROLLING_TAG: ${{ steps.guard.outputs.rolling_tag }}
         run: |
           set -euo pipefail
           release_tag="$(sed -n 's/^release_tag: //p' RELEASE_STATUS)"
@@ -308,12 +329,12 @@ jobs:
           cat > release-notes.md <<EOF
           # Kessoku ${release_tag}
 
-          - Adds stable JSON version, configuration, database-status, and explicit-migration commands for S6.
-          - Adds local-only audited administrator recovery and per-user 2FA reset with session revocation.
-          - Adds race-safe Presence Lease v2 while retaining the legacy heartbeat API.
-          - Advances database schema 312 to 313 with serialized migration and duplicate-ID preflight.
-          - Requires Starry 1.1.16-patch-v1.3.0 for verified activation routes.
-          - Image: ghcr.io/${GITHUB_REPOSITORY}:${release_tag}; latest is updated to this release.
+          - Adds typed, fail-closed Starry v1.3.1 FastCompat/FastMedia management and aggregate Relay telemetry.
+          - Adds SP1 one-time Control-Agent pairing and Relay enrollment from the UI or CLI.
+          - Preserves v3.0.7/schema-313 compatibility with an independent persistent registry and static fallback exports.
+          - Pins the exact immutable Starry runtime release summary; new Fast features remain default-off.
+          - Channel: ${RELEASE_CHANNEL}; rolling image: ghcr.io/${GITHUB_REPOSITORY}:${ROLLING_TAG}.
+          - Immutable image: ghcr.io/${GITHUB_REPOSITORY}:${release_tag}.
           - Platform: linux/amd64. Pin the versioned image digest in production.
           - Verify assets with SHA256SUMS and the attached Sigstore provenance/SBOM.
           - [Read more](https://github.com/${GITHUB_REPOSITORY}/blob/${release_tag}/${notes_file}) · [中文说明](https://github.com/${GITHUB_REPOSITORY}/blob/${release_tag}/${chinese_notes}) · [Upgrade guide](https://github.com/${GITHUB_REPOSITORY}/blob/${release_tag}/${migration_file})
@@ -357,41 +378,47 @@ jobs:
             -f ref="refs/tags/${release_tag}" -f sha="$tag_object_sha" \
             --jq .ref | grep -Fx "refs/tags/${release_tag}"
 
-      - name: Promote the exact candidate image to versioned and stable tags
+      - name: Promote the exact candidate image to versioned and channel tags
         if: inputs.mode == 'publish'
         env:
+          ROLLING_TAG: ${{ steps.guard.outputs.rolling_tag }}
           SOURCE_SHA: ${{ steps.guard.outputs.source_sha }}
         run: |
           set -euo pipefail
           candidate_ref="${IMAGE_NAME}:candidate-${SOURCE_SHA}"
           version_ref="${IMAGE_NAME}:${RELEASE_TAG}"
-          stable_ref="${IMAGE_NAME}:latest"
+          rolling_ref="${IMAGE_NAME}:${ROLLING_TAG}"
           candidate_digest="$(docker buildx imagetools inspect "$candidate_ref" \
             | sed -n 's/^Digest:[[:space:]]*//p' | head -n 1)"
           printf '%s' "$candidate_digest" | grep -Eq '^sha256:[0-9a-f]{64}$'
           docker buildx imagetools create --tag "$version_ref" \
-            --tag "$stable_ref" "$candidate_ref"
+            --tag "$rolling_ref" "$candidate_ref"
           version_digest="$(docker buildx imagetools inspect "$version_ref" \
             | sed -n 's/^Digest:[[:space:]]*//p' | head -n 1)"
-          stable_digest="$(docker buildx imagetools inspect "$stable_ref" \
+          rolling_digest="$(docker buildx imagetools inspect "$rolling_ref" \
             | sed -n 's/^Digest:[[:space:]]*//p' | head -n 1)"
           test "$version_digest" = "$candidate_digest"
-          test "$stable_digest" = "$candidate_digest"
+          test "$rolling_digest" = "$candidate_digest"
 
       - name: Publish immutable GitHub release assets
         if: inputs.mode == 'publish'
         env:
           GH_TOKEN: ${{ github.token }}
+          EXPECTED_PRERELEASE: ${{ steps.guard.outputs.expected_prerelease }}
           RELEASE_TAG: ${{ steps.guard.outputs.release_tag }}
           SOURCE_SHA: ${{ steps.guard.outputs.source_sha }}
         run: |
           set -euo pipefail
           test "$(wc -l < release-notes.md)" -le 12
           release_title="rustdesk-api-kessoku $RELEASE_TAG"
+          release_flag=--latest
+          if [ "$EXPECTED_PRERELEASE" = true ]; then
+            release_flag=--prerelease
+          fi
           if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release create "$RELEASE_TAG" --draft --verify-tag \
               --target "$SOURCE_SHA" --title "$release_title" \
-              --notes-file release-notes.md
+              --notes-file release-notes.md "$release_flag"
           fi
 
           test "$(gh release view "$RELEASE_TAG" --json tagName --jq .tagName)" \
@@ -399,14 +426,14 @@ jobs:
           test "$(gh release view "$RELEASE_TAG" --json targetCommitish \
             --jq .targetCommitish)" = "$SOURCE_SHA"
           test "$(gh release view "$RELEASE_TAG" --json isPrerelease \
-            --jq .isPrerelease)" = false
+            --jq .isPrerelease)" = "$EXPECTED_PRERELEASE"
           is_draft="$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)"
           printf '%s' "$is_draft" | grep -Eq '^(true|false)$'
 
           if [ "$is_draft" = true ]; then
             gh release edit "$RELEASE_TAG" --draft --verify-tag \
               --target "$SOURCE_SHA" --title "$release_title" \
-              --notes-file release-notes.md
+              --notes-file release-notes.md "$release_flag"
             gh release upload "$RELEASE_TAG" candidate/release-assets/* --clobber
           fi
 
@@ -432,7 +459,7 @@ jobs:
           (cd "$downloaded_assets" && sha256sum --check SHA256SUMS)
 
           if [ "$is_draft" = true ]; then
-            gh release edit "$RELEASE_TAG" --draft=false --latest
+            gh release edit "$RELEASE_TAG" --draft=false "$release_flag"
           fi
           test "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)" \
             = false

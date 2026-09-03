@@ -43,6 +43,8 @@ func newRootCommand() *cobra.Command {
 		newConfigCommand(&configPath),
 		newDatabaseCommand(&configPath),
 		newMaintenanceCommand(&configPath),
+		newServerControlCommand(&configPath),
+		newRelayCommand(&configPath),
 		newResetAdminPasswordCommand(&configPath),
 		newResetUserPasswordCommand(&configPath),
 	)

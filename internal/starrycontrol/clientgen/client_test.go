@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -53,6 +54,68 @@ func TestClientSetsSecurityHeadersAndMapsProblems(t *testing.T) {
 	var httpError *HTTPError
 	if !errors.As(err, &httpError) || httpError.Problem.Code != "CONFIG_ETAG_MISMATCH" || httpError.Problem.Status != 412 {
 		t.Fatalf("problem mapping = %#v, err=%v", httpError, err)
+	}
+}
+
+func TestConcurrentApplyPreservesGenerationETagConflict(t *testing.T) {
+	const etag = `"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"`
+	var stateMu sync.Mutex
+	generation := uint64(41)
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		stateMu.Lock()
+		defer stateMu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		if r.Header.Get("If-Match") != etag || generation != 41 {
+			w.Header().Set("Content-Type", "application/problem+json")
+			w.WriteHeader(http.StatusPreconditionFailed)
+			_, _ = w.Write([]byte(`{"error":{"code":"CONFIG_ETAG_MISMATCH","message":"configuration generation changed","retryable":false}}`))
+			return
+		}
+		generation++
+		_, _ = w.Write([]byte(`{"accepted":true,"generation":42}`))
+	}))
+	defer server.Close()
+	client, err := New(server.URL, server.Client(), func(context.Context, string) (string, error) { return "token", nil }, 1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	start := make(chan struct{})
+	results := make(chan error, 2)
+	var wait sync.WaitGroup
+	for index := 0; index < 2; index++ {
+		wait.Add(1)
+		go func(index int) {
+			defer wait.Done()
+			<-start
+			_, callErr := client.Do(context.Background(), Request{
+				Method: http.MethodPost, Path: "/control/v1/config:apply", Scope: "starry.config.apply",
+				RequestID: "0191f6a0-0000-7000-8000-00000000000" + string(rune('1'+index)),
+				Body:      map[string]string{"plan_id": "plan"}, IfMatch: etag,
+				IdempotencyKey: "concurrent-apply-000" + string(rune('1'+index)),
+			}, &map[string]interface{}{})
+			results <- callErr
+		}(index)
+	}
+	close(start)
+	wait.Wait()
+	close(results)
+
+	succeeded, conflicted := 0, 0
+	for callErr := range results {
+		if callErr == nil {
+			succeeded++
+			continue
+		}
+		var httpError *HTTPError
+		if errors.As(callErr, &httpError) && httpError.Problem.Status == http.StatusPreconditionFailed && httpError.Problem.Code == "CONFIG_ETAG_MISMATCH" {
+			conflicted++
+			continue
+		}
+		t.Fatalf("unexpected concurrent apply result: %v", callErr)
+	}
+	if succeeded != 1 || conflicted != 1 || generation != 42 {
+		t.Fatalf("concurrent apply outcomes: success=%d conflict=%d generation=%d", succeeded, conflicted, generation)
 	}
 }
 

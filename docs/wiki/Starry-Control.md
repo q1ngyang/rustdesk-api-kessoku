@@ -71,11 +71,86 @@ rule, GEO primary, candidate order, transport eligibility, and a possible
 adaptive/eager flow. The simulation has no real client probe data and must not
 be interpreted as a final score, a selected Relay, or predicted client RTT.
 
-Before publishing a Kessoku release with adaptive support, publish the exact
-Starry contract under an immutable tag, change
-`internal/starrycontrol/CONTRACT_VERSION` from `LOCAL_CANDIDATE_VALIDATED` to
-`PINNED`, record the matching release digest, and rerun the cross-repository and
-real-instance tests. A moving or dirty Starry checkout is not release evidence.
+## FastCompat, FastMedia, and schema v5
+
+The v3.0.8 source candidate pins the frozen contract-only Starry commit
+`6f5a31008ab7761d8557c8cf9fefcb5be11c49e6`. It accepts only
+`fast_relay_authorization: 1`, `fast_media_relay_udp: 1`, and
+`config_schema: 5`. Completely absent capabilities render as **Unsupported**;
+an unknown version of any known capability rejects the upstream response.
+The Starry runtime release remains blocked, so this pin is not an image or tag
+claim.
+
+Schema v5 adds the Starry-owned `fast_mode.relay` fields
+`fast_compat_enabled`, `fast_media_v1_enabled`,
+`authorization_ttl_seconds`, `max_bitrate_kbps`, and
+`relay_max_datagram`. Kessoku renders the returned schema and UI schema and
+adds only localized explanations. The two toggles are independent and default
+off. Enabling FastMedia is not shown as successful unless current authenticated
+Relay telemetry proves a capability-v1, telemetry-schema-v2, matching-port,
+fresh, healthy candidate.
+
+Every `/fast_mode` plan is at least medium risk. FastMedia enablement and UDP
+endpoint, datagram, bitrate, or related firewall changes are high risk. The
+administrator must confirm the exact plan, and Kessoku binds the review to the
+actor, ETag, base generation, candidate digest, schema digest, risk, change
+count, and expiry. Success additionally requires the returned Starry generation,
+source/effective digest, schema version, and accepted subsystem activation ACKs.
+
+The dashboard distinguishes Unsupported, Configuration disabled, Dependency
+unmet, Enabled without a healthy candidate, Authorized server event, UDP
+activity unknown, and Reliable fallback. It displays only server aggregates:
+bind success/rejection, cookie/grant and role/session/allocation rejection
+classes, rebind, forwarded/dropped/rate-limited packets, expiry, listener
+failure, and reliable fallback. It discards upstream process, allocation, and
+session UUIDs and never receives or renders client addresses, tokens, signed
+grants, private keys, or media content. Counters prove server events only; they
+do not prove that a particular client entered FastMedia.
+
+## SP1 pairing and Relay enrollment
+
+When pairing is enabled, the deployment owns an exact HTTPS Broker origin,
+its TLS SPKI SHA-256 pin, and a list of pre-approved Agent origins/TLS names.
+The UI and CLI select only an allowlist ID; neither accepts an arbitrary Agent
+URL or callback. Public claims are size-limited, strict JSON, `no-store`, and
+bind the frozen SP1 purpose/action, enrollment/configuration digests, one-time
+secret digest, CSR public key, and instance identity. Repeating the exact claim
+with the same public key recovers a response lost within the recovery window;
+purpose exchange, CSR change, expiry, and replay after that window fail closed.
+An unclaimed code can be revoked by its enrollment ID in the UI or with
+`server-control pair revoke`; the raw code is never submitted back to Kessoku.
+
+Each instance has an independent client CA/certificate/key and service-JWT
+Ed25519 key below `data/server-control/instances`. A new `pair` learns and then
+locks the Agent instance UUID. `adopt` and `rotate` pre-bind the existing UUID.
+First pairing and every rotation are read-only; the provider is hot-loaded only
+after the registry transaction and static export succeed.
+
+Relay enrollment is different from Control Agent pairing: Kessoku first asks
+the already-authenticated Agent to authorize the exact endpoint, pool, profile,
+capacity, certificate plan, and expiry. `activate_after_health` is immutable
+high-risk preauthorization made when the code is created; otherwise the Relay
+stays pending approval. Explicit activation sends the exact successful
+operation, configuration generation/digest, and Agent health snapshot. Kessoku
+does not retain the raw code, Relay key, telemetry secret, or returned bundle.
+
+The independent registry is `/app/data/server-control/registry-v1.sqlite` in
+the container and `/var/lib/kessoku-api/data/server-control/registry-v1.sqlite`
+under systemd. It does not change the main schema. Every managed instance also
+gets a v3.0.7-compatible `server-control.instances[]` static export. Preserve
+the whole directory across container recreation and binary downgrade; see the
+[v3.0.8 migration guide](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/releases/v3.0.8/MIGRATION-v3.0.8.md).
+Pairing also requires an explicit `host-identity-file`: Compose mounts the
+host file outside the registry at `/run/kessoku-host-machine-id`, and systemd
+uses `/etc/machine-id`. Kessoku stores only a domain-separated SHA-256
+fingerprint and rejects a copied registry on another host until the exact
+installation is explicitly adopted.
+
+Before publication, Starry must provide an immutable runtime release and image
+provenance for the frozen contract, and Kessoku must pass real-instance,
+fallback/re-entry, Akari dual-role, NAT/UDP, rotation/migration, hosted CI,
+security, SBOM, signing, and attestation gates. A moving/dirty Starry checkout
+or a contract-only summary is not runtime release evidence.
 
 ## Initial setup
 

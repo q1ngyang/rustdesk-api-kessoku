@@ -1,0 +1,63 @@
+schema: 1
+component: kessoku
+version: 3.0.8
+database_schema:
+  from: [313]
+  to: 313
+upgrade_from:
+  - 3.0.7
+schema_migration: none
+data_migration: none
+downgrade:
+  to: 3.0.7
+  mode: in-place-compatible
+requires:
+  legacy_relay_control:
+    starry: ">=1.1.16-patch-v1.2.2"
+    starry_peer_registry_capability: 1
+  presence_lease_v2:
+    starry: ">=1.1.16-patch-v1.3.0"
+    starry_peer_registry_capability: 2
+  fastmedia_and_pairing:
+    starry: "1.1.16-patch-v1.3.1"
+    starry_contract_commit: 6f5a31008ab7761d8557c8cf9fefcb5be11c49e6
+    starry_runtime_source_commit: 1b8080bf074e3236cf9a3c0dfae2bdf16832249e
+    starry_release_channel: preview
+    starry_release_summary_sha256: fedeb47ff77bdbc594ddd3ba5b54238a469b02416cfb3410dbd535eff9c7e0ef
+    config_schema: 5
+    runtime_release_status: preview
+server_control_registry:
+  registry_schema: 1
+  container_path: /app/data/server-control/registry-v1.sqlite
+  systemd_path: /var/lib/kessoku-api/data/server-control/registry-v1.sqlite
+  host_identity:
+    compose_source_env: KESSOKU_HOST_IDENTITY_FILE
+    container_path: /run/kessoku-host-machine-id
+    systemd_path: /etc/machine-id
+    stored_value: sha256-fingerprint-only
+    clone_behavior: fail-closed-until-explicit-adopt-host
+  main_database_migration: false
+  downgrade_behavior: ignored-by-v3.0.7
+  static_export: server-control.instances[]
+maintenance_capabilities:
+  - version-json
+  - config-validate
+  - database-status
+  - database-migrate
+  - recover-admin
+  - reset-two-factor
+runtime_capabilities:
+  - presence-lease-v2
+  - legacy-heartbeat
+  - server-control-sp1-v1
+  - relay-fast-compat-v1
+  - relay-fast-media-v1-observation
+  - relay-enrollment-v1
+  - static-control-export-v1
+release_gates:
+  starry_runtime_release: preview_pinned
+  hosted_ci_security_supply_chain: required_by_preview_workflow
+  real_akari_dual_role: stable_only_local_protocol_harness_passed_real_clients_pending
+  reliable_fallback_and_reentry: stable_only_local_protocol_harness_passed_real_clients_pending
+  real_device_nat_udp_matrix: stable_only_pending
+  production_pairing_rotation_migration: stable_only_isolated_roundtrip_passed_production_pending

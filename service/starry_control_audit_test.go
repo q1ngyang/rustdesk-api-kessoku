@@ -2,9 +2,12 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/config"
 	"github.com/q1ngyang/rustdesk-api-kessoku/v3/internal/starrycontrol"
@@ -17,9 +20,18 @@ type auditedControlProvider struct {
 	applyCalls    int
 	historyCalls  int
 	rollbackCalls int
+	schemaDigest  string
 	operation     starrycontrol.Operation
 	revisions     []starrycontrol.ConfigRevision
 	rollback      starrycontrol.Operation
+}
+
+func (p *auditedControlProvider) Capabilities(context.Context) (starrycontrol.Capabilities, error) {
+	digest := p.schemaDigest
+	if digest == "" {
+		digest = "sha256:" + strings.Repeat("d", 64)
+	}
+	return starrycontrol.Capabilities{Config: starrycontrol.ConfigCapabilities{SchemaDigest: digest}}, nil
 }
 
 func (p *auditedControlProvider) VerifyPeer(ctx context.Context, input starrycontrol.PeerIdentityInput) (starrycontrol.PeerVerification, error) {
@@ -121,7 +133,19 @@ func TestServerControlOperationExpectationPersistsUntilTerminalPoll(t *testing.T
 		ActorUserID: 42,
 		RequestID:   "0191f6a0-0000-7000-8000-000000000020",
 	})
-	started, err := control.ApplyConfig(ctx, "starry-1", starrycontrol.ApplyRequest{CandidateDigest: digest})
+	plan := starrycontrol.ConfigPlan{
+		PlanID: "plan-1", CandidateDigest: digest, BaseETag: `"etag-1"`, BaseGeneration: 41,
+		Changes: []json.RawMessage{json.RawMessage(`{"pointer":"/fast_mode/relay/fast_media_v1_enabled","kind":"replace"}`)},
+		Impact:  starrycontrol.PlanImpact{Risk: "high"}, ExpiresAt: time.Now().Add(time.Minute),
+	}
+	reviewToken, tokenErr := control.sealPlanReview(ctx, "starry-1", plan, "sha256:"+strings.Repeat("d", 64))
+	if tokenErr != nil {
+		t.Fatal(tokenErr)
+	}
+	started, err := control.ApplyConfig(ctx, "starry-1", starrycontrol.ApplyRequest{
+		PlanID: plan.PlanID, CandidateDigest: digest, IfMatch: plan.BaseETag, ReviewToken: reviewToken,
+		RiskConfirmation: "confirm:" + plan.PlanID + ":" + digest,
+	})
 	if err != nil || started.ID != operationID {
 		t.Fatalf("start operation: result=%+v error=%v", started, err)
 	}
@@ -134,7 +158,11 @@ func TestServerControlOperationExpectationPersistsUntilTerminalPoll(t *testing.T
 	}
 	provider.operation = starrycontrol.Operation{
 		ID: operationID, Kind: "config_apply", State: "succeeded",
-		ActivationAck: &starrycontrol.ActivationAck{SourceDigest: digest},
+		ActivationAck: &starrycontrol.ActivationAck{
+			Generation: 42, SchemaVersion: 5, SourceDigest: digest,
+			EffectiveDigest: "sha256:" + strings.Repeat("e", 64),
+			SubsystemAcks:   []starrycontrol.SubsystemAck{{Subsystem: "hbbs", Accepted: true, Detail: "must not be persisted"}},
+		},
 	}
 	if _, err := control.Operation(ctx, "starry-1", operationID); err != nil {
 		t.Fatal(err)
@@ -145,9 +173,77 @@ func TestServerControlOperationExpectationPersistsUntilTerminalPoll(t *testing.T
 	if event.Result != "success" {
 		t.Fatalf("terminal async audit result = %q", event.Result)
 	}
+	metadata := map[string]interface{}{}
+	if err := json.Unmarshal(event.Metadata, &metadata); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := metadata["before"].(map[string]interface{})
+	ack, _ := metadata["activation_ack"].(map[string]interface{})
+	ackItems, _ := ack["subsystem_acks"].([]interface{})
+	if metadata["schema_digest"] != "sha256:"+strings.Repeat("d", 64) || metadata["risk"] != "high" ||
+		before["etag"] != plan.BaseETag || before["generation"] != float64(41) || ack["generation"] != float64(42) ||
+		ack["schema_version"] != float64(5) || len(ackItems) != 1 {
+		t.Fatalf("apply audit evidence = %#v", metadata)
+	}
+	if _, leaked := ackItems[0].(map[string]interface{})["detail"]; leaked {
+		t.Fatalf("subsystem detail was persisted in audit metadata: %#v", ackItems[0])
+	}
 	provider.operation.ActivationAck.SourceDigest = "sha256:" + strings.Repeat("b", 64)
 	if _, err := control.Operation(ctx, "starry-1", operationID); err == nil {
 		t.Fatal("mismatched terminal source digest was accepted")
+	}
+}
+
+func TestPlanReviewTokenIsBoundToAdministrator(t *testing.T) {
+	securityAuditDatabase(t, true)
+	provider := &auditedControlProvider{}
+	control := auditedControlService(provider, false)
+	ownerContext := starrycontrol.WithRequestMetadata(context.Background(), starrycontrol.RequestMetadata{
+		ActorUserID: 42, RequestID: "0191f6a0-0000-7000-8000-000000000060",
+	})
+	digest := "sha256:" + strings.Repeat("a", 64)
+	plan := starrycontrol.ConfigPlan{
+		PlanID: "plan-owner", CandidateDigest: digest, BaseETag: `"etag-owner"`,
+		Impact: starrycontrol.PlanImpact{Risk: "low"}, ExpiresAt: time.Now().Add(time.Minute),
+	}
+	token, err := control.sealPlanReview(ownerContext, "starry-1", plan, "sha256:"+strings.Repeat("b", 64))
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherContext := starrycontrol.WithRequestMetadata(context.Background(), starrycontrol.RequestMetadata{
+		ActorUserID: 43, RequestID: "0191f6a0-0000-7000-8000-000000000061",
+	})
+	_, err = control.ApplyConfig(otherContext, "starry-1", starrycontrol.ApplyRequest{
+		PlanID: plan.PlanID, CandidateDigest: digest, IfMatch: plan.BaseETag, ReviewToken: token,
+	})
+	var providerError *starrycontrol.ProviderError
+	if !errors.As(err, &providerError) || providerError.Code != "PLAN_REVIEW_INVALID" || provider.applyCalls != 0 {
+		t.Fatalf("cross-administrator review token: calls=%d error=%v", provider.applyCalls, err)
+	}
+}
+
+func TestPlanReviewRejectsSchemaDigestDriftBeforeApply(t *testing.T) {
+	securityAuditDatabase(t, true)
+	provider := &auditedControlProvider{schemaDigest: "sha256:" + strings.Repeat("e", 64)}
+	control := auditedControlService(provider, false)
+	ctx := starrycontrol.WithRequestMetadata(context.Background(), starrycontrol.RequestMetadata{
+		ActorUserID: 42, RequestID: "0191f6a0-0000-7000-8000-000000000062",
+	})
+	digest := "sha256:" + strings.Repeat("a", 64)
+	plan := starrycontrol.ConfigPlan{
+		PlanID: "plan-schema-drift", CandidateDigest: digest, BaseETag: `"etag-schema-drift"`,
+		Impact: starrycontrol.PlanImpact{Risk: "medium"}, ExpiresAt: time.Now().Add(time.Minute),
+	}
+	token, err := control.sealPlanReview(ctx, "starry-1", plan, "sha256:"+strings.Repeat("d", 64))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = control.ApplyConfig(ctx, "starry-1", starrycontrol.ApplyRequest{
+		PlanID: plan.PlanID, CandidateDigest: digest, IfMatch: plan.BaseETag, ReviewToken: token,
+	})
+	var providerError *starrycontrol.ProviderError
+	if !errors.As(err, &providerError) || providerError.Code != "PLAN_REVIEW_SCHEMA_CHANGED" || provider.applyCalls != 0 {
+		t.Fatalf("schema-drift review token: calls=%d error=%v", provider.applyCalls, err)
 	}
 }
 
@@ -182,7 +278,9 @@ func TestServerControlRollbackBindsRevisionDigestAndFinalAudit(t *testing.T) {
 		ActorUserID: 42,
 		RequestID:   "0191f6a0-0000-7000-8000-000000000032",
 	})
-	started, err := control.RollbackConfig(ctx, "starry-1", starrycontrol.RollbackRequest{RevisionID: revisionID})
+	started, err := control.RollbackConfig(ctx, "starry-1", starrycontrol.RollbackRequest{
+		RevisionID: revisionID, RiskConfirmation: "confirm:rollback:starry-1:" + revisionID,
+	})
 	if err != nil || started.ID != operationID {
 		t.Fatalf("start rollback: result=%+v error=%v", started, err)
 	}
@@ -220,7 +318,10 @@ func TestServerControlRollbackRejectsUnknownRevisionBeforeMutation(t *testing.T)
 		ActorUserID: 42,
 		RequestID:   "0191f6a0-0000-7000-8000-000000000040",
 	})
-	_, err := control.RollbackConfig(ctx, "starry-1", starrycontrol.RollbackRequest{RevisionID: "0191f6a0-0000-7000-8000-000000000041"})
+	revisionID := "0191f6a0-0000-7000-8000-000000000041"
+	_, err := control.RollbackConfig(ctx, "starry-1", starrycontrol.RollbackRequest{
+		RevisionID: revisionID, RiskConfirmation: "confirm:rollback:starry-1:" + revisionID,
+	})
 	if !errors.Is(err, starrycontrol.ErrRequestInvalid) {
 		t.Fatalf("unknown revision error = %v", err)
 	}
@@ -236,12 +337,44 @@ func TestServerControlRollbackRejectsUnknownRevisionBeforeMutation(t *testing.T)
 	}
 }
 
+func TestServerControlRollbackRequiresExactHighRiskConfirmationBeforeProviderCall(t *testing.T) {
+	database := securityAuditDatabase(t, true)
+	revisionID := "0191f6a0-0000-7000-8000-000000000050"
+	provider := &auditedControlProvider{
+		revisions: []starrycontrol.ConfigRevision{{ID: revisionID, CandidateDigest: "sha256:" + strings.Repeat("d", 64)}},
+	}
+	control := auditedControlService(provider, false)
+	ctx := starrycontrol.WithRequestMetadata(context.Background(), starrycontrol.RequestMetadata{
+		ActorUserID: 42,
+		RequestID:   "0191f6a0-0000-7000-8000-000000000051",
+	})
+
+	_, err := control.RollbackConfig(ctx, "starry-1", starrycontrol.RollbackRequest{
+		RevisionID: revisionID, RiskConfirmation: "confirm:rollback:starry-1:wrong-revision",
+	})
+	if err == nil {
+		t.Fatal("rollback without the exact high-risk confirmation was accepted")
+	}
+	if provider.historyCalls != 0 || provider.rollbackCalls != 0 {
+		t.Fatalf("provider called before rollback confirmation: history=%d rollback=%d", provider.historyCalls, provider.rollbackCalls)
+	}
+	event := &model.AdminAuditEvent{}
+	if err := database.Where("action = ?", "server_control.config.rollback").First(event).Error; err != nil {
+		t.Fatal(err)
+	}
+	if event.Result != "failure" || event.ErrorCode != "HIGH_RISK_CONFIRMATION_REQUIRED" {
+		t.Fatalf("rollback confirmation audit = %+v", event)
+	}
+}
+
 func auditedControlService(provider starrycontrol.ServerControlProvider, readOnly bool) *StarryControlService {
-	return &StarryControlService{
+	control := &StarryControlService{
 		config: config.ServerControl{ReadOnly: readOnly},
 		instances: map[string]ServerControlInstance{
 			"starry-1": {ID: "starry-1", Name: "Primary", Enabled: true, Available: true, ReadOnly: readOnly},
 		},
 		providers: map[string]starrycontrol.ServerControlProvider{"starry-1": provider},
 	}
+	control.planReviewKey = sha256.Sum256([]byte("audited-control-test-review-key"))
+	return control
 }

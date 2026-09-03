@@ -157,7 +157,10 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 	}
 	workflow := string(contents)
 	for _, required := range []string{
-		`test "$status" = APPROVED`,
+		`PREVIEW_APPROVED)`,
+		`release_channel=preview`,
+		`rolling_tag=preview`,
+		`expected_prerelease=true`,
 		`id: guard`,
 		`test "$release_tag" = "${GITHUB_REF_NAME}"`,
 		`if [ "${GITHUB_REF_TYPE}" = tag ]; then`,
@@ -178,13 +181,14 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 		`test "$registry_digest" = "$PUSHED_DIGEST"`,
 		`docker buildx imagetools create`,
 		`test "$version_digest" = "$candidate_digest"`,
-		`test "$stable_digest" = "$candidate_digest"`,
+		`test "$rolling_digest" = "$candidate_digest"`,
 		`repos/${GITHUB_REPOSITORY}/git/tags`,
 		`refs/tags/${release_tag}`,
 		`exact annotated tag already exists`,
 		`gh release create "$RELEASE_TAG" --draft --verify-tag`,
 		`gh release upload "$RELEASE_TAG" candidate/release-assets/* --clobber`,
-		`gh release edit "$RELEASE_TAG" --draft=false --latest`,
+		`release_flag=--prerelease`,
+		`gh release edit "$RELEASE_TAG" --draft=false "$release_flag"`,
 		`gh release download "$RELEASE_TAG" --dir "$downloaded_assets"`,
 		`diff -u "$expected_assets" "$actual_assets"`,
 		`(cd "$downloaded_assets" && sha256sum --check SHA256SUMS)`,
@@ -228,6 +232,7 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 	buildWorkflow := string(buildContents)
 	for _, required := range []string{
 		`release_tag:`,
+		`PREVIEW_APPROVED|APPROVED`,
 		`test "${GITHUB_REF_TYPE}" = branch`,
 		`test "${GITHUB_REF_NAME}" = master`,
 		`test "$release_tag" = "$REQUESTED_RELEASE_TAG"`,
@@ -278,15 +283,16 @@ func TestPublicationConsumesExactApprovedCandidateAndAttestsIt(t *testing.T) {
 	}
 	statusText := string(status)
 	releaseTag := regexp.MustCompile(`(?m)^release_tag: (v[0-9]+\.[0-9]+\.[0-9]+(?:[.-][A-Za-z0-9.]+)?)$`).FindStringSubmatch(statusText)
-	if !strings.Contains(statusText, "status: APPROVED") || len(releaseTag) != 2 {
-		t.Fatal("release source must name the explicitly approved immutable tag")
+	releaseStatus := regexp.MustCompile(`(?m)^status: (APPROVED|PREVIEW_APPROVED|BLOCKED)$`).FindStringSubmatch(statusText)
+	if len(releaseStatus) != 2 || len(releaseTag) != 2 {
+		t.Fatal("release source must name a valid blocked, preview, or stable immutable tag")
 	}
 	versionContents, err := os.ReadFile("resources/version")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.TrimSpace(string(versionContents)) != releaseTag[1] {
-		t.Fatal("runtime version must match the approved release tag")
+		t.Fatal("runtime version must match the declared release tag")
 	}
 }
 

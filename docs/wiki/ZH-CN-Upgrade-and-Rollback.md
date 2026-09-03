@@ -5,6 +5,10 @@
 Kessoku 启动时会自动升级数据库结构。跨数据库版本升级后，直接把镜像改回旧版并继续写入
 可能造成权限错误或旧程序无法识别新会话，因此升级前必须准备匹配的数据库备份。
 
+当前 v3.0.8 候选的发布状态仍为 BLOCKED；它保持主库 schema 313，并在
+`data/server-control` 新增独立 SP1 registry。容器持久化、v3.0.7 二进制往返、跨主机迁移、
+轮换与 purge 见 [v3.0.8 迁移指南](https://github.com/q1ngyang/rustdesk-api-kessoku/blob/master/docs/releases/v3.0.8/MIGRATION-v3.0.8.zh-CN.md)。
+
 v3.0.7 把 schema `312` 升级到 `313` 以支持 Presence Lease v2；回到 v3.0.6 只能恢复
 匹配的升级前恢复集合，不支持原地只换镜像。不得并行运行不同版本。
 
