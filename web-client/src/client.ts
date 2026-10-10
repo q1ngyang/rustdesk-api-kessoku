@@ -254,6 +254,10 @@ export class RemoteClient {
     if (size > LIMITS.websocketFrame) throw new Error("Inbound frame exceeds limit");
     const encrypted = await frameBytes(event.data);
     const plaintext = this.#channel!.open(encrypted);
+    // RustDesk desktop peers send sealed empty messages (16-byte secretbox
+    // of zero plaintext); the desktop stack treats them as a no-op.  Skip
+    // them here too, after open() so the receive counter still advances.
+    if (plaintext.byteLength === 0) return;
     const fieldNumbers = topLevelFieldNumbers(plaintext);
     const message = Message.decode(plaintext);
     if (countAppVariants(message) !== 1) {
